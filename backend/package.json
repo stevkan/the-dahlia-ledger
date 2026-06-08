@@ -1,13 +1,13 @@
 {
   "name": "backend",
-  "version": "0.9.0-beta.2",
+  "version": "0.9.0-beta.3",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
+    "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "backfill:thumbnails": "node scripts/backfill-photo-thumbnails.js",
-    "backfill:thumbnails:dry-run": "node scripts/backfill-photo-thumbnails.js --dry-run",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "backfill:thumbnails:dry-run": "node scripts/backfill-photo-thumbnails.js --dry-run"
   },
   "keywords": [],
   "author": "",
