@@ -4,6 +4,7 @@ import multer from 'multer'
 import { z } from 'zod'
 import crypto from 'node:crypto'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import './env.js'
 import { CompanyInputSchema, DahliaPhotoSchema, DahliaRecordInputSchema, OrderInputSchema } from './schema.js'
@@ -20,6 +21,8 @@ import { createExcelImportHistory, getLatestActiveExcelImportHistory, markExcelI
 import { toTitleCase } from './textFormat.js'
 
 const app = express()
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 app.use(
   cors({
@@ -571,6 +574,13 @@ app.post('/api/agent/correction', async (req, res) => {
     console.error('Agent correction failed:', message)
     res.status(503).json({ error: `Agent correction unavailable: ${message}` })
   }
+})
+
+const frontendDist = path.resolve(__dirname, '../../frontend/dist')
+app.use(express.static(frontendDist))
+
+app.get(/^(?!\/api(?:\/|$)).*/, (_req, res) => {
+  res.sendFile(path.join(frontendDist, 'index.html'))
 })
 
 app.use((err, req, res, next) => {
