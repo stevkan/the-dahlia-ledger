@@ -1,0 +1,554 @@
+import express from 'express'
+import cors from 'cors'
+import multer from 'multer'
+import { z } from 'zod'
+import crypto from 'node:crypto'
+import path from 'node:path'
+
+import './env.js'
+import { CompanyInputSchema, DahliaPhotoSchema, DahliaRecordInputSchema, OrderInputSchema } from './schema.js'
+import { listRecords, getRecord, createRecord, updateRecord, updateCultivarPhoto, updateCultivarPhotoDefault, updateRecordPhotoDefault, deleteCultivarPhoto, deleteRecord } from './records.js'
+import { addOrderFile, createCompany, createOrder, deleteCompany, deleteOrder, deleteOrderFile, ensureCompany, listCompaniesWithUsage, listOrders, normalizeCompanyKey, updateCompany, updateOrder } from './orders.js'
+import { ingestText, reviewRecordMapping, proposeMissedIssueCorrection, runMetricRequest, runMetricDrilldown } from './agent.js'
+import { getBucket } from './firebase.js'
+import { uploadPhotoBuffer } from './photos.js'
+import { getSettings, updateSettings } from './settings.js'
+import { completeMaintenanceReminder, createMaintenanceReminder, deleteMaintenanceReminder, listMaintenanceReminders, updateMaintenanceReminder } from './maintenanceReminders.js'
+import { extractOneNoteImages, imageRefKeys, oneNoteEntryToRecord, parseOneNoteMht } from './onenoteImport.js'
+import { importExcelLocations } from './excelImport.js'
+import { createExcelImportHistory, getLatestActiveExcelImportHistory, markExcelImportHistoryReverted } from './excelImportHistory.js'
+import { toTitleCase } from './textFormat.js'
+
+const app = express()
+
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true,
+    credentials: false,
+  }),
+)
+app.use(express.json({ limit: '2mb' }))
+
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true })
+})
+
+app.get('/api/records', async (req, res) => {
+  const records = await listRecords()
+  res.json({ records })
+})
+
+app.get('/api/records/:id', async (req, res) => {
+  const r = await getRecord(req.params.id)
+  if (!r) return res.status(404).json({ error: 'not_found' })
+  res.json({ record: r })
+})
+
+app.post('/api/records', async (req, res) => {
+  const parsed = DahliaRecordInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  try {
+    const record = await createRecord(parsed.data)
+    res.json({ record })
+  } catch (e) {
+    if (e?.code === 'garden_location_conflict') return res.status(409).send(e.message)
+    throw e
+  }
+})
+
+app.put('/api/records/:id/cultivar-photo', async (req, res) => {
+  const Body = z.object({
+    cultivarImageUrl: z.string().min(1),
+    cultivarThumbnailUrl: z.string().optional().nullable(),
+    photo: DahliaPhotoSchema.optional(),
+  })
+  const parsed = Body.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+
+  const result = await updateCultivarPhoto(req.params.id, parsed.data)
+  if (!result) return res.status(404).json({ error: 'not_found' })
+  res.json(result)
+})
+
+app.put('/api/records/:id/cultivar-photo-default', async (req, res) => {
+  const Body = z.object({
+    photo: DahliaPhotoSchema,
+  })
+  const parsed = Body.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+
+  const result = await updateCultivarPhotoDefault(req.params.id, parsed.data)
+  if (!result) return res.status(404).json({ error: 'not_found' })
+  res.json(result)
+})
+
+app.put('/api/records/:id/record-photo-default', async (req, res) => {
+  const Body = z.object({
+    photo: DahliaPhotoSchema,
+  })
+  const parsed = Body.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+
+  const result = await updateRecordPhotoDefault(req.params.id, parsed.data)
+  if (!result) return res.status(404).json({ error: 'not_found' })
+  res.json(result)
+})
+
+app.delete('/api/records/:id/cultivar-photo', async (req, res) => {
+  const Body = z.object({
+    imageUrl: z.string().min(1),
+  })
+  const parsed = Body.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+
+  const result = await deleteCultivarPhoto(req.params.id, parsed.data)
+  if (!result) return res.status(404).json({ error: 'not_found' })
+  res.json(result)
+})
+
+app.put('/api/records/:id', async (req, res) => {
+  const parsed = DahliaRecordInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  try {
+    const record = await updateRecord(req.params.id, parsed.data)
+    if (!record) return res.status(404).json({ error: 'not_found' })
+    res.json({ record })
+  } catch (e) {
+    if (e?.code === 'garden_location_conflict') return res.status(409).send(e.message)
+    throw e
+  }
+})
+
+app.delete('/api/records/:id', async (req, res) => {
+  await deleteRecord(req.params.id)
+  res.json({ ok: true })
+})
+
+const MaintenanceReminderInputSchema = z.object({
+  title: z.string().trim().min(1),
+  notes: z.string().optional(),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
+  relatedRecordIds: z.array(z.string()).optional(),
+  source: z.enum(['user', 'agent']).optional(),
+})
+
+app.get('/api/maintenance-reminders', async (req, res) => {
+  res.json({ reminders: await listMaintenanceReminders() })
+})
+
+app.post('/api/maintenance-reminders', async (req, res) => {
+  const parsed = MaintenanceReminderInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+
+  res.json({ reminder: await createMaintenanceReminder(parsed.data) })
+})
+
+app.put('/api/maintenance-reminders/:id', async (req, res) => {
+  const parsed = MaintenanceReminderInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+
+  const reminder = await updateMaintenanceReminder(req.params.id, parsed.data)
+  if (!reminder) return res.status(404).json({ error: 'not_found' })
+  res.json({ reminder })
+})
+
+app.post('/api/maintenance-reminders/:id/complete', async (req, res) => {
+  const reminder = await completeMaintenanceReminder(req.params.id)
+  if (!reminder) return res.status(404).json({ error: 'not_found' })
+  res.json({ reminder })
+})
+
+app.delete('/api/maintenance-reminders/:id', async (req, res) => {
+  await deleteMaintenanceReminder(req.params.id)
+  res.json({ ok: true })
+})
+
+app.get('/api/companies', async (req, res) => {
+  const companies = await listCompaniesWithUsage()
+  res.json({ companies })
+})
+
+app.post('/api/companies', async (req, res) => {
+  const parsed = CompanyInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  const company = await createCompany(parsed.data)
+  res.json({ company })
+})
+
+app.put('/api/companies/:id', async (req, res) => {
+  const parsed = CompanyInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  const company = await updateCompany(req.params.id, parsed.data)
+  if (!company) return res.status(404).json({ error: 'not_found' })
+  res.json({ company })
+})
+
+app.delete('/api/companies/:id', async (req, res) => {
+  try {
+    await deleteCompany(req.params.id)
+    res.json({ ok: true })
+  } catch (e) {
+    if (e?.code === 'company_in_use') return res.status(409).json({ error: 'company_in_use', message: e.message, usage: e.usage })
+    throw e
+  }
+})
+
+app.get('/api/orders', async (req, res) => {
+  const orders = await listOrders()
+  res.json({ orders })
+})
+
+app.post('/api/orders', async (req, res) => {
+  const parsed = OrderInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  const order = await createOrder(parsed.data)
+  res.json({ order })
+})
+
+app.put('/api/orders/:id', async (req, res) => {
+  const parsed = OrderInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  const order = await updateOrder(req.params.id, parsed.data)
+  if (!order) return res.status(404).json({ error: 'not_found' })
+  res.json({ order })
+})
+
+app.delete('/api/orders/:id', async (req, res) => {
+  const deleted = await deleteOrder(req.params.id)
+  if (!deleted) return res.status(404).json({ error: 'not_found' })
+  res.json({ ok: true })
+})
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } })
+const oneNoteUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 250 * 1024 * 1024 } })
+const excelUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } })
+
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'missing_file' })
+
+  const ext = path.extname(req.file.originalname || '').toLowerCase()
+  const safeExt = ext && ext.length <= 8 ? ext : ''
+  res.json(await uploadPhotoBuffer(req.file.buffer, req.file.mimetype, safeExt))
+})
+
+app.post('/api/import/onenote', oneNoteUpload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'missing_file' })
+
+  const ext = path.extname(req.file.originalname || '').toLowerCase()
+  if (ext !== '.mht' && ext !== '.mhtml') return res.status(400).json({ error: 'mht_required' })
+
+  const entries = parseOneNoteMht(req.file.buffer)
+  const images = extractOneNoteImages(req.file.buffer)
+  const imageByRef = new Map()
+  for (const image of images) {
+    for (const key of [...imageRefKeys(image.contentLocation), ...imageRefKeys(image.contentId), ...imageRefKeys(`cid:${image.contentId}`)]) {
+      imageByRef.set(key, image)
+    }
+  }
+  const existing = await listRecords()
+  const existingKeys = new Set(existing.map((record) => `${normalizeCompanyKey(record.tuber?.source)}|${record.flowerName.toLowerCase()}`))
+  const records = []
+  const companyByKey = new Map()
+  const createdCompanyKeys = new Set()
+  let skippedCount = 0
+
+  for (const entry of entries) {
+    const normalizedFarm = entry.farm ? toTitleCase(entry.farm) : ''
+    const companyKey = normalizeCompanyKey(normalizedFarm)
+    let company = companyByKey.get(companyKey)
+    if (!company && normalizedFarm) {
+      const ensured = await ensureCompany(normalizedFarm)
+      company = ensured.company
+      companyByKey.set(companyKey, company)
+      if (ensured.created) createdCompanyKeys.add(companyKey)
+    }
+
+    const key = `${companyKey}|${entry.name.toLowerCase()}`
+    if (existingKeys.has(key)) {
+      skippedCount += 1
+      continue
+    }
+
+    const image = entry.imageRef ? imageRefKeys(entry.imageRef).map((key) => imageByRef.get(key)).find(Boolean) : undefined
+    const photo = image ? await uploadPhotoBuffer(image.data, image.contentType, image.extension) : undefined
+    const record = await createRecord(oneNoteEntryToRecord({ ...entry, farm: company?.name ?? normalizedFarm, ...photo }))
+    records.push(record)
+    existingKeys.add(key)
+  }
+
+  res.json({ importedCount: records.length, skippedCount, createdCompanyCount: createdCompanyKeys.size, records })
+})
+
+app.post('/api/import/excel', excelUpload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'missing_file' })
+
+  const ext = path.extname(req.file.originalname || '').toLowerCase()
+  if (ext !== '.xlsx' && ext !== '.xls') return res.status(400).json({ error: 'excel_required' })
+
+  try {
+    const records = await listRecords()
+    const result = await importExcelLocations(req.file.buffer, { records, updateRecord })
+    const importId = await createExcelImportHistory({ originalFileName: req.file.originalname, result, rollbackEntries: result.rollbackEntries })
+    const { rollbackEntries, ...response } = result
+    res.json({ ...response, importId, canRevert: rollbackEntries.length > 0 })
+  } catch (e) {
+    if (e?.code === 'garden_location_conflict') return res.status(409).send(e.message)
+    throw e
+  }
+})
+
+app.use('/api/import/excel', (err, req, res, next) => {
+  if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).send('Uploaded Excel file is too large. Excel imports support files up to 200 MB.')
+  }
+
+  next(err)
+})
+
+app.post('/api/import/excel/revert-latest', async (req, res) => {
+  const history = await getLatestActiveExcelImportHistory()
+  if (!history) return res.status(404).json({ error: 'no_active_excel_import' })
+
+  let revertedCount = 0
+  const skipped = []
+
+  for (const entry of history.rollbackEntries ?? []) {
+    const record = await getRecord(entry.recordId)
+    if (!record) {
+      skipped.push({ recordId: entry.recordId, flowerName: entry.flowerName, reason: 'Record no longer exists.' })
+      continue
+    }
+
+    await updateRecord(entry.recordId, {
+      ...record,
+      gardenLocation: entry.previous?.gardenLocation ?? '',
+      meta: {
+        ...(record.meta ?? {}),
+        plantingState: entry.previous?.meta?.plantingState ?? undefined,
+        gardenArea: entry.previous?.meta?.gardenArea ?? undefined,
+        gardenRow: entry.previous?.meta?.gardenRow ?? undefined,
+        gardenPosition: entry.previous?.meta?.gardenPosition ?? undefined,
+      },
+    })
+    revertedCount += 1
+  }
+
+  await markExcelImportHistoryReverted(history.id, { revertedCount })
+  res.json({ importId: history.id, revertedCount, skipped })
+})
+
+app.post('/api/orders/:id/files', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'missing_file' })
+  if (req.file.mimetype !== 'application/pdf') return res.status(400).json({ error: 'pdf_required' })
+
+  const objectName = `order-invoices/${req.params.id}/${Date.now()}-${crypto.randomUUID()}.pdf`
+  const file = getBucket().file(objectName)
+
+  await file.save(req.file.buffer, {
+    metadata: {
+      contentType: 'application/pdf',
+      cacheControl: 'private, max-age=3600',
+    },
+  })
+  await file.makePublic()
+
+  const orderFile = await addOrderFile(req.params.id, {
+    originalFileName: req.file.originalname || 'invoice.pdf',
+    storedFileName: path.basename(objectName),
+    mimeType: req.file.mimetype,
+    fileSize: req.file.size,
+    fileUrl: file.publicUrl(),
+    sourceType: req.body.sourceType || 'uploaded_pdf',
+  })
+
+  res.json({ file: orderFile })
+})
+
+app.delete('/api/orders/:id/files/:fileId', async (req, res) => {
+  const orderFile = await deleteOrderFile(req.params.id, req.params.fileId)
+  if (!orderFile) return res.status(404).json({ error: 'not_found' })
+
+  const objectName = `order-invoices/${req.params.id}/${orderFile.storedFileName}`
+  await getBucket().file(objectName).delete({ ignoreNotFound: true })
+
+  res.json({ ok: true })
+})
+
+app.post('/api/agent/ingest', async (req, res) => {
+  const Body = z.object({ text: z.string().min(1) })
+  const parsed = Body.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+
+  try {
+    const out = await ingestText(parsed.data.text)
+    const settings = await getSettings()
+    if (settings.agentDebugReviewEnabled && out.record) {
+      out.review = await reviewRecordMapping({ originalText: parsed.data.text, record: out.record })
+    }
+    res.json(out)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    console.error('Agent ingest failed:', message)
+    res.status(503).json({ status: 'needs_clarification', message: `Agent unavailable: ${message}` })
+  }
+})
+
+app.post('/api/agent/metrics', async (req, res) => {
+  const Body = z.object({
+    metric: z.enum([
+      'flower_purchase_count_by_company',
+      'flower_count_by_color',
+      'flower_count_by_garden_area',
+      'flower_count_by_planting_state',
+      'flower_count_by_form',
+      'invoice_total_by_company',
+      'flower_count_by_season',
+      'height_vs_bloom_size',
+      'average_item_cost_by_company',
+      'linked_vs_unlinked_purchase_records',
+      'missing_data_summary',
+      'garden_area_by_planting_state',
+      'invoice_total_by_season',
+      'flower_count_by_company_and_season',
+      'average_item_cost_by_form',
+      'garden_fill_by_area',
+      'not_viable_reason_summary',
+      'not_planted_reason_summary',
+    ]),
+    seasonYearStart: z.number().int().min(1900).max(3000).optional(),
+    seasonYearStarts: z.array(z.number().int().min(1900).max(3000)).optional(),
+    filters: z.object({
+      companies: z.array(z.string()).optional(),
+      gardenAreas: z.array(z.string()).optional(),
+      plantingStates: z.array(z.string()).optional(),
+      colors: z.array(z.string()).optional(),
+      forms: z.array(z.string()).optional(),
+    }).optional(),
+    sortBy: z.enum(['company', 'value_desc', 'value_asc']).optional(),
+    visualization: z.object({
+      type: z.enum(['bar', 'line', 'pie', 'scatter', 'table']).optional(),
+      renderer: z.enum(['recharts', 'd3', 'table']).optional(),
+      xLabelAngle: z.number().optional(),
+    }).optional(),
+  })
+  const parsed = Body.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+
+  try {
+    res.json(await runMetricRequest(parsed.data))
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    console.error('Agent metrics failed:', message)
+    res.status(503).json({ status: 'needs_clarification', message: `Analytics unavailable: ${message}` })
+  }
+})
+
+app.post('/api/agent/metrics/drilldown', async (req, res) => {
+  const Body = z.object({
+    metric: z.enum([
+      'missing_data_summary',
+      'flower_count_by_color',
+      'flower_count_by_garden_area',
+      'flower_count_by_form',
+      'flower_count_by_planting_state',
+      'linked_vs_unlinked_purchase_records',
+      'flower_purchase_count_by_company',
+      'invoice_total_by_company',
+      'flower_count_by_season',
+      'height_vs_bloom_size',
+      'garden_area_by_planting_state',
+      'invoice_total_by_season',
+      'flower_count_by_company_and_season',
+      'average_item_cost_by_form',
+      'garden_fill_by_area',
+      'not_viable_reason_summary',
+      'not_planted_reason_summary',
+    ]),
+    field: z.enum(['Color', 'Form', 'Height', 'Bloom size', 'Source', 'Linked invoice item', 'Garden area', 'Garden row', 'Garden position']).optional(),
+    bucket: z.string().optional(),
+    seasonYearStart: z.number().int().min(1900).max(3000).optional(),
+    seasonYearStarts: z.array(z.number().int().min(1900).max(3000)).optional(),
+    filters: z.object({
+      companies: z.array(z.string()).optional(),
+      gardenAreas: z.array(z.string()).optional(),
+      plantingStates: z.array(z.string()).optional(),
+      colors: z.array(z.string()).optional(),
+      forms: z.array(z.string()).optional(),
+    }).optional(),
+  }).refine((value) => value.metric === 'missing_data_summary' ? Boolean(value.field) : Boolean(value.bucket), 'field is required for missing_data_summary; bucket is required for other drilldowns')
+  const parsed = Body.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+
+  try {
+    res.json(await runMetricDrilldown(parsed.data))
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    console.error('Agent metrics drilldown failed:', message)
+    res.status(503).json({ title: 'Drilldown unavailable', records: [], error: message })
+  }
+})
+
+app.get('/api/settings', async (req, res) => {
+  res.json({ settings: await getSettings() })
+})
+
+app.put('/api/settings', async (req, res) => {
+  const Body = z.object({ agentDebugReviewEnabled: z.boolean().optional() })
+  const parsed = Body.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+
+  res.json({ settings: await updateSettings(parsed.data) })
+})
+
+app.post('/api/agent/review', async (req, res) => {
+  const Body = z.object({
+    originalText: z.string().optional(),
+    record: z.any().optional(),
+    recordId: z.string().optional(),
+  }).refine((value) => value.record || value.recordId, 'record or recordId is required')
+  const parsed = Body.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+
+  try {
+    const review = await reviewRecordMapping(parsed.data)
+    res.json({ review })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    console.error('Agent review failed:', message)
+    res.status(503).json({ error: `Agent review unavailable: ${message}` })
+  }
+})
+
+app.post('/api/agent/correction', async (req, res) => {
+  const Body = z.object({
+    originalText: z.string().optional(),
+    record: z.any().optional(),
+    recordId: z.string().optional(),
+    review: z.any().optional(),
+    userCorrection: z.string().min(1),
+  }).refine((value) => value.record || value.recordId, 'record or recordId is required')
+  const parsed = Body.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+
+  try {
+    const correction = await proposeMissedIssueCorrection(parsed.data)
+    res.json({ correction })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    console.error('Agent correction failed:', message)
+    res.status(503).json({ error: `Agent correction unavailable: ${message}` })
+  }
+})
+
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).send('Uploaded file is too large for this import.')
+  }
+
+  next(err)
+})
+
+const port = Number(process.env.PORT ?? 8787)
+app.listen(port, () => {
+  console.log(`Backend listening on http://localhost:${port}`)
+})

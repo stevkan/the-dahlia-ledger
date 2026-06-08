@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Review assistant",
+    "description": "Audit record entries for inconsistencies, missing fields, or likely extraction errors, then suggest corrections."
+  },
+  {
+    "name": "Tutor/coach",
+    "description": "Answer gardening questions using your saved records as context, such as \"What bloomed best in 2025?\" or \"Which cultivars did I buy from Acme Florals?\""
+  },
+  {
+    "name": "Maintenance prompts",
+    "description": "Suggest record updates when notes, health, or growth data look outdated or contradictory. You can save Agent Helper responses or create your own reminders in the Reminders modal."
+  },
+  {
+    "name": "Summaries",
+    "description": "Generate seasonal or location summaries for journals or mailing labels."
+  },
+  {
+    "name": "Dahlia questions",
+    "description": "Answer dahlia questions about purchasing, planting seeds/tubers/starts, fertilizers, soil types, storing, overwintering, watering, moving, splitting tubers, and related care."
+  }
+]
