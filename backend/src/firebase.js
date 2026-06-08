@@ -4,9 +4,16 @@ import fs from 'node:fs'
 let app
 
 function getCredential() {
-  const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS
-  if (serviceAccountPath && fs.existsSync(serviceAccountPath)) {
-    const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'))
+  const appEnv = process.env.APP_ENV || process.env.NODE_ENV || 'development'
+  const googleCredentials = process.env.GOOGLE_APPLICATION_CREDENTIALS
+
+  if (googleCredentials && appEnv === 'production') {
+    const serviceAccount = JSON.parse(googleCredentials)
+    return admin.credential.cert(serviceAccount)
+  }
+
+  if (googleCredentials && fs.existsSync(googleCredentials)) {
+    const serviceAccount = JSON.parse(fs.readFileSync(googleCredentials, 'utf8'))
     return admin.credential.cert(serviceAccount)
   }
 
