@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.0-beta.5 - 2026-06-08
+
+- Defaulted frontend API calls to the same origin when `VITE_API_BASE` is not set.
+- Updated frontend environment documentation for Azure same-origin hosting.
+
 ## 0.9.0-beta.4 - 2026-06-08
 
 - Added production Firebase Admin credential parsing for Azure App Service environment variables.

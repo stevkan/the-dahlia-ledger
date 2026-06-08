@@ -19,7 +19,7 @@ import { CompaniesModal } from './CompaniesModal'
 import { GardenOptionsModal } from './GardenOptionsModal'
 import { MaintenanceRemindersModal } from './MaintenanceRemindersModal'
 
-const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? 'http://localhost:8787'
+const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? ''
 const THEME_STORAGE_KEY = 'dahlia-tracker-theme'
 const recordsQueryKey = ['records'] as const
 const companiesQueryKey = ['companies'] as const
