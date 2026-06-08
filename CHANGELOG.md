@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.0-beta.4 - 2026-06-08
+
+- Added production Firebase Admin credential parsing for Azure App Service environment variables.
+- Added `APP_ENV` support so local development can continue using a service account file path.
+- Documented backend environment variable usage for development and production credentials.
+
 ## 0.9.0-beta.3 - 2026-06-08
 
 - Added root production build/start scripts for Azure App Service deployment.
