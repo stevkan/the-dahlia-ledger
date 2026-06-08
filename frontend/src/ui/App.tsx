@@ -1,12 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
-  browserLocalPersistence,
-  getAuth,
   onAuthStateChanged,
   OAuthProvider,
-  setPersistence,
   signInWithPopup,
   signOut,
   type User,
@@ -14,6 +10,7 @@ import {
 import type { AgentCorrectionResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, ExcelImportResult, ExcelImportRevertResult, MaintenanceReminder, MaintenanceReminderInput, Order, OrderInput } from '../types'
 import type { GardenOptionKey, GardenOptions } from '../types'
 import { DEFAULT_GARDEN_OPTIONS, GARDEN_OPTIONS_STORAGE_KEY, normalizeGardenOptions } from '../gardenOptions'
+import { apiHeaders, auth, authHeaders, hasFirebaseConfig, initializeAuthPersistence } from '../firebase'
 import { RecordsTable } from './RecordsTable'
 import { RecordModal } from './RecordModal'
 import { AgentPanel, AnalyticsPanel } from './AgentPanel'
@@ -30,15 +27,6 @@ const ordersQueryKey = ['orders'] as const
 const settingsQueryKey = ['settings'] as const
 const maintenanceRemindersQueryKey = ['maintenance-reminders'] as const
 
-const firebaseConfig: FirebaseOptions = {
-  apiKey: (import.meta as any).env?.VITE_FIREBASE_API_KEY,
-  authDomain: (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID,
-  appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID,
-}
-
-const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean)
-const auth = hasFirebaseConfig ? getAuth(initializeApp(firebaseConfig)) : null
 const microsoftProvider = new OAuthProvider('microsoft.com')
 
 function authErrorMessage(error: unknown) {
@@ -82,7 +70,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: {
       'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
+      ...(await apiHeaders(init?.headers)),
     },
     ...init,
   })
@@ -112,6 +100,7 @@ async function uploadPhoto(file: File): Promise<{ imageUrl: string; thumbnailUrl
 
   const res = await fetch(`${API_BASE}/api/upload`, {
     method: 'POST',
+    headers: await authHeaders(),
     body,
   })
   if (!res.ok) {
@@ -287,7 +276,7 @@ export default function App() {
 
     async function initializeAuth() {
       try {
-        await setPersistence(auth!, browserLocalPersistence)
+        await initializeAuthPersistence()
       } catch (e: unknown) {
         if (!cancelled) setAuthError(authErrorMessage(e))
       }
@@ -330,7 +319,7 @@ export default function App() {
     setAuthError(null)
     setAuthLoading(true)
     try {
-      await setPersistence(auth, browserLocalPersistence)
+      await initializeAuthPersistence()
       microsoftProvider.setCustomParameters({ prompt: 'select_account' })
       const result = await signInWithPopup(auth, microsoftProvider)
       setUser(result.user)
@@ -631,6 +620,7 @@ export default function App() {
 
     const res = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(orderId)}/files`, {
       method: 'POST',
+      headers: await authHeaders(),
       body,
     })
     if (!res.ok) {
@@ -651,9 +641,10 @@ export default function App() {
     setOneNoteImportMessage(null)
     setError(null)
     try {
-      const data = await new Promise<{ importedCount: number; skippedCount?: number; createdCompanyCount?: number }>((resolve, reject) => {
+      const data = await new Promise<{ importedCount: number; skippedCount?: number; createdCompanyCount?: number }>(async (resolve, reject) => {
         const request = new XMLHttpRequest()
         request.open('POST', `${API_BASE}/api/import/onenote`)
+        for (const [key, value] of Object.entries(await authHeaders())) request.setRequestHeader(key, value)
         request.upload.onprogress = (event) => {
           if (!event.lengthComputable) return
           setOneNoteImportProgress(Math.min(95, Math.round((event.loaded / event.total) * 95)))
@@ -700,9 +691,10 @@ export default function App() {
     setExcelRevertMessage(null)
     setError(null)
     try {
-      const data = await new Promise<ExcelImportResult>((resolve, reject) => {
+      const data = await new Promise<ExcelImportResult>(async (resolve, reject) => {
         const request = new XMLHttpRequest()
         request.open('POST', `${API_BASE}/api/import/excel`)
+        for (const [key, value] of Object.entries(await authHeaders())) request.setRequestHeader(key, value)
         request.upload.onprogress = (event) => {
           if (!event.lengthComputable) return
           setExcelImportProgress(Math.min(95, Math.round((event.loaded / event.total) * 95)))

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { jsPDF } from 'jspdf'
 import type { AgentReviewResult, AgentVisualization, Company, DahliaRecord, MaintenanceReminderInput } from '../types'
 import agentHelperCapabilities from '../agentHelperCapabilities.json'
+import { apiHeaders } from '../firebase'
 
 const AgentVisualizationView = lazy(async () => {
   const module = await import('./AgentVisualizationView')
@@ -15,7 +16,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: {
       'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
+      ...(await apiHeaders(init?.headers)),
     },
     ...init,
   })

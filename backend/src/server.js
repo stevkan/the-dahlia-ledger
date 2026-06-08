@@ -10,7 +10,7 @@ import { CompanyInputSchema, DahliaPhotoSchema, DahliaRecordInputSchema, OrderIn
 import { listRecords, getRecord, createRecord, updateRecord, updateCultivarPhoto, updateCultivarPhotoDefault, updateRecordPhotoDefault, deleteCultivarPhoto, deleteRecord } from './records.js'
 import { addOrderFile, createCompany, createOrder, deleteCompany, deleteOrder, deleteOrderFile, ensureCompany, listCompaniesWithUsage, listOrders, normalizeCompanyKey, updateCompany, updateOrder } from './orders.js'
 import { ingestText, reviewRecordMapping, proposeMissedIssueCorrection, runMetricRequest, runMetricDrilldown } from './agent.js'
-import { getBucket } from './firebase.js'
+import { getBucket, verifyFirebaseAppCheckToken, verifyFirebaseIdToken } from './firebase.js'
 import { uploadPhotoBuffer } from './photos.js'
 import { getSettings, updateSettings } from './settings.js'
 import { completeMaintenanceReminder, createMaintenanceReminder, deleteMaintenanceReminder, listMaintenanceReminders, updateMaintenanceReminder } from './maintenanceReminders.js'
@@ -31,6 +31,39 @@ app.use(express.json({ limit: '2mb' }))
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true })
+})
+
+const requireAppCheck = process.env.REQUIRE_FIREBASE_APP_CHECK === 'true'
+
+function bearerToken(req) {
+  const value = req.get('authorization') ?? ''
+  const match = value.match(/^Bearer\s+(.+)$/i)
+  return match?.[1]
+}
+
+app.use('/api', async (req, res, next) => {
+  if (req.path === '/health') return next()
+
+  const idToken = bearerToken(req)
+  if (!idToken) return res.status(401).json({ error: 'unauthenticated', message: 'Missing Firebase ID token.' })
+
+  try {
+    req.user = await verifyFirebaseIdToken(idToken)
+  } catch {
+    return res.status(401).json({ error: 'unauthenticated', message: 'Invalid Firebase ID token.' })
+  }
+
+  if (!requireAppCheck) return next()
+
+  const appCheckToken = req.get('x-firebase-appcheck')
+  if (!appCheckToken) return res.status(401).json({ error: 'app_check_required', message: 'Missing Firebase App Check token.' })
+
+  try {
+    req.appCheck = await verifyFirebaseAppCheckToken(appCheckToken)
+    next()
+  } catch {
+    res.status(401).json({ error: 'app_check_failed', message: 'Invalid Firebase App Check token.' })
+  }
 })
 
 app.get('/api/records', async (req, res) => {
