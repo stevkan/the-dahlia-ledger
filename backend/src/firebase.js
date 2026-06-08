@@ -39,3 +39,11 @@ export function getBucket() {
   }
   return admin.storage(a).bucket()
 }
+
+export async function verifyFirebaseIdToken(idToken) {
+  return admin.auth(getAdminApp()).verifyIdToken(idToken)
+}
+
+export async function verifyFirebaseAppCheckToken(appCheckToken) {
+  return admin.appCheck(getAdminApp()).verifyToken(appCheckToken)
+}
