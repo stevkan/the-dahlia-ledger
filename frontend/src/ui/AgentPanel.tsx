@@ -10,7 +10,7 @@ const AgentVisualizationView = lazy(async () => {
   return { default: module.AgentVisualizationView }
 })
 
-const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? 'http://localhost:8787'
+const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? ''
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
