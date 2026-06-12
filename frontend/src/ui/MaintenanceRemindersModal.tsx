@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react'
-import type { DahliaRecord, MaintenanceReminder, MaintenanceReminderInput } from '../types'
+import type { DahliaRecord, GardenMember, MaintenanceReminder, MaintenanceReminderInput } from '../types'
 
 type Props = {
   reminders: MaintenanceReminder[]
   records: DahliaRecord[]
+  members?: GardenMember[]
   onClose: () => void
   onCreate: (input: MaintenanceReminderInput) => Promise<void>
   onUpdate: (id: string, input: MaintenanceReminderInput) => Promise<void>
@@ -44,12 +45,14 @@ function sortRemindersByTimestampDesc(reminders: MaintenanceReminder[]) {
   return [...reminders].sort((a, b) => reminderTimestamp(b) - reminderTimestamp(a))
 }
 
-export function MaintenanceRemindersModal({ reminders, records, onClose, onCreate, onUpdate, onComplete, onDelete }: Props) {
+export function MaintenanceRemindersModal({ reminders, records, members = [], onClose, onCreate, onUpdate, onComplete, onDelete }: Props) {
   const modalBodyRef = useRef<HTMLDivElement | null>(null)
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [relatedRecordId, setRelatedRecordId] = useState('')
+  const [assignedToUserId, setAssignedToUserId] = useState('')
+  const [visibility, setVisibility] = useState<MaintenanceReminder['visibility']>('garden')
   const [editingReminderId, setEditingReminderId] = useState<string | null>(null)
   const [expandedReminderIds, setExpandedReminderIds] = useState<Set<string>>(() => new Set())
   const [showCompleted, setShowCompleted] = useState(false)
@@ -75,6 +78,8 @@ export function MaintenanceRemindersModal({ reminders, records, onClose, onCreat
     setNotes('')
     setDueDate('')
     setRelatedRecordId('')
+    setAssignedToUserId('')
+    setVisibility('garden')
     setEditingReminderId(null)
     setError(null)
   }
@@ -84,6 +89,8 @@ export function MaintenanceRemindersModal({ reminders, records, onClose, onCreat
     setNotes(reminder.notes ?? '')
     setDueDate(reminder.dueDate ?? '')
     setRelatedRecordId(reminder.relatedRecordIds?.[0] ?? '')
+    setAssignedToUserId(reminder.assignedToUserId ?? '')
+    setVisibility(reminder.visibility ?? 'garden')
     setEditingReminderId(reminder.id)
     setError(null)
     modalBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
@@ -113,6 +120,7 @@ export function MaintenanceRemindersModal({ reminders, records, onClose, onCreat
             <span className="reminderMeta">
               {reminder.dueDate ? <span>Due {reminder.dueDate}</span> : <span>No due date</span>}
               {reminder.source === 'agent' ? <span>Agent suggested</span> : <span>User created</span>}
+              {reminder.visibility ? <span>{reminder.visibility === 'private' ? 'Private' : 'Garden'}</span> : null}
             </span>
           </span>
         </div>
@@ -156,6 +164,8 @@ export function MaintenanceRemindersModal({ reminders, records, onClose, onCreat
         notes: notes.trim() || undefined,
         dueDate: dueDate || undefined,
         relatedRecordIds: relatedRecordId ? [relatedRecordId] : [],
+        assignedToUserId: assignedToUserId.trim() || undefined,
+        visibility: visibility ?? 'garden',
         source: 'user',
       }
       if (editingReminderId) await onUpdate(editingReminderId, input)
@@ -196,6 +206,24 @@ export function MaintenanceRemindersModal({ reminders, records, onClose, onCreat
                   <option value="">None</option>
                   {relatedRecordOptions.map((record) => <option key={record.id} value={record.id}>{recordLabel(record)}</option>)}
                 </select>
+              </label>
+              <label className="field">
+                <div className="label">Visibility</div>
+                <select className="select" value={visibility ?? 'garden'} onChange={(e) => setVisibility(e.target.value as MaintenanceReminder['visibility'])}>
+                  <option value="private">Private</option>
+                  <option value="garden">Garden</option>
+                </select>
+              </label>
+              <label className="field">
+                <div className="label">Assigned user ID</div>
+                {members.length ? (
+                  <select className="select" value={assignedToUserId} onChange={(e) => setAssignedToUserId(e.target.value)}>
+                    <option value="">Unassigned</option>
+                    {members.map((member) => <option key={member.id} value={member.userId}>{member.displayName || member.email || member.userId}</option>)}
+                  </select>
+                ) : (
+                  <input className="input" value={assignedToUserId} onChange={(e) => setAssignedToUserId(e.target.value)} placeholder="Optional user ID" />
+                )}
               </label>
               <label className="field gridSpanFull">
                 <div className="label">Notes</div>

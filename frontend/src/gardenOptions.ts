@@ -5,7 +5,7 @@ const DEFAULT_GARDEN_ROWS = [...buildGardenRows('AM'), 'EE', 'FF', 'GG']
 const PREVIOUS_DEFAULT_GARDEN_ROWS = buildGardenRows('LL')
 
 export const DEFAULT_GARDEN_OPTIONS: GardenOptions = {
-  gardenAreas: ['Main Garden', 'North Island', 'South Island'],
+  gardenAreas: ['Main Zone', 'North Island', 'South Island'],
   gardenRows: DEFAULT_GARDEN_ROWS,
   gardenPositions: Array.from({ length: 20 }, (_, index) => String(index + 1)),
 }

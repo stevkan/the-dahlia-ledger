@@ -7,18 +7,21 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import './env.js'
-import { CompanyInputSchema, DahliaPhotoSchema, DahliaRecordInputSchema, OrderInputSchema } from './schema.js'
+import { AssetInputSchema, CompanyInputSchema, DahliaPhotoSchema, DahliaRecordInputSchema, OrderInputSchema } from './schema.js'
 import { listRecords, getRecord, createRecord, updateRecord, updateCultivarPhoto, updateCultivarPhotoDefault, updateRecordPhotoDefault, deleteCultivarPhoto, deleteRecord } from './records.js'
-import { addOrderFile, createCompany, createOrder, deleteCompany, deleteOrder, deleteOrderFile, ensureCompany, listCompaniesWithUsage, listOrders, normalizeCompanyKey, updateCompany, updateOrder } from './orders.js'
+import { addOrderFile, createCompany, createOrder, deleteCompany, deleteOrder, deleteOrderFile, ensureCompany, listCompaniesWithUsage, listOrders, normalizeCompanyKey, reassignCompanies, updateCompany, updateOrder } from './orders.js'
+import { addAssetFile, createAsset, deleteAsset, deleteAssetFile, listAssets, updateAsset } from './assets.js'
 import { ingestText, reviewRecordMapping, proposeMissedIssueCorrection, runMetricRequest, runMetricDrilldown } from './agent.js'
 import { getBucket, verifyFirebaseAppCheckToken, verifyFirebaseIdToken } from './firebase.js'
 import { uploadPhotoBuffer } from './photos.js'
 import { getSettings, updateSettings } from './settings.js'
 import { completeMaintenanceReminder, createMaintenanceReminder, deleteMaintenanceReminder, listMaintenanceReminders, updateMaintenanceReminder } from './maintenanceReminders.js'
+import { acceptInvite, createGarden, createInvite, deleteGarden, deleteInvite, isDefaultGardenId, isFirstDefaultGarden, listGardenMembers, listGardens, listInvites, removeGardenMember, resendInvite, resolveGardenId, resolveWritableGardenId, requireGardenAccess, requireGardenWriteAccess, updateGarden, upsertGardenMember } from './gardens.js'
 import { extractOneNoteImages, imageRefKeys, oneNoteEntryToRecord, parseOneNoteMht } from './onenoteImport.js'
 import { importExcelLocations } from './excelImport.js'
 import { createExcelImportHistory, getLatestActiveExcelImportHistory, markExcelImportHistoryReverted } from './excelImportHistory.js'
 import { toTitleCase } from './textFormat.js'
+import { deleteKnownUser, getKnownUser, isGlobalAdmin, listKnownUsers, upsertKnownUser } from './users.js'
 
 const app = express()
 const __filename = fileURLToPath(import.meta.url)
@@ -52,6 +55,7 @@ app.use('/api', async (req, res, next) => {
 
   try {
     req.user = await verifyFirebaseIdToken(idToken)
+    await upsertKnownUser(req.user)
   } catch {
     return res.status(401).json({ error: 'unauthenticated', message: 'Invalid Firebase ID token.' })
   }
@@ -69,14 +73,236 @@ app.use('/api', async (req, res, next) => {
   }
 })
 
+const GardenInputSchema = z.object({
+  name: z.string().trim().min(1),
+  organizationName: z.string().optional().nullable(),
+  locationName: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+})
+
+const MemberInputSchema = z.object({
+  userId: z.string().trim().min(1),
+  email: z.string().trim().optional().nullable(),
+  displayName: z.string().trim().optional().nullable(),
+  role: z.string().trim().min(1),
+})
+
+const InviteInputSchema = z.object({
+  gardenId: z.string().optional().nullable(),
+  email: z.string().trim().optional().nullable(),
+  role: z.string().trim().min(1),
+  expiresAt: z.string().optional().nullable(),
+})
+
+const CompanyReassignmentSchema = z.object({
+  companyIds: z.array(z.string().trim().min(1)).min(1),
+  ownerUserId: z.string().trim().min(1),
+})
+
+function forbidden(res, e) {
+  if (e?.code === 'global_admin_required') {
+    res.status(403).json({ error: e.code, message: e.message })
+    return true
+  }
+  if (e?.code === 'garden_access_denied' || e?.code === 'garden_write_denied') {
+    res.status(403).json({ error: e.code, message: e.message })
+    return true
+  }
+  if (e?.code === 'last_owner') {
+    res.status(409).json({ error: e.code, message: e.message })
+    return true
+  }
+  if (e?.code === 'duplicate_member') {
+    res.status(409).json({ error: e.code, message: e.message })
+    return true
+  }
+  if (e?.code === 'garden_in_use') {
+    res.status(409).json({ error: e.code, message: e.message, counts: e.counts })
+    return true
+  }
+  if (e?.code === 'default_garden_delete') {
+    res.status(409).json({ error: e.code, message: e.message })
+    return true
+  }
+  return false
+}
+
+function requireGlobalAdmin(req) {
+  if (isGlobalAdmin(req.user)) return
+  const error = new Error('This action requires global admin access.')
+  error.code = 'global_admin_required'
+  throw error
+}
+
+function requireGlobalAdminRoute(req, res, next) {
+  try {
+    requireGlobalAdmin(req)
+    next()
+  } catch (e) {
+    if (forbidden(res, e)) return
+    next(e)
+  }
+}
+
+app.get('/api/me', async (req, res) => {
+  res.json({ user: { uid: req.user.uid, email: req.user.email, displayName: req.user.name || req.user.displayName, globalAdmin: isGlobalAdmin(req.user) } })
+})
+
+app.get('/api/gardens', async (req, res) => {
+  res.json({ gardens: await listGardens(req.user) })
+})
+
+app.post('/api/gardens', async (req, res) => {
+  const parsed = GardenInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  try {
+    res.json({ garden: await createGarden(req.user, parsed.data) })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
+})
+
+app.put('/api/gardens/:id', async (req, res) => {
+  const parsed = GardenInputSchema.partial().safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  try {
+    const garden = await updateGarden(req.user, req.params.id, parsed.data)
+    if (!garden) return res.status(404).json({ error: 'not_found' })
+    res.json({ garden })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
+})
+
+app.delete('/api/gardens/:id', async (req, res) => {
+  try {
+    const result = await deleteGarden(req.user, req.params.id)
+    if (!result.deleted) return res.status(404).json({ error: 'not_found' })
+    res.json({ ok: true, counts: result.counts })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
+})
+
+app.get('/api/gardens/:id/members', async (req, res) => {
+  try {
+    res.json({ members: await listGardenMembers(req.user, req.params.id) })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
+})
+
+app.post('/api/gardens/:id/members', async (req, res) => {
+  const parsed = MemberInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  try {
+    res.json({ member: await upsertGardenMember(req.user, req.params.id, parsed.data) })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
+})
+
+app.delete('/api/gardens/:gardenId/members/:memberId', async (req, res) => {
+  try {
+    const deleted = await removeGardenMember(req.user, req.params.gardenId, req.params.memberId)
+    if (!deleted) return res.status(404).json({ error: 'not_found' })
+    res.json({ ok: true })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
+})
+
+app.get('/api/users', requireGlobalAdminRoute, async (req, res) => {
+  res.json({ users: await listKnownUsers() })
+})
+
+app.delete('/api/users/:id', requireGlobalAdminRoute, async (req, res) => {
+  const deleted = await deleteKnownUser(req.params.id)
+  if (!deleted) return res.status(404).json({ error: 'not_found' })
+  res.json({ ok: true })
+})
+
+app.get('/api/invites', async (req, res) => {
+  try {
+    res.json({ invites: await listInvites(req.user, { gardenId: req.query.gardenId }) })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
+})
+
+app.post('/api/invites', async (req, res) => {
+  const parsed = InviteInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  try {
+    res.json({ invite: await createInvite(req.user, parsed.data) })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
+})
+
+app.post('/api/invites/:id/resend', async (req, res) => {
+  try {
+    const invite = await resendInvite(req.user, req.params.id)
+    if (!invite) return res.status(404).json({ error: 'not_found' })
+    res.json({ invite })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    if (e?.code === 'invite_accepted') return res.status(409).json({ error: e.code, message: e.message })
+    throw e
+  }
+})
+
+app.delete('/api/invites/:id', async (req, res) => {
+  try {
+    const deleted = await deleteInvite(req.user, req.params.id)
+    if (!deleted) return res.status(404).json({ error: 'not_found' })
+    res.json({ ok: true })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
+})
+
+app.post('/api/invites/:token/accept', async (req, res) => {
+  try {
+    const invite = await acceptInvite(req.user, req.params.token)
+    if (!invite) return res.status(404).json({ error: 'not_found' })
+    res.json({ invite })
+  } catch (e) {
+    if (e?.code === 'invite_expired' || e?.code === 'invite_email_mismatch') return res.status(409).json({ error: e.code, message: e.message })
+    throw e
+  }
+})
+
 app.get('/api/records', async (req, res) => {
-  const records = await listRecords()
-  res.json({ records })
+  try {
+    const gardenId = await resolveGardenId(req.user, req.query.gardenId)
+    const records = await listRecords(gardenId, { includeLegacyUnassigned: await isFirstDefaultGarden(gardenId) })
+    res.json({ records, gardenId })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
 })
 
 app.get('/api/records/:id', async (req, res) => {
   const r = await getRecord(req.params.id)
   if (!r) return res.status(404).json({ error: 'not_found' })
+  try {
+    await requireGardenAccess(req.user, r.gardenId || await resolveGardenId(req.user, req.query.gardenId))
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
   res.json({ record: r })
 })
 
@@ -84,9 +310,11 @@ app.post('/api/records', async (req, res) => {
   const parsed = DahliaRecordInputSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).send(parsed.error.toString())
   try {
-    const record = await createRecord(parsed.data)
+    const gardenId = await resolveWritableGardenId(req.user, parsed.data.gardenId || req.query.gardenId)
+    const record = await createRecord(parsed.data, gardenId)
     res.json({ record })
   } catch (e) {
+    if (forbidden(res, e)) return
     if (e?.code === 'garden_location_conflict') return res.status(409).send(e.message)
     throw e
   }
@@ -100,6 +328,14 @@ app.put('/api/records/:id/cultivar-photo', async (req, res) => {
   })
   const parsed = Body.safeParse(req.body)
   if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  const source = await getRecord(req.params.id)
+  if (!source) return res.status(404).json({ error: 'not_found' })
+  try {
+    await requireGardenWriteAccess(req.user, source.gardenId || await resolveGardenId(req.user, req.query.gardenId))
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
 
   const result = await updateCultivarPhoto(req.params.id, parsed.data)
   if (!result) return res.status(404).json({ error: 'not_found' })
@@ -112,6 +348,14 @@ app.put('/api/records/:id/cultivar-photo-default', async (req, res) => {
   })
   const parsed = Body.safeParse(req.body)
   if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  const source = await getRecord(req.params.id)
+  if (!source) return res.status(404).json({ error: 'not_found' })
+  try {
+    await requireGardenWriteAccess(req.user, source.gardenId || await resolveGardenId(req.user, req.query.gardenId))
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
 
   const result = await updateCultivarPhotoDefault(req.params.id, parsed.data)
   if (!result) return res.status(404).json({ error: 'not_found' })
@@ -124,6 +368,14 @@ app.put('/api/records/:id/record-photo-default', async (req, res) => {
   })
   const parsed = Body.safeParse(req.body)
   if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  const source = await getRecord(req.params.id)
+  if (!source) return res.status(404).json({ error: 'not_found' })
+  try {
+    await requireGardenWriteAccess(req.user, source.gardenId || await resolveGardenId(req.user, req.query.gardenId))
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
 
   const result = await updateRecordPhotoDefault(req.params.id, parsed.data)
   if (!result) return res.status(404).json({ error: 'not_found' })
@@ -136,6 +388,14 @@ app.delete('/api/records/:id/cultivar-photo', async (req, res) => {
   })
   const parsed = Body.safeParse(req.body)
   if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  const source = await getRecord(req.params.id)
+  if (!source) return res.status(404).json({ error: 'not_found' })
+  try {
+    await requireGardenWriteAccess(req.user, source.gardenId || await resolveGardenId(req.user, req.query.gardenId))
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
 
   const result = await deleteCultivarPhoto(req.params.id, parsed.data)
   if (!result) return res.status(404).json({ error: 'not_found' })
@@ -146,18 +406,31 @@ app.put('/api/records/:id', async (req, res) => {
   const parsed = DahliaRecordInputSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).send(parsed.error.toString())
   try {
-    const record = await updateRecord(req.params.id, parsed.data)
+    const existing = await getRecord(req.params.id)
+    if (!existing) return res.status(404).json({ error: 'not_found' })
+    const gardenId = existing.gardenId || await resolveWritableGardenId(req.user, parsed.data.gardenId || req.query.gardenId)
+    await requireGardenWriteAccess(req.user, gardenId)
+    const record = await updateRecord(req.params.id, parsed.data, gardenId)
     if (!record) return res.status(404).json({ error: 'not_found' })
     res.json({ record })
   } catch (e) {
+    if (forbidden(res, e)) return
     if (e?.code === 'garden_location_conflict') return res.status(409).send(e.message)
     throw e
   }
 })
 
 app.delete('/api/records/:id', async (req, res) => {
-  await deleteRecord(req.params.id)
-  res.json({ ok: true })
+  const existing = await getRecord(req.params.id)
+  if (!existing) return res.json({ ok: true })
+  try {
+    await requireGardenWriteAccess(req.user, existing.gardenId || await resolveGardenId(req.user, req.query.gardenId))
+    await deleteRecord(req.params.id)
+    res.json({ ok: true })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
 })
 
 const MaintenanceReminderInputSchema = z.object({
@@ -166,62 +439,97 @@ const MaintenanceReminderInputSchema = z.object({
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
   relatedRecordIds: z.array(z.string()).optional(),
   source: z.enum(['user', 'agent']).optional(),
+  gardenId: z.string().optional().nullable(),
+  ownerUserId: z.string().optional().nullable(),
+  assignedToUserId: z.string().optional().nullable(),
+  visibility: z.enum(['private', 'garden']).optional(),
 })
 
 app.get('/api/maintenance-reminders', async (req, res) => {
-  res.json({ reminders: await listMaintenanceReminders() })
+  try {
+    const gardenId = await resolveGardenId(req.user, req.query.gardenId)
+    res.json({ reminders: await listMaintenanceReminders({ gardenId, userId: req.user.uid, includeLegacyUnassigned: isDefaultGardenId(req.user, gardenId) }), gardenId })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
 })
 
 app.post('/api/maintenance-reminders', async (req, res) => {
   const parsed = MaintenanceReminderInputSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).send(parsed.error.toString())
 
-  res.json({ reminder: await createMaintenanceReminder(parsed.data) })
+  try {
+    const gardenId = await resolveWritableGardenId(req.user, parsed.data.gardenId || req.query.gardenId)
+    res.json({ reminder: await createMaintenanceReminder(parsed.data, { gardenId, userId: req.user.uid }) })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
 })
 
 app.put('/api/maintenance-reminders/:id', async (req, res) => {
   const parsed = MaintenanceReminderInputSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).send(parsed.error.toString())
 
-  const reminder = await updateMaintenanceReminder(req.params.id, parsed.data)
-  if (!reminder) return res.status(404).json({ error: 'not_found' })
-  res.json({ reminder })
+  try {
+    const gardenId = await resolveWritableGardenId(req.user, parsed.data.gardenId || req.query.gardenId)
+    const reminder = await updateMaintenanceReminder(req.params.id, parsed.data, { gardenId, userId: req.user.uid })
+    if (!reminder) return res.status(404).json({ error: 'not_found' })
+    res.json({ reminder })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
 })
 
 app.post('/api/maintenance-reminders/:id/complete', async (req, res) => {
-  const reminder = await completeMaintenanceReminder(req.params.id)
-  if (!reminder) return res.status(404).json({ error: 'not_found' })
-  res.json({ reminder })
+  try {
+    const gardenId = await resolveWritableGardenId(req.user, req.query.gardenId)
+    const reminder = await completeMaintenanceReminder(req.params.id, { gardenId, userId: req.user.uid })
+    if (!reminder) return res.status(404).json({ error: 'not_found' })
+    res.json({ reminder })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
 })
 
 app.delete('/api/maintenance-reminders/:id', async (req, res) => {
-  await deleteMaintenanceReminder(req.params.id)
-  res.json({ ok: true })
+  try {
+    const gardenId = await resolveWritableGardenId(req.user, req.query.gardenId)
+    const deleted = await deleteMaintenanceReminder(req.params.id, { gardenId })
+    if (!deleted) return res.status(404).json({ error: 'not_found' })
+    res.json({ ok: true })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
 })
 
 app.get('/api/companies', async (req, res) => {
-  const companies = await listCompaniesWithUsage()
+  const companies = await listCompaniesWithUsage({ user: req.user, userId: req.user.uid })
   res.json({ companies })
 })
 
 app.post('/api/companies', async (req, res) => {
   const parsed = CompanyInputSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).send(parsed.error.toString())
-  const company = await createCompany(parsed.data)
+  const company = await createCompany(parsed.data, { userId: req.user.uid })
   res.json({ company })
 })
 
 app.put('/api/companies/:id', async (req, res) => {
   const parsed = CompanyInputSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).send(parsed.error.toString())
-  const company = await updateCompany(req.params.id, parsed.data)
+  const company = await updateCompany(req.params.id, parsed.data, { user: req.user, userId: req.user.uid })
   if (!company) return res.status(404).json({ error: 'not_found' })
   res.json({ company })
 })
 
 app.delete('/api/companies/:id', async (req, res) => {
   try {
-    await deleteCompany(req.params.id)
+    await deleteCompany(req.params.id, { user: req.user, userId: req.user.uid })
     res.json({ ok: true })
   } catch (e) {
     if (e?.code === 'company_in_use') return res.status(409).json({ error: 'company_in_use', message: e.message, usage: e.usage })
@@ -229,28 +537,65 @@ app.delete('/api/companies/:id', async (req, res) => {
   }
 })
 
+app.post('/api/admin/companies/reassign', requireGlobalAdminRoute, async (req, res) => {
+  const parsed = CompanyReassignmentSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+
+  const targetUser = await getKnownUser(parsed.data.ownerUserId)
+  if (!targetUser) return res.status(404).json({ error: 'user_not_found', message: 'Target user was not found.' })
+
+  const companies = await reassignCompanies(parsed.data.companyIds, parsed.data.ownerUserId)
+  res.json({ companies, updatedCount: companies.length })
+})
+
 app.get('/api/orders', async (req, res) => {
-  const orders = await listOrders()
+  const orders = await listOrders({ userId: req.user.uid })
   res.json({ orders })
 })
 
 app.post('/api/orders', async (req, res) => {
   const parsed = OrderInputSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).send(parsed.error.toString())
-  const order = await createOrder(parsed.data)
+  const order = await createOrder(parsed.data, { userId: req.user.uid })
   res.json({ order })
 })
 
 app.put('/api/orders/:id', async (req, res) => {
   const parsed = OrderInputSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).send(parsed.error.toString())
-  const order = await updateOrder(req.params.id, parsed.data)
+  const order = await updateOrder(req.params.id, parsed.data, { userId: req.user.uid })
   if (!order) return res.status(404).json({ error: 'not_found' })
   res.json({ order })
 })
 
 app.delete('/api/orders/:id', async (req, res) => {
-  const deleted = await deleteOrder(req.params.id)
+  const deleted = await deleteOrder(req.params.id, { userId: req.user.uid })
+  if (!deleted) return res.status(404).json({ error: 'not_found' })
+  res.json({ ok: true })
+})
+
+app.get('/api/assets', async (req, res) => {
+  const assets = await listAssets({ userId: req.user.uid })
+  res.json({ assets })
+})
+
+app.post('/api/assets', async (req, res) => {
+  const parsed = AssetInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  const asset = await createAsset(parsed.data, { userId: req.user.uid })
+  res.json({ asset })
+})
+
+app.put('/api/assets/:id', async (req, res) => {
+  const parsed = AssetInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  const asset = await updateAsset(req.params.id, parsed.data, { userId: req.user.uid })
+  if (!asset) return res.status(404).json({ error: 'not_found' })
+  res.json({ asset })
+})
+
+app.delete('/api/assets/:id', async (req, res) => {
+  const deleted = await deleteAsset(req.params.id, { userId: req.user.uid })
   if (!deleted) return res.status(404).json({ error: 'not_found' })
   res.json({ ok: true })
 })
@@ -267,7 +612,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   res.json(await uploadPhotoBuffer(req.file.buffer, req.file.mimetype, safeExt))
 })
 
-app.post('/api/import/onenote', oneNoteUpload.single('file'), async (req, res) => {
+app.post('/api/import/onenote', requireGlobalAdminRoute, oneNoteUpload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'missing_file' })
 
   const ext = path.extname(req.file.originalname || '').toLowerCase()
@@ -293,7 +638,7 @@ app.post('/api/import/onenote', oneNoteUpload.single('file'), async (req, res) =
     const companyKey = normalizeCompanyKey(normalizedFarm)
     let company = companyByKey.get(companyKey)
     if (!company && normalizedFarm) {
-      const ensured = await ensureCompany(normalizedFarm)
+      const ensured = await ensureCompany(normalizedFarm, { userId: req.user.uid })
       company = ensured.company
       companyByKey.set(companyKey, company)
       if (ensured.created) createdCompanyKeys.add(companyKey)
@@ -315,7 +660,7 @@ app.post('/api/import/onenote', oneNoteUpload.single('file'), async (req, res) =
   res.json({ importedCount: records.length, skippedCount, createdCompanyCount: createdCompanyKeys.size, records })
 })
 
-app.post('/api/import/excel', excelUpload.single('file'), async (req, res) => {
+app.post('/api/import/excel', requireGlobalAdminRoute, excelUpload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'missing_file' })
 
   const ext = path.extname(req.file.originalname || '').toLowerCase()
@@ -341,7 +686,7 @@ app.use('/api/import/excel', (err, req, res, next) => {
   next(err)
 })
 
-app.post('/api/import/excel/revert-latest', async (req, res) => {
+app.post('/api/import/excel/revert-latest', requireGlobalAdminRoute, async (req, res) => {
   const history = await getLatestActiveExcelImportHistory()
   if (!history) return res.status(404).json({ error: 'no_active_excel_import' })
 
@@ -405,6 +750,43 @@ app.delete('/api/orders/:id/files/:fileId', async (req, res) => {
   if (!orderFile) return res.status(404).json({ error: 'not_found' })
 
   const objectName = `order-invoices/${req.params.id}/${orderFile.storedFileName}`
+  await getBucket().file(objectName).delete({ ignoreNotFound: true })
+
+  res.json({ ok: true })
+})
+
+app.post('/api/assets/:id/files', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'missing_file' })
+  if (req.file.mimetype !== 'application/pdf') return res.status(400).json({ error: 'pdf_required' })
+
+  const objectName = `asset-invoices/${req.params.id}/${Date.now()}-${crypto.randomUUID()}.pdf`
+  const file = getBucket().file(objectName)
+
+  await file.save(req.file.buffer, {
+    metadata: {
+      contentType: 'application/pdf',
+      cacheControl: 'private, max-age=3600',
+    },
+  })
+  await file.makePublic()
+
+  const assetFile = await addAssetFile(req.params.id, {
+    originalFileName: req.file.originalname || 'invoice.pdf',
+    storedFileName: path.basename(objectName),
+    mimeType: req.file.mimetype,
+    fileSize: req.file.size,
+    fileUrl: file.publicUrl(),
+    sourceType: req.body.sourceType || 'uploaded_pdf',
+  })
+
+  res.json({ file: assetFile })
+})
+
+app.delete('/api/assets/:id/files/:fileId', async (req, res) => {
+  const assetFile = await deleteAssetFile(req.params.id, req.params.fileId)
+  if (!assetFile) return res.status(404).json({ error: 'not_found' })
+
+  const objectName = `asset-invoices/${req.params.id}/${assetFile.storedFileName}`
   await getBucket().file(objectName).delete({ ignoreNotFound: true })
 
   res.json({ ok: true })

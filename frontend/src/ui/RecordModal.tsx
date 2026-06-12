@@ -39,6 +39,14 @@ const DAHLIA_FORM_OPTIONS = [
   'Stellar',
   'Waterlily',
 ]
+const BLOOM_WIDTH_OPTIONS = [
+  'AA - over 10"',
+  'A - 8" to 10"',
+  'B - 6" to 8"',
+  'BB - 4" to 6"',
+  'M - up to 4"',
+  'MC - up to 2"',
+]
 
 const DEFAULT_INPUT: DahliaRecordInput = {
   flowerName: '',
@@ -53,7 +61,8 @@ const DEFAULT_INPUT: DahliaRecordInput = {
   health: {},
   meta: {
     plantingState: 'in_garden',
-    gardenArea: 'Main Garden',
+    gardenArea: 'Main Zone',
+    gardenZone: 'Main Zone',
   },
 }
 
@@ -136,6 +145,50 @@ function normalizeInputForComparison(input: DahliaRecordInput) {
   })
 }
 
+function normalizeBloomWidthValue(value?: string) {
+  const normalized = value?.trim()
+  if (!normalized) return undefined
+
+  const existingOption = BLOOM_WIDTH_OPTIONS.find((option) => option.toLowerCase() === normalized.toLowerCase())
+  if (existingOption) return existingOption
+
+  const compact = normalized.toLowerCase().replace(/inches|inch|in\.?|"/g, '').replace(/\s+/g, '')
+  if (/^aa$|^over10$|^>10$|^10\+$/.test(compact)) return 'AA - over 10"'
+  if (/^a$|^8-10$|^8to10$/.test(compact)) return 'A - 8" to 10"'
+  if (/^b$|^6-8$|^6to8$/.test(compact)) return 'B - 6" to 8"'
+  if (/^bb$|^4-6$|^4to6$/.test(compact)) return 'BB - 4" to 6"'
+  if (/^m$|^upto4$|^<=4$|^<4$/.test(compact)) return 'M - up to 4"'
+  if (/^mc$|^upto2$|^<=2$|^<2$/.test(compact)) return 'MC - up to 2"'
+
+  const numericValue = Number(compact)
+  if (Number.isFinite(numericValue)) {
+    if (numericValue > 10) return 'AA - over 10"'
+    if (numericValue > 8) return 'A - 8" to 10"'
+    if (numericValue > 6) return 'B - 6" to 8"'
+    if (numericValue > 4) return 'BB - 4" to 6"'
+    if (numericValue > 2) return 'M - up to 4"'
+    if (numericValue > 0) return 'MC - up to 2"'
+  }
+
+  return undefined
+}
+
+function inputWithNormalizedBloomWidth(input: DahliaRecordInput) {
+  const size = input.core?.size
+  const normalizedSize = normalizeBloomWidthValue(size)
+  if (!size || normalizedSize === size) return input
+  if (normalizedSize) return { ...input, core: { ...input.core, size: normalizedSize } }
+
+  const note = `Bloom Width: ${size}`
+  const notes = input.core.notes?.includes(note) ? input.core.notes : [input.core.notes, note].filter(Boolean).join('\n')
+  return { ...input, core: { ...input.core, size: undefined, notes } }
+}
+
+function inputFromInitialRecord(initial: DahliaRecord | null, draft?: DahliaRecordInput | null) {
+  if (!initial) return mergeDraftWithDefaults(draft)
+  return recordToInput(initial)
+}
+
 function mergeDraftWithDefaults(draft?: DahliaRecordInput | null) {
   const seasonYearStart = draft?.seasonYearStart ?? DEFAULT_INPUT.seasonYearStart
   return {
@@ -181,7 +234,10 @@ function plantingStateOptions() {
 
 function inputWithGardenLocation(input: DahliaRecordInput) {
   const plantingState = input.meta.plantingState
-  const gardenLocation = plantingState === 'in_garden' ? getGardenLocation(input.meta.gardenRow, input.meta.gardenPosition) : ''
+  const gardenZone = input.meta.gardenZone ?? input.meta.gardenArea
+  const rowOrBed = input.meta.rowOrBed ?? input.meta.gardenRow
+  const position = input.meta.position ?? input.meta.gardenPosition
+  const gardenLocation = plantingState === 'in_garden' ? getGardenLocation(rowOrBed, position) : ''
 
   return {
     ...input,
@@ -189,9 +245,12 @@ function inputWithGardenLocation(input: DahliaRecordInput) {
     meta: {
       ...input.meta,
       plantingState,
-      gardenArea: plantingState === 'in_garden' ? input.meta.gardenArea : undefined,
-      gardenRow: plantingState === 'in_garden' ? input.meta.gardenRow : undefined,
-      gardenPosition: plantingState === 'in_garden' ? input.meta.gardenPosition : undefined,
+      gardenArea: plantingState === 'in_garden' ? gardenZone : undefined,
+      gardenRow: plantingState === 'in_garden' ? rowOrBed : undefined,
+      gardenPosition: plantingState === 'in_garden' ? position : undefined,
+      gardenZone: plantingState === 'in_garden' ? gardenZone : undefined,
+      rowOrBed: plantingState === 'in_garden' ? rowOrBed : undefined,
+      position: plantingState === 'in_garden' ? position : undefined,
       notPlantedReason: plantingState === 'not_planted' ? input.meta.notPlantedReason : undefined,
       notViableReason: plantingState === 'not_viable' ? input.meta.notViableReason : undefined,
     },
@@ -311,8 +370,11 @@ function formatLocation(record: DahliaRecord) {
   if (state === 'not_planted') return 'Not Planted'
   if (state === 'not_viable') return 'Not Viable'
 
-  const rowAndPosition = record.meta?.gardenRow && record.meta?.gardenPosition ? `${record.meta.gardenRow}${record.meta.gardenPosition}` : record.gardenLocation
-  return [record.meta?.gardenArea, rowAndPosition].filter(Boolean).join(' - ') || 'In Garden'
+  const zone = record.meta?.gardenZone ?? record.meta?.gardenArea
+  const rowOrBed = record.meta?.rowOrBed ?? record.meta?.gardenRow
+  const position = record.meta?.position ?? record.meta?.gardenPosition
+  const rowAndPosition = rowOrBed && position ? `${rowOrBed}${position}` : record.gardenLocation
+  return [zone, rowAndPosition].filter(Boolean).join(' - ') || 'In Garden'
 }
 
 function Overlay({ children }: { children: React.ReactNode }) {
@@ -578,8 +640,7 @@ export function RecordModal({
   })
 
   const [form, setForm] = useState<DahliaRecordInput>(() => {
-    if (!initial) return mergeDraftWithDefaults(draft)
-    return recordToInput(initial)
+    return inputWithNormalizedBloomWidth(inputFromInitialRecord(initial, draft))
   })
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
@@ -594,26 +655,27 @@ export function RecordModal({
   const [missedIssueText, setMissedIssueText] = useState('')
   const [saving, setSaving] = useState(false)
   const [deletedInheritedCultivarUrls, setDeletedInheritedCultivarUrls] = useState<string[]>([])
-  const [initialSnapshot, setInitialSnapshot] = useState(() => normalizeInputForComparison(form))
+  const [initialSnapshot, setInitialSnapshot] = useState(() => normalizeInputForComparison(inputFromInitialRecord(initial, draft)))
 
   const title = mode === 'create' ? 'New Record' : `Record #${initial?.recordNumber ?? ''}`
-  const gardenArea = form.meta.gardenArea ?? ''
-  const gardenRow = form.meta.gardenRow ?? ''
-  const gardenPosition = form.meta.gardenPosition ? String(form.meta.gardenPosition) : ''
+  const gardenArea = form.meta.gardenZone ?? form.meta.gardenArea ?? ''
+  const gardenRow = form.meta.rowOrBed ?? form.meta.gardenRow ?? ''
+  const positionValue = form.meta.position ?? form.meta.gardenPosition
+  const gardenPosition = positionValue ? String(positionValue) : ''
   const plantingState = form.meta.plantingState
   const notPlantedReason = form.meta.notPlantedReason ?? 'not_received'
   const notViableReason = form.meta.notViableReason ?? 'no_longer_present'
   const customSourceCompany = form.tuber.source ?? ''
   const customSourceCompanyMatch = findCompanyNameMatch(companies, customSourceCompany)
   const selectedSourceCompany = customSourceCompanyMatch ?? customSourceCompany
-  const selectedGardenKey = getGardenKey(gardenRow, form.meta.gardenPosition)
+  const selectedGardenKey = getGardenKey(gardenRow, positionValue)
   const usedGardenKeys = useMemo(() => {
     return new Set(
       (records ?? [])
         .filter((record) => record.id !== initial?.id)
         .filter((record) => record.meta?.plantingState === 'in_garden')
         .filter((record) => record.seasonYearStart === form.seasonYearStart)
-        .map((record) => getGardenKey(record.meta?.gardenRow, record.meta?.gardenPosition))
+        .map((record) => getGardenKey(record.meta?.rowOrBed ?? record.meta?.gardenRow, record.meta?.position ?? record.meta?.gardenPosition))
         .filter((key): key is string => Boolean(key)),
     )
   }, [form.seasonYearStart, initial?.id, records])
@@ -634,9 +696,10 @@ export function RecordModal({
 
   useEffect(() => {
     if (initial) {
-      const next = recordToInput(initial)
+      const original = recordToInput(initial)
+      const next = inputWithNormalizedBloomWidth(original)
       setForm(next)
-      setInitialSnapshot(normalizeInputForComparison(next))
+      setInitialSnapshot(normalizeInputForComparison(original))
       setDeletedInheritedCultivarUrls([])
       setDirtyPhotoSection(null)
     }
@@ -685,6 +748,7 @@ export function RecordModal({
       meta: {
         ...previous.meta,
         gardenArea: value,
+        gardenZone: value,
       },
     }))
   }
@@ -696,6 +760,7 @@ export function RecordModal({
       meta: {
         ...previous.meta,
         gardenRow: value,
+        rowOrBed: value,
       },
     }))
   }
@@ -708,6 +773,7 @@ export function RecordModal({
       meta: {
         ...previous.meta,
         gardenPosition: position,
+        position,
       },
     }))
   }
@@ -720,7 +786,8 @@ export function RecordModal({
       meta: {
         ...previous.meta,
         plantingState: nextState,
-        gardenArea: nextState === 'in_garden' ? previous.meta.gardenArea ?? 'Main Garden' : previous.meta.gardenArea,
+        gardenArea: nextState === 'in_garden' ? previous.meta.gardenZone ?? previous.meta.gardenArea ?? 'Main Zone' : previous.meta.gardenArea,
+        gardenZone: nextState === 'in_garden' ? previous.meta.gardenZone ?? previous.meta.gardenArea ?? 'Main Zone' : previous.meta.gardenZone,
         notPlantedReason: nextState === 'not_planted' ? previous.meta.notPlantedReason ?? 'not_received' : undefined,
         notViableReason: nextState === 'not_viable' ? previous.meta.notViableReason ?? 'no_longer_present' : undefined,
       },
@@ -1144,34 +1211,34 @@ export function RecordModal({
             <>
               <div className="gardenLocationFields gridSpanFull">
                 <SelectField
-                  label="Garden Area"
-                  hint="The physical garden section where this dahlia is planted."
+                  label="Zone"
+                  hint="The zone or section where this dahlia is planted."
                   required
                   value={gardenArea}
                   options={gardenOptions.gardenAreas}
                   onChange={setGardenArea}
                   labelAction={onOpenGardenOptions ? (
                     <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenAreas')}>
-                      Garden Area
+                      Zone
                     </button>
                   ) : undefined}
                 />
                 <SelectField
-                  label="Garden Row"
-                  hint="Garden row labels available for planted records."
+                  label="Row/Bed"
+                  hint="Row or bed labels available for planted records."
                   required
                   value={gardenRow}
                   options={gardenOptions.gardenRows}
                   onChange={setGardenRow}
                   labelAction={onOpenGardenOptions ? (
                     <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenRows')}>
-                      Garden Row
+                      Row/Bed
                     </button>
                   ) : undefined}
                 />
                 <SelectField
-                  label="Garden Position"
-                  hint="Position labels available inside each row."
+                  label="Position"
+                  hint="Position labels available inside each row or bed."
                   required
                   value={gardenPosition}
                   options={gardenOptions.gardenPositions}
@@ -1179,7 +1246,7 @@ export function RecordModal({
                   onChange={setGardenPosition}
                   labelAction={onOpenGardenOptions ? (
                     <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenPositions')}>
-                      Garden Position
+                      Position
                     </button>
                   ) : undefined}
                 />
@@ -1337,7 +1404,7 @@ export function RecordModal({
                   {k === 'growth' ? (
                     <div className="grid2">
                       <Field label="Height (in feet)" hint="Expected or observed plant height in feet." value={form.growth.height ?? ''} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, height: v } }))} />
-                      <Field label="Bloom Width (in inches)" hint="Expected or observed bloom diameter in inches." value={form.core.size ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, size: v } }))} />
+                      <SelectField label="Bloom Width" hint="Expected or observed bloom diameter category." value={form.core.size} options={BLOOM_WIDTH_OPTIONS} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, size: v } }))} />
                       <Field label="Bloom Time" hint="When this dahlia typically blooms, such as early, mid, late, or a month range." value={form.growth.bloomTime ?? ''} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, bloomTime: v } }))} />
                       <Field label="Habit" hint="Growth habit or plant shape, such as upright, compact, bushy, or spreading." value={form.growth.habit ?? ''} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, habit: v } }))} />
                     </div>
@@ -1356,7 +1423,7 @@ export function RecordModal({
                   {k === 'tuber' ? (
                     <>
                       <label className="field linkedOrderSelect">
-                        <FieldLabel label="Link Order Item" hint="Associate one or more saved invoice order items with this dahlia record." />
+                        <FieldLabel label="Invoice Items" hint="Associate one or more saved invoice order items with this dahlia record." />
                         <select
                           className="select"
                           value=""

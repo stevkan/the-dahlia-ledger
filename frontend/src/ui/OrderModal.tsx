@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { jsPDF } from 'jspdf'
-import type { Company, CompanyInput, Order, OrderFile, OrderInput } from '../types'
+import type { Company, CompanyInput, Garden, Order, OrderFile, OrderInput } from '../types'
 
 type OrderItemForm = {
   id?: string
   orderId?: string
+  gardenId?: string
   flowerName: string
   cultivarName?: string
   itemCost?: string
@@ -36,11 +37,11 @@ function Overlay({ children, onCancelConfirm }: { children: React.ReactNode; onC
   )
 }
 
-function Field({ label, value, onChange, type }: { label: string; value: string; onChange: (v: string) => void; type?: 'text' | 'number' | 'date' }) {
+function Field({ label, value, onChange, type, onBlur }: { label: string; value: string; onChange: (v: string) => void; type?: 'text' | 'number' | 'date'; onBlur?: () => void }) {
   return (
     <label className="field">
       <div className="label">{label}</div>
-      <input className="input" value={value} type={type ?? 'text'} onChange={(e) => onChange(e.target.value)} />
+      <input className="input" value={value} type={type ?? 'text'} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} />
     </label>
   )
 }
@@ -116,6 +117,17 @@ function formatMoney(value?: number) {
   return value === undefined ? '' : `$${value.toFixed(2)}`
 }
 
+function formatMoneyInput(value: string) {
+  const numericValue = Number(value.replace(/[$,]/g, ''))
+  return Number.isFinite(numericValue) ? `$${numericValue.toFixed(2)}` : value
+}
+
+function moneyInputValue(value: string) {
+  const cleaned = value.replace(/[$,]/g, '')
+  if (!/^\d*(\.\d*)?$/.test(cleaned)) return null
+  return cleaned
+}
+
 function sortInvoices(a: Order, b: Order) {
   const invoiceCompare = String(a.invoiceNumber ?? '').localeCompare(String(b.invoiceNumber ?? ''), undefined, { numeric: true })
   if (invoiceCompare !== 0) return invoiceCompare
@@ -124,6 +136,7 @@ function sortInvoices(a: Order, b: Order) {
 
 export function OrderModal({
   companies,
+  gardens = [],
   orders,
   initialOrderId,
   onClose,
@@ -135,6 +148,7 @@ export function OrderModal({
   onDeleteInvoiceFile,
 }: {
   companies: Company[]
+  gardens?: Garden[]
   orders: Order[]
   initialOrderId?: string | null
   onClose: () => void
@@ -247,16 +261,17 @@ export function OrderModal({
     setNewCompanyName('')
     setInvoiceNumber(order.invoiceNumber ?? '')
     setOrderDate(order.orderDate ?? '')
-    setTotalCost(order.totalCost === undefined ? '' : order.totalCost.toFixed(2))
+    setTotalCost(order.totalCost === undefined ? '' : formatMoneyInput(String(order.totalCost)))
     setNotes(order.notes ?? '')
     setItems(
       order.items.length
         ? order.items.map((item) => ({
             id: item.id,
             orderId: item.orderId,
+            gardenId: item.gardenId,
             flowerName: item.flowerName,
             cultivarName: item.cultivarName,
-            itemCost: item.itemCost === undefined ? '' : item.itemCost.toFixed(2),
+            itemCost: item.itemCost === undefined ? '' : formatMoneyInput(String(item.itemCost)),
             quantity: item.quantity,
             notes: item.notes,
             createdAt: item.createdAt,
@@ -322,9 +337,9 @@ export function OrderModal({
         companyId: nextCompanyId,
         invoiceNumber: invoiceNumber || undefined,
         orderDate: orderDate || undefined,
-        totalCost: toNumber(totalCost),
+        totalCost: toNumber(totalCost.replace(/[$,]/g, '')),
         notes: notes || undefined,
-        items: items.filter((item) => item.flowerName.trim()).map((item) => ({ ...item, flowerName: toTitleCase(item.flowerName), cultivarName: toTitleCase(item.cultivarName || item.flowerName), itemCost: item.itemCost === undefined ? undefined : toNumber(item.itemCost), quantity: item.quantity ?? undefined })),
+        items: items.filter((item) => item.flowerName.trim()).map((item) => ({ ...item, gardenId: item.gardenId || undefined, flowerName: toTitleCase(item.flowerName), cultivarName: toTitleCase(item.cultivarName || item.flowerName), itemCost: item.itemCost === undefined ? undefined : toNumber(item.itemCost.replace(/[$,]/g, '')), quantity: item.quantity ?? undefined })),
       }
       const order = formOrder ? await onUpdateOrder(formOrder.id, input) : await onCreateOrder(input)
       resetForm()
@@ -560,9 +575,9 @@ export function OrderModal({
         <div className="subTitle">Order Items</div>
         <div className="tableWrap miniTable">
           <table className="table">
-            <thead><tr><th>Item</th><th>Cost</th></tr></thead>
+            <thead><tr><th>Item</th><th>Garden</th><th>Cost</th></tr></thead>
             <tbody>
-              {selectedOrder.items.length ? selectedOrder.items.map((item) => <tr key={item.id}><td>{item.flowerName}</td><td>{formatMoney(item.itemCost)}</td></tr>) : <tr><td colSpan={2}>No items entered.</td></tr>}
+              {selectedOrder.items.length ? selectedOrder.items.map((item) => <tr key={item.id}><td>{item.flowerName}</td><td>{gardens.find((garden) => garden.id === item.gardenId)?.name ?? 'Unassigned'}</td><td>{formatMoney(item.itemCost)}</td></tr>) : <tr><td colSpan={3}>No items entered.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -587,7 +602,15 @@ export function OrderModal({
           <Field label="New Company" value={newCompanyName} onChange={setNewCompanyName} />
           <Field label="Invoice Number" value={invoiceNumber} onChange={setInvoiceNumber} />
           <Field label="Order Date" type="date" value={orderDate} onChange={setOrderDate} />
-          <Field label="Total Cost" type="number" value={totalCost} onChange={setTotalCost} />
+          <Field
+            label="Total Cost"
+            value={totalCost}
+            onChange={(value) => {
+              const next = moneyInputValue(value)
+              if (next !== null) setTotalCost(next)
+            }}
+            onBlur={() => setTotalCost((current) => current.trim() ? formatMoneyInput(current) : '')}
+          />
         </div>
         <TextArea label="Order Notes" value={notes} onChange={setNotes} />
         <div className="subTitle">Order Items</div>
@@ -595,7 +618,22 @@ export function OrderModal({
           {items.map((item, index) => (
             <div className="grid2" key={index}>
               <Field label="Flower Name" value={item.flowerName} onChange={(v) => setItems((p) => p.map((row, i) => (i === index ? { ...row, flowerName: v, cultivarName: v } : row)))} />
-              <Field label="Item Cost" type="number" value={item.itemCost ?? ''} onChange={(v) => setItems((p) => p.map((row, i) => (i === index ? { ...row, itemCost: v } : row)))} />
+              <Field
+                label="Item Cost"
+                value={item.itemCost ?? ''}
+                onChange={(value) => {
+                  const next = moneyInputValue(value)
+                  if (next !== null) setItems((p) => p.map((row, i) => (i === index ? { ...row, itemCost: next } : row)))
+                }}
+                onBlur={() => setItems((p) => p.map((row, i) => (i === index ? { ...row, itemCost: row.itemCost?.trim() ? formatMoneyInput(row.itemCost) : '' } : row)))}
+              />
+              <label className="field gridSpanFull">
+                <div className="label">Garden Assignment</div>
+                <select className="select" value={item.gardenId ?? ''} onChange={(event) => setItems((p) => p.map((row, i) => (i === index ? { ...row, gardenId: event.target.value || undefined } : row)))}>
+                  <option value="">Unassigned</option>
+                  {gardens.map((garden) => <option key={garden.id} value={garden.id}>{garden.name}</option>)}
+                </select>
+              </label>
             </div>
           ))}
         </div>

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0-beta.1 - 2026-06-12
+
+- Added multi-garden management with default gardens, member roles, invite links, and garden-scoped records, reminders, and order items.
+- Added global admin capabilities for known-user tracking, import protection, user deletion, and company ownership reassignment.
+- Added asset tracking with company/order-item links, invoice PDF uploads, and image-to-PDF invoice conversion.
+- Updated record placement terminology to zones, rows/beds, and positions while preserving legacy placement data.
+- Added bloom-width category normalization plus migration scripts for legacy bloom widths, records, and company ownership.
+- Enhanced reminders, companies, orders, and records with ownership, assignment, validation, formatting, and refresh controls.
+
 ## 0.9.0-beta.5 - 2026-06-08
 
 - Defaulted frontend API calls to the same origin when `VITE_API_BASE` is not set.

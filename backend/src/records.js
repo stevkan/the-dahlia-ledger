@@ -17,13 +17,20 @@ function withoutUndefined(value) {
   )
 }
 
+function getPlacement(record) {
+  return {
+    zone: record?.meta?.gardenZone ?? record?.meta?.gardenArea,
+    rowOrBed: record?.meta?.rowOrBed ?? record?.meta?.gardenRow,
+    position: record?.meta?.position ?? record?.meta?.gardenPosition,
+  }
+}
+
 function getGardenKey(record) {
   if (record?.meta?.plantingState !== 'in_garden') return undefined
 
-  const row = record?.meta?.gardenRow
-  const position = record?.meta?.gardenPosition
+  const { zone, rowOrBed, position } = getPlacement(record)
 
-  return row && position ? `${row}${position}` : undefined
+  return rowOrBed && position ? `${zone ?? ''}|${rowOrBed}|${position}` : undefined
 }
 
 function normalizedValue(value) {
@@ -98,21 +105,29 @@ function cleanCoreNotes(notes) {
 }
 
 function cleanRecord(record) {
+  const placement = getPlacement(record)
   return withPhotoDefaults({
     ...record,
+    gardenLocation: record.gardenLocation || [placement.rowOrBed, placement.position].filter(Boolean).join(''),
     core: {
       ...(record.core ?? {}),
       notes: cleanCoreNotes(record.core?.notes),
     },
+    meta: {
+      ...(record.meta ?? {}),
+      gardenZone: placement.zone,
+      rowOrBed: placement.rowOrBed,
+      position: placement.position,
+    },
   })
 }
 
-async function findGardenLocationConflict(input, excludeId) {
+async function findGardenLocationConflict(input, excludeId, gardenId) {
   const inputKey = getGardenKey(input)
   if (!inputKey) return null
 
-  const records = await listRecords()
-  return records.find((record) => record.id !== excludeId && record.seasonYearStart === input.seasonYearStart && getGardenKey(record) === inputKey) ?? null
+  const records = await listRecords(gardenId)
+  return records.find((record) => record.id !== excludeId && (record.gardenId ?? gardenId) === gardenId && record.seasonYearStart === input.seasonYearStart && getGardenKey(record) === inputKey) ?? null
 }
 
 async function getNextRecordNumber() {
@@ -134,9 +149,14 @@ function normalizeRecordText(input) {
   }
 }
 
-export async function listRecords() {
+export async function listRecords(gardenId, options = {}) {
   const snap = await getDb().collection(COLLECTION).orderBy('recordNumber', 'asc').get()
-  return snap.docs.map((d) => cleanRecord({ id: d.id, ...d.data() }))
+
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((record) => !gardenId || record.gardenId === gardenId || (options.includeLegacyUnassigned && !record.gardenId))
+    .map((record) => cleanRecord({ ...record, gardenId: record.gardenId ?? (options.includeLegacyUnassigned ? gardenId : undefined) }))
+    .sort((a, b) => a.recordNumber - b.recordNumber)
 }
 
 export async function getRecord(id) {
@@ -145,9 +165,9 @@ export async function getRecord(id) {
   return cleanRecord({ id: doc.id, ...doc.data() })
 }
 
-export async function createRecord(input) {
+export async function createRecord(input, gardenId) {
   const normalizedInput = normalizeRecordText(input)
-  const conflict = await findGardenLocationConflict(normalizedInput)
+  const conflict = await findGardenLocationConflict(normalizedInput, undefined, gardenId)
   if (conflict) {
     const error = new Error('Garden location is already assigned to another record.')
     error.code = 'garden_location_conflict'
@@ -157,6 +177,7 @@ export async function createRecord(input) {
   const timestamp = nowIso()
   const base = {
     ...withPhotoDefaults(normalizedInput),
+    gardenId,
     recordNumber: await getNextRecordNumber(),
     thumbnailUrl: normalizedInput.thumbnailUrl || undefined,
     imageUrl: normalizedInput.imageUrl || undefined,
@@ -173,12 +194,13 @@ export async function createRecord(input) {
   return await getRecord(ref.id)
 }
 
-export async function updateRecord(id, input) {
+export async function updateRecord(id, input, gardenId) {
   const existing = await getRecord(id)
   if (!existing) return null
 
   const normalizedInput = normalizeRecordText(input)
-  const conflict = await findGardenLocationConflict(normalizedInput, id)
+  const targetGardenId = gardenId ?? existing.gardenId
+  const conflict = await findGardenLocationConflict(normalizedInput, id, targetGardenId)
   if (conflict) {
     const error = new Error('Garden location is already assigned to another record.')
     error.code = 'garden_location_conflict'
@@ -188,6 +210,7 @@ export async function updateRecord(id, input) {
   const next = {
     ...existing,
     ...withPhotoDefaults(normalizedInput),
+    gardenId: targetGardenId,
     id: undefined,
     recordNumber: existing.recordNumber,
     meta: {

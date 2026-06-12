@@ -7,7 +7,7 @@ import {
   signOut,
   type User,
 } from 'firebase/auth'
-import type { AgentCorrectionResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, ExcelImportResult, ExcelImportRevertResult, MaintenanceReminder, MaintenanceReminderInput, Order, OrderInput } from '../types'
+import type { AgentCorrectionResult, AgentReviewResult, Asset, AssetInput, Company, CompanyInput, CurrentUserProfile, DahliaPhoto, DahliaRecord, DahliaRecordInput, ExcelImportResult, ExcelImportRevertResult, Garden, GardenMember, GardenRole, Invite, KnownUser, MaintenanceReminder, MaintenanceReminderInput, Order, OrderInput } from '../types'
 import type { GardenOptionKey, GardenOptions } from '../types'
 import { DEFAULT_GARDEN_OPTIONS, GARDEN_OPTIONS_STORAGE_KEY, normalizeGardenOptions } from '../gardenOptions'
 import { apiHeaders, auth, authHeaders, hasFirebaseConfig, initializeAuthPersistence } from '../firebase'
@@ -15,17 +15,53 @@ import { RecordsTable } from './RecordsTable'
 import { RecordModal } from './RecordModal'
 import { AgentPanel, AnalyticsPanel } from './AgentPanel'
 import { OrderModal } from './OrderModal'
+import { AssetsModal } from './AssetsModal'
 import { CompaniesModal } from './CompaniesModal'
 import { GardenOptionsModal } from './GardenOptionsModal'
 import { MaintenanceRemindersModal } from './MaintenanceRemindersModal'
+import { GardenManagementModal } from './GardenManagementModal'
 
 const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? ''
 const THEME_STORAGE_KEY = 'dahlia-tracker-theme'
-const recordsQueryKey = ['records'] as const
+const RECORDS_REFRESH_INTERVAL_STORAGE_KEY = 'dahlia-records-refresh-interval-ms'
+const gardensQueryKey = ['gardens'] as const
+const usersQueryKey = ['users'] as const
+const KNOWN_USERS_REFRESH_INTERVAL_MS = 30_000
+const DEFAULT_RECORDS_REFRESH_INTERVAL_MS = 15 * 60_000
+const RECORDS_REFRESH_INTERVAL_OPTIONS = [0, 30_000, 60_000, 5 * 60_000, 15 * 60_000, 30 * 60_000, 60 * 60_000]
 const companiesQueryKey = ['companies'] as const
 const ordersQueryKey = ['orders'] as const
+const assetsQueryKey = ['assets'] as const
 const settingsQueryKey = ['settings'] as const
-const maintenanceRemindersQueryKey = ['maintenance-reminders'] as const
+
+function LandscapeOnlyOverlay() {
+  return (
+    <div className="orientationOverlay" role="status" aria-live="polite">
+      <div className="orientationCard">
+        <div className="orientationIcon" aria-hidden="true">↻</div>
+        <h1>Rotate your device</h1>
+        <p>The Dahlia Ledger is designed for landscape viewing on mobile devices.</p>
+      </div>
+    </div>
+  )
+}
+
+function recordsQueryKey(gardenId?: string) {
+  return ['records', gardenId ?? 'default'] as const
+}
+
+function maintenanceRemindersQueryKey(gardenId?: string) {
+  return ['maintenance-reminders', gardenId ?? 'default'] as const
+}
+
+function gardenMembersQueryKey(gardenId?: string) {
+  return ['garden-members', gardenId ?? 'default'] as const
+}
+
+function gardenOptionLabel(garden: Garden, gardens: Garden[]) {
+  const duplicateName = gardens.some((candidate) => candidate.id !== garden.id && candidate.name === garden.name)
+  return `${garden.name}${duplicateName ? ` [${garden.id.slice(0, 6)}]` : ''}`
+}
 
 const microsoftProvider = new OAuthProvider('microsoft.com')
 
@@ -48,6 +84,12 @@ function loadGardenOptions(): GardenOptions {
   } catch {
     return DEFAULT_GARDEN_OPTIONS
   }
+}
+
+function loadRecordsRefreshInterval() {
+  if (typeof window === 'undefined') return DEFAULT_RECORDS_REFRESH_INTERVAL_MS
+  const stored = Number(window.localStorage.getItem(RECORDS_REFRESH_INTERVAL_STORAGE_KEY))
+  return RECORDS_REFRESH_INTERVAL_OPTIONS.includes(stored) ? stored : DEFAULT_RECORDS_REFRESH_INTERVAL_MS
 }
 
 type Theme = 'dark' | 'light'
@@ -119,6 +161,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
+  const [selectedGardenId, setSelectedGardenId] = useState<string>('')
 
   const [active, setActive] = useState<DahliaRecord | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
@@ -137,12 +180,16 @@ export default function App() {
   const [excelReverting, setExcelReverting] = useState(false)
   const [excelRevertMessage, setExcelRevertMessage] = useState<string | null>(null)
   const [ordersOpen, setOrdersOpen] = useState(false)
+  const [assetsOpen, setAssetsOpen] = useState(false)
   const [initialOrderId, setInitialOrderId] = useState<string | null>(null)
   const [companiesOpen, setCompaniesOpen] = useState(false)
   const [companiesUsageRefreshing, setCompaniesUsageRefreshing] = useState(false)
   const [gardenOptionsOpen, setGardenOptionsOpen] = useState(false)
+  const [gardenManagementOpen, setGardenManagementOpen] = useState(false)
   const [gardenOptionsInitialGroup, setGardenOptionsInitialGroup] = useState<GardenOptionKey>('gardenAreas')
   const [gardenOptions, setGardenOptions] = useState<GardenOptions>(loadGardenOptions)
+  const [recordsRefreshIntervalMs, setRecordsRefreshIntervalMs] = useState(loadRecordsRefreshInterval)
+  const [gardenMenuOpen, setGardenMenuOpen] = useState(false)
   const [recordsManagementOpen, setRecordsManagementOpen] = useState(false)
   const [agentHelperOpen, setAgentHelperOpen] = useState(false)
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
@@ -150,14 +197,49 @@ export default function App() {
   const [maintenanceRemindersOpen, setMaintenanceRemindersOpen] = useState(false)
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const recordsManagementRef = useRef<HTMLDivElement>(null)
+  const gardenMenuRef = useRef<HTMLDivElement>(null)
   const insightsMenuRef = useRef<HTMLDivElement>(null)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
 
-  const recordsQuery = useQuery({
-    queryKey: recordsQueryKey,
-    queryFn: async () => (await api<{ records: DahliaRecord[] }>('/api/records')).records,
+  const meQuery = useQuery({
+    queryKey: ['me'],
+    queryFn: async () => (await api<{ user: CurrentUserProfile }>('/api/me')).user,
     enabled: Boolean(user),
+    staleTime: 5 * 60_000,
+  })
+  const gardensQuery = useQuery({
+    queryKey: gardensQueryKey,
+    queryFn: async () => (await api<{ gardens: Garden[] }>('/api/gardens')).gardens,
+    enabled: Boolean(user),
+    staleTime: 5 * 60_000,
+  })
+  const usersQuery = useQuery({
+    queryKey: usersQueryKey,
+    queryFn: async () => (await api<{ users: KnownUser[] }>('/api/users')).users,
+    enabled: Boolean(user && meQuery.data?.globalAdmin),
+    refetchInterval: gardenManagementOpen ? KNOWN_USERS_REFRESH_INTERVAL_MS : false,
+    staleTime: 5 * 60_000,
+  })
+  const gardens = gardensQuery.data ?? []
+  const knownUsers = usersQuery.data ?? []
+  const globalAdmin = Boolean(user && meQuery.data?.globalAdmin)
+  const selectedGarden = gardens.find((garden) => garden.id === selectedGardenId) ?? gardens[0] ?? null
+  const activeGardenId = selectedGarden?.id ?? ''
+  const gardenQuery = activeGardenId ? `?gardenId=${encodeURIComponent(activeGardenId)}` : ''
+
+  const recordsQuery = useQuery({
+    queryKey: recordsQueryKey(activeGardenId),
+    queryFn: async () => {
+      try {
+        return (await api<{ records: DahliaRecord[] }>(`/api/records${gardenQuery}`)).records
+      } catch (e: any) {
+        if (e?.details?.error === 'garden_access_denied' && selectedGardenId) setSelectedGardenId('')
+        throw e
+      }
+    },
+    enabled: Boolean(user),
+    refetchInterval: recordsRefreshIntervalMs || false,
     staleTime: 30_000,
   })
   const companiesQuery = useQuery({
@@ -172,6 +254,12 @@ export default function App() {
     enabled: Boolean(user),
     staleTime: 5 * 60_000,
   })
+  const assetsQuery = useQuery({
+    queryKey: assetsQueryKey,
+    queryFn: async () => (await api<{ assets: Asset[] }>('/api/assets')).assets,
+    enabled: Boolean(user),
+    staleTime: 5 * 60_000,
+  })
   const settingsQuery = useQuery({
     queryKey: settingsQueryKey,
     queryFn: async () => (await api<{ settings: AppSettings }>('/api/settings')).settings,
@@ -179,17 +267,25 @@ export default function App() {
     staleTime: 5 * 60_000,
   })
   const maintenanceRemindersQuery = useQuery({
-    queryKey: maintenanceRemindersQueryKey,
-    queryFn: async () => (await api<{ reminders: MaintenanceReminder[] }>('/api/maintenance-reminders')).reminders,
+    queryKey: maintenanceRemindersQueryKey(activeGardenId),
+    queryFn: async () => (await api<{ reminders: MaintenanceReminder[] }>(`/api/maintenance-reminders${gardenQuery}`)).reminders,
     enabled: Boolean(user),
     staleTime: 30_000,
   })
+  const gardenMembersQuery = useQuery({
+    queryKey: gardenMembersQueryKey(activeGardenId),
+    queryFn: async () => activeGardenId ? (await api<{ members: GardenMember[] }>(`/api/gardens/${encodeURIComponent(activeGardenId)}/members`)).members : [],
+    enabled: Boolean(user && activeGardenId),
+    staleTime: 30_000,
+  })
 
-  const records = recordsQuery.data ?? []
+  const records = (recordsQuery.data ?? []).filter((record) => !activeGardenId || record.gardenId === activeGardenId)
   const companies = companiesQuery.data ?? []
   const orders = ordersQuery.data ?? []
+  const assets = assetsQuery.data ?? []
   const settings = settingsQuery.data ?? { agentDebugReviewEnabled: false }
   const maintenanceReminders = maintenanceRemindersQuery.data ?? []
+  const gardenMembers = gardenMembersQuery.data ?? []
   const dueReminderCount = maintenanceReminders.filter((reminder) => !reminder.completedAt && reminder.dueDate && reminder.dueDate <= todayDate()).length
   const loading = recordsQuery.isLoading
 
@@ -204,6 +300,53 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(GARDEN_OPTIONS_STORAGE_KEY, JSON.stringify(gardenOptions))
   }, [gardenOptions])
+
+  useEffect(() => {
+    window.localStorage.setItem(RECORDS_REFRESH_INTERVAL_STORAGE_KEY, String(recordsRefreshIntervalMs))
+  }, [recordsRefreshIntervalMs])
+
+  useEffect(() => {
+    if (!gardens.length) return
+    if (!selectedGardenId || !gardens.some((garden) => garden.id === selectedGardenId)) {
+      setSelectedGardenId(gardens[0].id)
+    }
+  }, [gardens, selectedGardenId])
+
+  useEffect(() => {
+    if (!user || typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('invite')
+    if (!token) return
+    const inviteToken = token
+    let cancelled = false
+    async function acceptInvite() {
+      try {
+        await api<{ invite: Invite }>(`/api/invites/${encodeURIComponent(inviteToken)}/accept`, { method: 'POST' })
+        if (cancelled) return
+        params.delete('invite')
+        const nextSearch = params.toString()
+        window.history.replaceState(null, '', `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`)
+        await queryClient.invalidateQueries({ queryKey: gardensQueryKey })
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message ?? String(e))
+      }
+    }
+    void acceptInvite()
+    return () => { cancelled = true }
+  }, [queryClient, user])
+
+  useEffect(() => {
+    if (!gardenMenuOpen) return
+
+    function closeOnOutsideClick(event: PointerEvent) {
+      if (!gardenMenuRef.current?.contains(event.target as Node)) {
+        setGardenMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    return () => document.removeEventListener('pointerdown', closeOnOutsideClick)
+  }, [gardenMenuOpen])
 
   useEffect(() => {
     if (!recordsManagementOpen) return
@@ -247,8 +390,8 @@ export default function App() {
   async function refreshRecords() {
     setError(null)
     return await queryClient.fetchQuery({
-      queryKey: recordsQueryKey,
-      queryFn: async () => (await api<{ records: DahliaRecord[] }>('/api/records')).records,
+      queryKey: recordsQueryKey(activeGardenId),
+      queryFn: async () => (await api<{ records: DahliaRecord[] }>(`/api/records${gardenQuery}`)).records,
       staleTime: 0,
     })
   }
@@ -351,44 +494,65 @@ export default function App() {
     }
   }
 
+  async function refreshAssets() {
+    setCompaniesUsageRefreshing(true)
+    try {
+      const [companyData, assetData] = await Promise.all([
+        queryClient.fetchQuery({
+          queryKey: companiesQueryKey,
+          queryFn: async () => (await api<{ companies: Company[] }>('/api/companies')).companies,
+          staleTime: 0,
+        }),
+        queryClient.fetchQuery({
+          queryKey: assetsQueryKey,
+          queryFn: async () => (await api<{ assets: Asset[] }>('/api/assets')).assets,
+          staleTime: 0,
+        }),
+      ])
+      return { companies: companyData, assets: assetData }
+    } finally {
+      setCompaniesUsageRefreshing(false)
+    }
+  }
+
   async function refreshMaintenanceReminders() {
     return await queryClient.fetchQuery({
-      queryKey: maintenanceRemindersQueryKey,
-      queryFn: async () => (await api<{ reminders: MaintenanceReminder[] }>('/api/maintenance-reminders')).reminders,
+      queryKey: maintenanceRemindersQueryKey(activeGardenId),
+      queryFn: async () => (await api<{ reminders: MaintenanceReminder[] }>(`/api/maintenance-reminders${gardenQuery}`)).reminders,
       staleTime: 0,
     })
   }
 
   async function onCreateMaintenanceReminder(input: MaintenanceReminderInput) {
-    await api<{ reminder: MaintenanceReminder }>('/api/maintenance-reminders', {
+    await api<{ reminder: MaintenanceReminder }>(`/api/maintenance-reminders${gardenQuery}`, {
       method: 'POST',
-      body: JSON.stringify(input),
+      body: JSON.stringify({ ...input, gardenId: activeGardenId || input.gardenId }),
     })
     await refreshMaintenanceReminders()
   }
 
   async function onUpdateMaintenanceReminder(id: string, input: MaintenanceReminderInput) {
-    await api<{ reminder: MaintenanceReminder }>(`/api/maintenance-reminders/${encodeURIComponent(id)}`, {
+    await api<{ reminder: MaintenanceReminder }>(`/api/maintenance-reminders/${encodeURIComponent(id)}${gardenQuery}`, {
       method: 'PUT',
-      body: JSON.stringify(input),
+      body: JSON.stringify({ ...input, gardenId: activeGardenId || input.gardenId }),
     })
     await refreshMaintenanceReminders()
   }
 
   async function onCompleteMaintenanceReminder(id: string) {
-    await api<{ reminder: MaintenanceReminder }>(`/api/maintenance-reminders/${encodeURIComponent(id)}/complete`, { method: 'POST' })
+    await api<{ reminder: MaintenanceReminder }>(`/api/maintenance-reminders/${encodeURIComponent(id)}/complete${gardenQuery}`, { method: 'POST' })
     await refreshMaintenanceReminders()
   }
 
   async function onDeleteMaintenanceReminder(id: string) {
-    await api<{ ok: true }>(`/api/maintenance-reminders/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    await api<{ ok: true }>(`/api/maintenance-reminders/${encodeURIComponent(id)}${gardenQuery}`, { method: 'DELETE' })
     await refreshMaintenanceReminders()
   }
 
   async function onCreate(input: DahliaRecordInput) {
-    await api<{ record: DahliaRecord }>('/api/records', {
+    await api<{ record: DahliaRecord }>(`/api/records${gardenQuery}`, {
       method: 'POST',
-      body: JSON.stringify(input),
+      body: JSON.stringify({ ...input, gardenId: activeGardenId || input.gardenId }),
     })
     setCreateDraft(null)
     setCreateOpen(false)
@@ -396,9 +560,9 @@ export default function App() {
   }
 
   async function onUpdate(id: string, input: DahliaRecordInput, options?: { keepOpen?: boolean; skipRefresh?: boolean }) {
-    const data = await api<{ record: DahliaRecord }>(`/api/records/${encodeURIComponent(id)}`, {
+    const data = await api<{ record: DahliaRecord }>(`/api/records/${encodeURIComponent(id)}${gardenQuery}`, {
       method: 'PUT',
-      body: JSON.stringify(input),
+      body: JSON.stringify({ ...input, gardenId: activeGardenId || input.gardenId }),
     })
     if (options?.keepOpen) setActive(data.record)
     else setActive(null)
@@ -409,47 +573,125 @@ export default function App() {
   }
 
   async function onUpdateCultivarPhoto(id: string, photo: { cultivarImageUrl: string; cultivarThumbnailUrl?: string; photo?: DahliaPhoto }) {
-    const data = await api<{ updatedCount: number; records: DahliaRecord[] }>(`/api/records/${encodeURIComponent(id)}/cultivar-photo`, {
+    const data = await api<{ updatedCount: number; records: DahliaRecord[] }>(`/api/records/${encodeURIComponent(id)}/cultivar-photo${gardenQuery}`, {
       method: 'PUT',
       body: JSON.stringify(photo),
     })
-    queryClient.setQueryData(recordsQueryKey, data.records)
+    queryClient.setQueryData(recordsQueryKey(activeGardenId), data.records)
     setActive(data.records.find((record) => record.id === id) ?? null)
   }
 
   async function onSetRecordPhotoDefault(id: string, photo: DahliaPhoto) {
-    const data = await api<{ record: DahliaRecord; records: DahliaRecord[] }>(`/api/records/${encodeURIComponent(id)}/record-photo-default`, {
+    const data = await api<{ record: DahliaRecord; records: DahliaRecord[] }>(`/api/records/${encodeURIComponent(id)}/record-photo-default${gardenQuery}`, {
       method: 'PUT',
       body: JSON.stringify({ photo }),
     })
-    queryClient.setQueryData(recordsQueryKey, data.records)
+    queryClient.setQueryData(recordsQueryKey(activeGardenId), data.records)
     setActive(data.record)
   }
 
   async function onSetCultivarPhotoDefault(id: string, photo: DahliaPhoto) {
-    const data = await api<{ updatedCount: number; records: DahliaRecord[] }>(`/api/records/${encodeURIComponent(id)}/cultivar-photo-default`, {
+    const data = await api<{ updatedCount: number; records: DahliaRecord[] }>(`/api/records/${encodeURIComponent(id)}/cultivar-photo-default${gardenQuery}`, {
       method: 'PUT',
       body: JSON.stringify({ photo }),
     })
-    queryClient.setQueryData(recordsQueryKey, data.records)
+    queryClient.setQueryData(recordsQueryKey(activeGardenId), data.records)
     setActive(data.records.find((record) => record.id === id) ?? null)
   }
 
   async function onDeleteCultivarPhoto(id: string, imageUrl: string) {
-    const data = await api<{ updatedCount: number; records: DahliaRecord[] }>(`/api/records/${encodeURIComponent(id)}/cultivar-photo`, {
+    const data = await api<{ updatedCount: number; records: DahliaRecord[] }>(`/api/records/${encodeURIComponent(id)}/cultivar-photo${gardenQuery}`, {
       method: 'DELETE',
       body: JSON.stringify({ imageUrl }),
     })
-    queryClient.setQueryData(recordsQueryKey, data.records)
+    queryClient.setQueryData(recordsQueryKey(activeGardenId), data.records)
     setActive(data.records.find((record) => record.id === id) ?? null)
   }
 
   async function onDelete(id: string) {
-    await api<{ ok: true }>(`/api/records/${encodeURIComponent(id)}`, {
+    await api<{ ok: true }>(`/api/records/${encodeURIComponent(id)}${gardenQuery}`, {
       method: 'DELETE',
     })
     setActive(null)
     await Promise.all([refreshRecords(), refreshCompanies()])
+  }
+
+  async function createGarden(input: { name: string; organizationName?: string }) {
+    setError(null)
+    try {
+      const data = await api<{ garden: Garden }>('/api/gardens', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      })
+      await queryClient.invalidateQueries({ queryKey: gardensQueryKey })
+      setSelectedGardenId(data.garden.id)
+      return data.garden
+    } catch (e: any) {
+      setError(e?.message ?? String(e))
+      throw e
+    }
+  }
+
+  async function updateGarden(gardenId: string, input: { name?: string; organizationName?: string; locationName?: string; address?: string; notes?: string }) {
+    setError(null)
+    try {
+      const data = await api<{ garden: Garden }>(`/api/gardens/${encodeURIComponent(gardenId)}`, {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      })
+      await queryClient.invalidateQueries({ queryKey: gardensQueryKey })
+      return data.garden
+    } catch (e: any) {
+      setError(e?.message ?? String(e))
+      throw e
+    }
+  }
+
+  async function deleteGarden(gardenId: string) {
+    setError(null)
+    try {
+      await api<{ ok: true }>(`/api/gardens/${encodeURIComponent(gardenId)}`, { method: 'DELETE' })
+      if (selectedGardenId === gardenId) setSelectedGardenId('')
+      await queryClient.invalidateQueries({ queryKey: gardensQueryKey })
+    } catch (e: any) {
+      setError(e?.message ?? String(e))
+      throw e
+    }
+  }
+
+  async function listGardenMembers(gardenId: string) {
+    return (await api<{ members: GardenMember[] }>(`/api/gardens/${encodeURIComponent(gardenId)}/members`)).members
+  }
+
+  async function saveGardenMember(gardenId: string, input: { userId: string; email?: string; displayName?: string; role: GardenRole }) {
+    await api<{ member: GardenMember }>(`/api/gardens/${encodeURIComponent(gardenId)}/members`, { method: 'POST', body: JSON.stringify(input) })
+  }
+
+  async function deleteGardenMember(gardenId: string, memberId: string) {
+    await api<{ ok: true }>(`/api/gardens/${encodeURIComponent(gardenId)}/members/${encodeURIComponent(memberId)}`, { method: 'DELETE' })
+  }
+
+  async function deleteKnownUser(userId: string) {
+    await api<{ ok: true }>(`/api/users/${encodeURIComponent(userId)}`, { method: 'DELETE' })
+    await queryClient.invalidateQueries({ queryKey: usersQueryKey })
+  }
+
+  async function listInvites(input: { gardenId?: string }) {
+    const params = new URLSearchParams()
+    if (input.gardenId) params.set('gardenId', input.gardenId)
+    return (await api<{ invites: Invite[] }>(`/api/invites${params.size ? `?${params.toString()}` : ''}`)).invites
+  }
+
+  async function createInvite(input: { gardenId?: string; email?: string; role: string }) {
+    return (await api<{ invite: Invite }>('/api/invites', { method: 'POST', body: JSON.stringify(input) })).invite
+  }
+
+  async function resendInvite(inviteId: string) {
+    return (await api<{ invite: Invite }>(`/api/invites/${encodeURIComponent(inviteId)}/resend`, { method: 'POST' })).invite
+  }
+
+  async function deleteInvite(inviteId: string) {
+    await api<{ ok: true }>(`/api/invites/${encodeURIComponent(inviteId)}`, { method: 'DELETE' })
   }
 
   async function reviewWithDebugAgent(record: DahliaRecordInput, recordId?: string) {
@@ -579,6 +821,18 @@ export default function App() {
     await refreshOrders()
   }
 
+  async function onReassignCompanies(companyIds: string[], ownerUserId: string) {
+    await api<{ companies: Company[]; updatedCount: number }>('/api/admin/companies/reassign', {
+      method: 'POST',
+      body: JSON.stringify({ companyIds, ownerUserId }),
+    })
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: companiesQueryKey }),
+      queryClient.invalidateQueries({ queryKey: ordersQueryKey }),
+      queryClient.invalidateQueries({ queryKey: usersQueryKey }),
+    ])
+  }
+
   function openGardenOptions(group: GardenOptionKey) {
     setGardenOptionsInitialGroup(group)
     setGardenOptionsOpen(true)
@@ -595,6 +849,31 @@ export default function App() {
     })
     await refreshOrders()
     return data.order
+  }
+
+  async function onCreateAsset(input: AssetInput) {
+    const data = await api<{ asset: Asset }>('/api/assets', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+    await refreshAssets()
+    return data.asset
+  }
+
+  async function onUpdateAsset(id: string, input: AssetInput) {
+    const data = await api<{ asset: Asset }>(`/api/assets/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    })
+    await refreshAssets()
+    return data.asset
+  }
+
+  async function onDeleteAsset(id: string) {
+    await api<{ ok: true }>(`/api/assets/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    })
+    await refreshAssets()
   }
 
   async function onUpdateOrder(id: string, input: OrderInput) {
@@ -628,6 +907,23 @@ export default function App() {
       throw new Error(text || `Upload failed: ${res.status}`)
     }
     await refreshOrders()
+  }
+
+  async function uploadAssetInvoice(assetId: string, file: File, sourceType: 'uploaded_pdf' | 'image_converted_to_pdf') {
+    const body = new FormData()
+    body.append('file', file)
+    body.append('sourceType', sourceType)
+
+    const res = await fetch(`${API_BASE}/api/assets/${encodeURIComponent(assetId)}/files`, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body,
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(text || `Upload failed: ${res.status}`)
+    }
+    await refreshAssets()
   }
 
   async function importOneNoteFile(file: File | undefined) {
@@ -750,51 +1046,104 @@ export default function App() {
     await refreshOrders()
   }
 
+  async function deleteAssetInvoiceFile(assetId: string, fileId: string) {
+    await api<{ ok: true }>(`/api/assets/${encodeURIComponent(assetId)}/files/${encodeURIComponent(fileId)}`, {
+      method: 'DELETE',
+    })
+    await refreshAssets()
+  }
+
   if (authLoading) {
     return (
-      <div className="landingShell">
-        <div className="landingCard">
-          <div className="landingEyebrow">The Dahlia Ledger</div>
-          <h1>Checking your session</h1>
-          <p>Preparing your records workspace.</p>
+      <>
+        <LandscapeOnlyOverlay />
+        <div className="landingShell">
+          <div className="landingCard">
+            <div className="landingEyebrow">The Dahlia Ledger</div>
+            <h1>Checking your session</h1>
+            <p>Preparing your records workspace.</p>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   if (!user) {
     return (
-      <div className="landingShell">
-        <div className="landingCard">
-          <div className="landingEyebrow">The Dahlia Ledger</div>
-          <h1>Track your dahlias from one secure workspace.</h1>
-          <p>Sign in with your Outlook or Hotmail Microsoft account to continue to records, images, seasons, and notes.</p>
-          {authError ? <div className="landingError">{authError}</div> : null}
-          <button className="microsoftButton" type="button" onClick={loginWithMicrosoft}>
-            <span className="microsoftMark" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-              <span />
-            </span>
-            Continue with Microsoft
-          </button>
-          {!hasFirebaseConfig ? (
-            <div className="landingHint">Firebase auth environment variables are required before sign-in will work.</div>
-          ) : null}
+      <>
+        <LandscapeOnlyOverlay />
+        <div className="landingShell">
+          <div className="landingCard">
+            <div className="landingEyebrow">The Dahlia Ledger</div>
+            <h1>Track your dahlias from one secure workspace.</h1>
+            <p>Sign in with your Outlook or Hotmail Microsoft account to continue to records, images, seasons, and notes.</p>
+            {authError ? <div className="landingError">{authError}</div> : null}
+            <button className="microsoftButton" type="button" onClick={loginWithMicrosoft}>
+              <span className="microsoftMark" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+                <span />
+              </span>
+              Continue with Microsoft
+            </button>
+            {!hasFirebaseConfig ? (
+              <div className="landingHint">Firebase auth environment variables are required before sign-in will work.</div>
+            ) : null}
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   return (
-    <div className="appShell">
+    <>
+      <LandscapeOnlyOverlay />
+      <div className="appShell">
       <header className="topBar">
         <div className="brand">
           <div className="brandTitle">The Dahlia Ledger</div>
           <div className="brandSub">Records, images, seasons, and notes</div>
         </div>
         <div className="topActions">
+          <div className="actionAccordion" ref={gardenMenuRef}>
+            <button
+              className="btn ghost accordionToggle gardenToggle"
+              type="button"
+              aria-expanded={gardenMenuOpen}
+              aria-controls="garden-actions"
+              disabled={!gardens.length}
+              onClick={() => {
+                setGardenMenuOpen((open) => !open)
+                setRecordsManagementOpen(false)
+                setInsightsMenuOpen(false)
+                setSettingsMenuOpen(false)
+              }}
+            >
+              <span>Garden:</span>
+              <span className="gardenToggleName">{selectedGarden ? gardenOptionLabel(selectedGarden, gardens) : 'None'}</span>
+              <span className="accordionIcon" aria-hidden="true">
+                {gardenMenuOpen ? '−' : '+'}
+              </span>
+            </button>
+            {gardenMenuOpen ? (
+              <div className="accordionPanel" id="garden-actions">
+                {gardens.map((garden) => (
+                  <button
+                    className="btn ghost"
+                    type="button"
+                    key={garden.id}
+                    onClick={() => {
+                      setSelectedGardenId(garden.id)
+                      setGardenMenuOpen(false)
+                    }}
+                  >
+                    {gardenOptionLabel(garden, gardens)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
           <div className="actionAccordion" ref={recordsManagementRef}>
             <button
               className="btn ghost accordionToggle"
@@ -802,7 +1151,7 @@ export default function App() {
               aria-controls="records-management-actions"
               onClick={() => setRecordsManagementOpen((open) => !open)}
             >
-              <span>Records Management</span>
+              <span>Manage</span>
               <span className="accordionIcon" aria-hidden="true">
                 {recordsManagementOpen ? '−' : '+'}
               </span>
@@ -812,20 +1161,29 @@ export default function App() {
                 <button
                   className="btn ghost"
                   onClick={() => {
+                    setGardenManagementOpen(true)
+                    setRecordsManagementOpen(false)
+                  }}
+                >
+                  Gardens & Access
+                </button>
+                <button
+                  className="btn ghost"
+                  onClick={() => {
+                    setAssetsOpen(true)
+                    setRecordsManagementOpen(false)
+                  }}
+                >
+                  Assets
+                </button>
+                <button
+                  className="btn ghost"
+                  onClick={() => {
                     setCompaniesOpen(true)
                     setRecordsManagementOpen(false)
                   }}
                 >
                   Companies
-                </button>
-                <button
-                  className="btn ghost"
-                  onClick={() => {
-                    openGardenOptions('gardenAreas')
-                    setRecordsManagementOpen(false)
-                  }}
-                >
-                  Garden Options
                 </button>
                 <button
                   className="btn ghost"
@@ -939,7 +1297,7 @@ export default function App() {
                     </span>
                   </button>
                 </div>
-                <div className="oneNoteImportSetting">
+                {globalAdmin ? <div className="oneNoteImportSetting">
                   <div>
                     <div className="settingTitle">OneNote Import</div>
                     <div className="settingHint">Upload a Single File Web Page (.mht) export.</div>
@@ -962,8 +1320,8 @@ export default function App() {
                     />
                   </label>
                   {oneNoteImportMessage ? <div className="settingHint success">{oneNoteImportMessage}</div> : null}
-                </div>
-                <div className="oneNoteImportSetting">
+                </div> : null}
+                {globalAdmin ? <div className="oneNoteImportSetting">
                   <div>
                     <div className="settingTitle">Excel Import</div>
                     <div className="settingHint">Upload the 2026 garden location spreadsheet.</div>
@@ -1008,7 +1366,7 @@ export default function App() {
                     </div>
                   ) : null}
                   {excelRevertMessage ? <div className="settingHint success">{excelRevertMessage}</div> : null}
-                </div>
+                </div> : null}
                 <div className="settingsSignOut">
                   <div className="signedInAs">Signed in as {user.email ?? user.displayName}</div>
                   <button
@@ -1042,7 +1400,7 @@ export default function App() {
           </div>
           {error ? <div className="error">{error}</div> : null}
           {recordsQuery.error ? <div className="error">{recordsQuery.error instanceof Error ? recordsQuery.error.message : String(recordsQuery.error)}</div> : null}
-          <RecordsTable rows={tableRows} orders={orders} loading={loading} onOpen={(r) => {
+          <RecordsTable rows={tableRows} orders={orders} loading={loading} refreshIntervalMs={recordsRefreshIntervalMs} refreshIntervalOptions={RECORDS_REFRESH_INTERVAL_OPTIONS} onRefreshIntervalChange={setRecordsRefreshIntervalMs} onOpen={(r) => {
             setReviewResult(null)
             setCorrectionResult(null)
             setActive(records.find((record) => record.id === r.id) ?? r)
@@ -1101,11 +1459,39 @@ export default function App() {
         <MaintenanceRemindersModal
           reminders={maintenanceReminders}
           records={records}
+          members={gardenMembers}
           onClose={() => setMaintenanceRemindersOpen(false)}
           onCreate={onCreateMaintenanceReminder}
           onUpdate={onUpdateMaintenanceReminder}
           onComplete={onCompleteMaintenanceReminder}
           onDelete={onDeleteMaintenanceReminder}
+        />
+      ) : null}
+
+      {gardenManagementOpen ? (
+        <GardenManagementModal
+          gardens={gardens}
+          knownUsers={knownUsers}
+          isGlobalAdmin={globalAdmin}
+          globalAdminUserId={user?.uid}
+          currentGardenId={activeGardenId}
+          onClose={() => {
+            setGardenManagementOpen(false)
+            void queryClient.invalidateQueries({ queryKey: gardenMembersQueryKey(activeGardenId) })
+          }}
+          onCreateGarden={createGarden}
+          onUpdateGarden={updateGarden}
+          onDeleteGarden={deleteGarden}
+          onListGardenMembers={listGardenMembers}
+          onSaveGardenMember={saveGardenMember}
+          onDeleteGardenMember={deleteGardenMember}
+          onDeleteKnownUser={deleteKnownUser}
+          onListInvites={listInvites}
+          onCreateInvite={createInvite}
+          onResendInvite={resendInvite}
+          onDeleteInvite={deleteInvite}
+          onOpenPlacementOptions={() => openGardenOptions('gardenAreas')}
+          gardenOptions={gardenOptions}
         />
       ) : null}
 
@@ -1142,11 +1528,14 @@ export default function App() {
       {companiesOpen ? (
         <CompaniesModal
           companies={companies}
+          knownUsers={knownUsers}
+          isGlobalAdmin={globalAdmin}
           usageRefreshing={companiesUsageRefreshing}
           onClose={() => setCompaniesOpen(false)}
           onCreateCompany={onCreateCompany}
           onUpdateCompany={onUpdateCompany}
           onDeleteCompany={onDeleteCompany}
+          onReassignCompanies={onReassignCompanies}
           onOpenRecord={(record) => {
             setReviewResult(null)
             setCorrectionResult(null)
@@ -1163,6 +1552,7 @@ export default function App() {
       {ordersOpen ? (
         <OrderModal
           companies={companies}
+          gardens={gardens}
           orders={orders}
           initialOrderId={initialOrderId}
           onClose={() => {
@@ -1175,6 +1565,21 @@ export default function App() {
           onDeleteOrder={onDeleteOrder}
           onUploadInvoice={uploadInvoice}
           onDeleteInvoiceFile={deleteInvoiceFile}
+        />
+      ) : null}
+
+      {assetsOpen ? (
+        <AssetsModal
+          assets={assets}
+          companies={companies}
+          orders={orders}
+          onClose={() => setAssetsOpen(false)}
+          onCreateCompany={onCreateCompany}
+          onCreateAsset={onCreateAsset}
+          onUpdateAsset={onUpdateAsset}
+          onDeleteAsset={onDeleteAsset}
+          onUploadInvoice={uploadAssetInvoice}
+          onDeleteInvoiceFile={deleteAssetInvoiceFile}
         />
       ) : null}
 
@@ -1225,6 +1630,7 @@ export default function App() {
           orders={orders}
         />
       ) : null}
-    </div>
+      </div>
+    </>
   )
 }

@@ -1,5 +1,6 @@
 import { getDb } from './firebase.js'
 import { toTitleCase } from './textFormat.js'
+import { listGardens } from './gardens.js'
 
 const COMPANIES = 'companies'
 const ORDERS = 'orders'
@@ -33,9 +34,26 @@ function sortByName(a, b) {
   return String(a.name ?? '').localeCompare(String(b.name ?? ''))
 }
 
-export async function listCompanies() {
+function contextMatches(doc, context = {}) {
+  if (context.userId) return doc.ownerUserId === context.userId
+  return true
+}
+
+async function getContextGardenIds(context = {}) {
+  if (!context.user) return null
+  const gardens = await listGardens(context.user)
+  return new Set(gardens.map((garden) => garden.id))
+}
+
+function recordMatchesContext(record, context = {}, gardenIds = null) {
+  if (!context.userId) return true
+  if (!gardenIds) return false
+  return gardenIds.has(record.gardenId)
+}
+
+export async function listCompanies(context = {}) {
   const snap = await getDb().collection(COMPANIES).get()
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(sortByName)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((company) => contextMatches(company, context)).sort(sortByName)
 }
 
 function emptyCompanyUsage() {
@@ -76,23 +94,26 @@ function cleanCompanyInput(input) {
   }
 }
 
-export async function listCompaniesWithUsage() {
-  const [companies, ordersSnap, recordsSnap] = await Promise.all([
-    listCompanies(),
+export async function listCompaniesWithUsage(context = {}) {
+  const [companies, ordersSnap, recordsSnap, gardenIds] = await Promise.all([
+    listCompanies(context),
     getDb().collection(ORDERS).get(),
     getDb().collection('dahliaRecords').get(),
+    getContextGardenIds(context),
   ])
   const usageByCompanyId = new Map(companies.map((company) => [company.id, emptyCompanyUsage()]))
   const companyIdByKey = new Map(companies.map((company) => [normalizeCompanyKey(company.name), company.id]))
 
   for (const doc of ordersSnap.docs) {
     const order = { id: doc.id, ...doc.data() }
+    if (!contextMatches(order, context)) continue
     const usage = usageByCompanyId.get(order.companyId)
     if (usage) usage.orders.push(order)
   }
 
   for (const doc of recordsSnap.docs) {
     const record = { id: doc.id, ...doc.data() }
+    if (!recordMatchesContext(record, context, gardenIds)) continue
     const companyId = companyIdByKey.get(normalizeCompanyKey(record.tuber?.source))
     const usage = companyId ? usageByCompanyId.get(companyId) : null
     if (usage) usage.flowerRecords.push(record)
@@ -104,18 +125,19 @@ export async function listCompaniesWithUsage() {
   }))
 }
 
-export async function getCompanyWithUsage(id) {
-  const companies = await listCompaniesWithUsage()
+export async function getCompanyWithUsage(id, context = {}) {
+  const companies = await listCompaniesWithUsage(context)
   return companies.find((company) => company.id === id) ?? null
 }
 
-export async function createCompany(input) {
+export async function createCompany(input, context = {}) {
   const timestamp = nowIso()
   const ref = await getDb()
     .collection(COMPANIES)
     .add(
       withoutUndefined({
         ...input,
+        ownerUserId: input.ownerUserId || context.userId || undefined,
         name: String(input.name ?? '').trim(),
         website: input.website || undefined,
         email: input.email || undefined,
@@ -129,22 +151,23 @@ export async function createCompany(input) {
   return { id: doc.id, ...doc.data() }
 }
 
-export async function ensureCompany(name) {
+export async function ensureCompany(name, context = {}) {
   const companyName = String(name ?? '').trim()
   if (!companyName) return { company: null, created: false }
 
-  const companies = await listCompanies()
+  const companies = await listCompanies(context)
   const companyKey = normalizeCompanyKey(companyName)
   const existing = companies.find((company) => normalizeCompanyKey(company.name) === companyKey)
   if (existing) return { company: existing, created: false }
 
-  return { company: await createCompany({ name: companyName }), created: true }
+  return { company: await createCompany({ name: companyName }, context), created: true }
 }
 
-export async function updateCompany(id, input) {
+export async function updateCompany(id, input, context = {}) {
   const existing = await getDb().collection(COMPANIES).doc(id).get()
   if (!existing.exists) return null
   const existingCompany = { id: existing.id, ...existing.data() }
+  if (!contextMatches(existingCompany, context)) return null
   const cleanedInput = cleanCompanyInput(input)
 
   await getDb()
@@ -161,9 +184,13 @@ export async function updateCompany(id, input) {
     )
 
   if (normalizeCompanyKey(existingCompany.name) !== normalizeCompanyKey(cleanedInput.name)) {
-    const recordsSnap = await getDb().collection(RECORDS).get()
+    const [recordsSnap, gardenIds] = await Promise.all([
+      getDb().collection(RECORDS).get(),
+      getContextGardenIds(context),
+    ])
     const matchingRecords = recordsSnap.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .filter((record) => recordMatchesContext(record, context, gardenIds))
       .filter((record) => normalizeCompanyKey(record.tuber?.source) === normalizeCompanyKey(existingCompany.name))
 
     await Promise.all(matchingRecords.map((record) => getDb().collection(RECORDS).doc(record.id).set(
@@ -183,21 +210,25 @@ export async function updateCompany(id, input) {
     )))
   }
 
-  return await getCompanyWithUsage(id)
+  return await getCompanyWithUsage(id, context)
 }
 
-export async function deleteCompany(id) {
+export async function deleteCompany(id, context = {}) {
   const companyDoc = await getDb().collection(COMPANIES).doc(id).get()
   if (!companyDoc.exists) return true
 
   const company = { id: companyDoc.id, ...companyDoc.data() }
-  const [ordersSnap, recordsSnap] = await Promise.all([
+  if (!contextMatches(company, context)) return true
+  const [ordersSnap, recordsSnap, gardenIds] = await Promise.all([
     getDb().collection(ORDERS).where('companyId', '==', id).get(),
     getDb().collection('dahliaRecords').get(),
+    getContextGardenIds(context),
   ])
   const linkedOrders = ordersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+    .filter((order) => contextMatches(order, context))
   const linkedFlowerRecords = recordsSnap.docs
     .map((doc) => ({ id: doc.id, ...doc.data() }))
+    .filter((record) => recordMatchesContext(record, context, gardenIds))
     .filter((record) => normalizeCompanyKey(record.tuber?.source) === normalizeCompanyKey(company.name))
 
   if (linkedOrders.length > 0 || linkedFlowerRecords.length > 0) {
@@ -211,9 +242,30 @@ export async function deleteCompany(id) {
   return true
 }
 
-export async function listOrders() {
+export async function reassignCompanies(companyIds, ownerUserId) {
+  const ids = [...new Set((companyIds ?? []).map((id) => String(id ?? '').trim()).filter(Boolean))]
+  const nextOwnerUserId = String(ownerUserId ?? '').trim()
+  if (!ids.length || !nextOwnerUserId) return []
+
+  const docs = await Promise.all(ids.map((id) => getDb().collection(COMPANIES).doc(id).get()))
+  const existingDocs = docs.filter((doc) => doc.exists)
+  const timestamp = nowIso()
+
+  await Promise.all(existingDocs.map((doc) => doc.ref.set(
+    withoutUndefined({
+      ...doc.data(),
+      ownerUserId: nextOwnerUserId,
+      updatedAt: timestamp,
+    }),
+    { merge: false },
+  )))
+
+  return existingDocs.map((doc) => ({ id: doc.id, ...doc.data(), ownerUserId: nextOwnerUserId, updatedAt: timestamp })).sort(sortByName)
+}
+
+export async function listOrders(context = {}) {
   const [companies, ordersSnap, itemsSnap, filesSnap] = await Promise.all([
-    listCompanies(),
+    listCompanies(context),
     getDb().collection(ORDERS).get(),
     getDb().collection(ORDER_ITEMS).get(),
     getDb().collection(ORDER_FILES).get(),
@@ -239,6 +291,7 @@ export async function listOrders() {
   return ordersSnap.docs
     .map((doc) => {
       const order = { id: doc.id, ...doc.data() }
+      if (!contextMatches(order, context)) return null
       return {
         ...order,
         company: companyById.get(order.companyId) ?? null,
@@ -246,16 +299,18 @@ export async function listOrders() {
         files: filesByOrder.get(order.id) ?? [],
       }
     })
+    .filter(Boolean)
     .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
 }
 
-export async function createOrder(input) {
+export async function createOrder(input, context = {}) {
   const timestamp = nowIso()
   const ref = await getDb()
     .collection(ORDERS)
     .add(
       withoutUndefined({
         companyId: input.companyId,
+        ownerUserId: input.ownerUserId || context.userId || undefined,
         invoiceNumber: input.invoiceNumber || undefined,
         orderDate: input.orderDate || undefined,
         totalCost: input.totalCost ?? undefined,
@@ -273,6 +328,7 @@ export async function createOrder(input) {
           ...item,
           flowerName: toTitleCase(item.flowerName),
           cultivarName: item.cultivarName ? toTitleCase(item.cultivarName) : undefined,
+          gardenId: item.gardenId || undefined,
           itemCost: item.itemCost ?? undefined,
           quantity: item.quantity ?? undefined,
           notes: item.notes || undefined,
@@ -283,12 +339,13 @@ export async function createOrder(input) {
       )
   }
 
-  return (await listOrders()).find((order) => order.id === ref.id)
+  return (await listOrders(context)).find((order) => order.id === ref.id)
 }
 
-export async function updateOrder(id, input) {
+export async function updateOrder(id, input, context = {}) {
   const existing = await getDb().collection(ORDERS).doc(id).get()
   if (!existing.exists) return null
+  if (!contextMatches(existing.data(), context)) return null
 
   const timestamp = nowIso()
   const existingItems = await getDb().collection(ORDER_ITEMS).where('orderId', '==', id).get()
@@ -301,6 +358,7 @@ export async function updateOrder(id, input) {
       withoutUndefined({
         ...existing.data(),
         companyId: input.companyId,
+        ownerUserId: input.ownerUserId || existing.data().ownerUserId || context.userId || undefined,
         invoiceNumber: input.invoiceNumber || undefined,
         orderDate: input.orderDate || undefined,
         totalCost: input.totalCost ?? undefined,
@@ -319,6 +377,7 @@ export async function updateOrder(id, input) {
         id: undefined,
         flowerName: toTitleCase(item.flowerName),
         cultivarName: item.cultivarName ? toTitleCase(item.cultivarName) : undefined,
+        gardenId: item.gardenId || undefined,
         itemCost: item.itemCost ?? undefined,
         quantity: item.quantity ?? undefined,
         notes: item.notes || undefined,
@@ -330,13 +389,14 @@ export async function updateOrder(id, input) {
     )
   }
 
-  return (await listOrders()).find((order) => order.id === id)
+  return (await listOrders(context)).find((order) => order.id === id)
 }
 
-export async function deleteOrder(id) {
+export async function deleteOrder(id, context = {}) {
   const orderRef = getDb().collection(ORDERS).doc(id)
   const existing = await orderRef.get()
   if (!existing.exists) return false
+  if (!contextMatches(existing.data(), context)) return false
 
   const [itemsSnap, filesSnap] = await Promise.all([
     getDb().collection(ORDER_ITEMS).where('orderId', '==', id).get(),

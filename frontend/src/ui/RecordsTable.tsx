@@ -18,14 +18,14 @@ function compareGardenRows(a: string, b: string) {
 }
 
 function compareGardenLocations(a: DahliaRecord, b: DahliaRecord) {
-  const areaCompare = String(a.meta?.gardenArea ?? '').localeCompare(String(b.meta?.gardenArea ?? ''))
+  const areaCompare = String(a.meta?.gardenZone ?? a.meta?.gardenArea ?? '').localeCompare(String(b.meta?.gardenZone ?? b.meta?.gardenArea ?? ''))
   if (areaCompare !== 0) return areaCompare
 
-  const rowCompare = compareGardenRows(a.meta?.gardenRow ?? '', b.meta?.gardenRow ?? '')
+  const rowCompare = compareGardenRows(a.meta?.rowOrBed ?? a.meta?.gardenRow ?? '', b.meta?.rowOrBed ?? b.meta?.gardenRow ?? '')
   if (rowCompare !== 0) return rowCompare
 
-  const aPosition = Number(a.meta?.gardenPosition)
-  const bPosition = Number(b.meta?.gardenPosition)
+  const aPosition = Number(a.meta?.position ?? a.meta?.gardenPosition)
+  const bPosition = Number(b.meta?.position ?? b.meta?.gardenPosition)
   if (Number.isFinite(aPosition) && Number.isFinite(bPosition) && aPosition !== bPosition) return aPosition - bPosition
 
   return formatGardenLocation(a).localeCompare(formatGardenLocation(b), undefined, { numeric: true })
@@ -47,7 +47,9 @@ function formatGardenLocation(record: DahliaRecord) {
   if (plantingState === 'not_planted') return 'Not Planted'
   if (plantingState === 'not_viable') return 'Not Viable'
 
-  const { gardenArea, gardenRow, gardenPosition } = record.meta ?? {}
+  const gardenArea = record.meta?.gardenZone ?? record.meta?.gardenArea
+  const gardenRow = record.meta?.rowOrBed ?? record.meta?.gardenRow
+  const gardenPosition = record.meta?.position ?? record.meta?.gardenPosition
   const rowAndPosition = gardenRow && gardenPosition ? `${gardenRow}${gardenPosition}` : record.gardenLocation
 
   return [gardenArea, rowAndPosition].filter(Boolean).join(' - ')
@@ -66,15 +68,27 @@ const columnClassNames: Record<string, string> = {
 
 const pageSizeOptions = [10, 25, 50, 100]
 
+function refreshIntervalLabel(intervalMs: number) {
+  if (intervalMs === 0) return 'Off'
+  if (intervalMs < 60_000) return `${intervalMs / 1000} sec`
+  return `${intervalMs / 60_000} min`
+}
+
 export function RecordsTable({
   rows,
   orders = [],
   loading = false,
+  refreshIntervalMs,
+  refreshIntervalOptions,
+  onRefreshIntervalChange,
   onOpen,
 }: {
   rows: DahliaRecord[]
   orders?: Order[]
   loading?: boolean
+  refreshIntervalMs: number
+  refreshIntervalOptions: number[]
+  onRefreshIntervalChange: (intervalMs: number) => void
   onOpen: (r: DahliaRecord) => void
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
@@ -147,7 +161,7 @@ export function RecordsTable({
 
   const gardenRows = useMemo(
     () =>
-      Array.from(new Set(rows.map((record) => record.meta?.gardenRow).filter((row): row is string => Boolean(row)))).sort(
+      Array.from(new Set(rows.map((record) => record.meta?.rowOrBed ?? record.meta?.gardenRow).filter((row): row is string => Boolean(row)))).sort(
         compareGardenRows,
       ),
     [rows],
@@ -175,7 +189,7 @@ export function RecordsTable({
 
     return rows.filter((record) => {
       if (selectedSeasonYearSet.size > 0 && !selectedSeasonYearSet.has(record.seasonYearStart)) return false
-      if (selectedGardenRowSet.size > 0 && !selectedGardenRowSet.has(record.meta?.gardenRow ?? '')) return false
+      if (selectedGardenRowSet.size > 0 && !selectedGardenRowSet.has(record.meta?.rowOrBed ?? record.meta?.gardenRow ?? '')) return false
       if (!query) return true
 
       const searchableValues = [
@@ -201,9 +215,9 @@ export function RecordsTable({
   }, [selectedSeasonYears])
 
   const gardenRowFilterLabel = useMemo(() => {
-    if (selectedGardenRows.length === 0) return 'All rows'
-    if (selectedGardenRows.length === 1) return `Row ${selectedGardenRows[0]}`
-    return `${selectedGardenRows.length} rows`
+    if (selectedGardenRows.length === 0) return 'All rows/beds'
+    if (selectedGardenRows.length === 1) return `Row/Bed ${selectedGardenRows[0]}`
+    return `${selectedGardenRows.length} rows/beds`
   }, [selectedGardenRows])
 
   function toggleSeasonYear(year: number, checked: boolean) {
@@ -350,7 +364,7 @@ export function RecordsTable({
                   setSorting([{ id: 'recordNumber', desc: false }])
                 }}
               />
-              All rows
+              All rows/beds
             </label>
             {gardenRows.map((row) => (
               <label key={row} className="seasonFilterOption">
@@ -360,43 +374,54 @@ export function RecordsTable({
                   checked={selectedGardenRows.includes(row)}
                   onChange={(event) => toggleGardenRow(row, event.target.checked)}
                 />
-                Row {row}
+                Row/Bed {row}
               </label>
             ))}
           </fieldset>
         </details>
 
-        <div className="pageSizeControl">
-          <span className="pageSizeLabel">Rows</span>
-          <details className="seasonFilter pageSizeFilter" ref={pageSizeFilterRef} open={pageSizeFilterOpen}>
-            <summary
-              className="input seasonFilterSummary"
-              onClick={(event) => {
-                event.preventDefault()
-                setPageSizeFilterOpen((open) => !open)
-              }}
-            >
-              {pagination.pageSize}
-            </summary>
-            <fieldset className="seasonFilterOptions pageSizeOptions">
-              <legend className="srOnly">Rows per page</legend>
-              {pageSizeOptions.map((pageSize) => (
-                <label key={pageSize} className="seasonFilterOption">
-                  <input
-                    type="radio"
-                    name="recordsPageSize"
-                    value={pageSize}
-                    checked={pagination.pageSize === pageSize}
-                    onChange={() => {
-                      table.setPageSize(pageSize)
-                      setPageSizeFilterOpen(false)
-                    }}
-                  />
-                  {pageSize}
-                </label>
+        <div className="tableToolbarRightControls">
+          <div className="pageSizeControl">
+            <span className="pageSizeLabel">Rows</span>
+            <details className="seasonFilter pageSizeFilter" ref={pageSizeFilterRef} open={pageSizeFilterOpen}>
+              <summary
+                className="input seasonFilterSummary"
+                onClick={(event) => {
+                  event.preventDefault()
+                  setPageSizeFilterOpen((open) => !open)
+                }}
+              >
+                {pagination.pageSize}
+              </summary>
+              <fieldset className="seasonFilterOptions pageSizeOptions">
+                <legend className="srOnly">Rows per page</legend>
+                {pageSizeOptions.map((pageSize) => (
+                  <label key={pageSize} className="seasonFilterOption">
+                    <input
+                      type="radio"
+                      name="recordsPageSize"
+                      value={pageSize}
+                      checked={pagination.pageSize === pageSize}
+                      onChange={() => {
+                        table.setPageSize(pageSize)
+                        setPageSizeFilterOpen(false)
+                      }}
+                    />
+                    {pageSize}
+                  </label>
+                ))}
+              </fieldset>
+            </details>
+          </div>
+
+          <label className="pageSizeControl">
+            <span className="pageSizeLabel">Refresh</span>
+            <select className="select" value={refreshIntervalMs} onChange={(event) => onRefreshIntervalChange(Number(event.target.value))}>
+              {refreshIntervalOptions.map((intervalMs) => (
+                <option key={intervalMs} value={intervalMs}>{refreshIntervalLabel(intervalMs)}</option>
               ))}
-            </fieldset>
-          </details>
+            </select>
+          </label>
         </div>
       </div>
 

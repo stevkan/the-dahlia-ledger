@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { GardenOptionKey, GardenOptions } from '../types'
 
 const OPTION_GROUPS: { key: GardenOptionKey; title: string; description: string }[] = [
-  { key: 'gardenAreas', title: 'Garden Areas', description: 'Physical garden sections available for planted records.' },
-  { key: 'gardenRows', title: 'Garden Rows', description: 'Row labels available inside a garden area.' },
-  { key: 'gardenPositions', title: 'Garden Positions', description: 'Position labels available inside each row.' },
+  { key: 'gardenAreas', title: 'Zones', description: 'Flexible zones or sections available for planted records.' },
+  { key: 'gardenRows', title: 'Rows/Beds', description: 'Row or bed labels available inside a zone.' },
+  { key: 'gardenPositions', title: 'Positions', description: 'Position labels available inside each row or bed.' },
 ]
 
 function Overlay({ children }: { children: React.ReactNode }) {
@@ -105,8 +105,8 @@ export function GardenOptionsModal({
     <Overlay>
       <div className="modalHeader">
         <div>
-          <div className="modalTitle">Garden Options</div>
-          <div className="modalSub">Manage garden areas, rows, and positions used by record location fields.</div>
+          <div className="modalTitle">Placement Options</div>
+          <div className="modalSub">Manage zones, rows/beds, and positions used by record placement fields.</div>
         </div>
         <button className="btn ghost" onClick={onClose}>Close</button>
       </div>
