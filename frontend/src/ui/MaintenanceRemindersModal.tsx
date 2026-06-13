@@ -246,7 +246,7 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
   }
 
   return (
-    <div className="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="maintenance-reminders-title" onMouseDown={onClose}>
+    <div className="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="maintenance-reminders-title">
       <div className="modal remindersModal" onMouseDown={(e) => e.stopPropagation()}>
         <div className="modalHeader">
           <div>

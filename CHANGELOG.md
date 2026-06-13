@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.0-beta.5 - 2026-06-13
+
+- Added apply support to the legacy company garden assignment script and expanded owner detection through created gardens and garden membership records.
+- Fixed maintenance reminder modal backdrop behavior so clicks inside the overlay do not close the modal unexpectedly.
+- Improved season year default selection and widened toggle controls for clearer filter state display.
+
 ## 0.10.0-beta.4 - 2026-06-13
 
 - Added garden-shared company visibility so garden members can view and update companies tied to their shared garden while preserving company ownership.

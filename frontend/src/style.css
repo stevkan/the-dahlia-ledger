@@ -1878,7 +1878,7 @@ th.sortable {
 
 .switchTrack {
   position: relative;
-  width: 62px;
+  width: 74px;
   height: 28px;
   border-radius: 999px;
   border: 1px solid var(--border-strong);
@@ -1910,7 +1910,7 @@ th.sortable {
 }
 
 .switchToggle.on .switchThumb {
-  transform: translateX(34px);
+  transform: translateX(46px);
 }
 
 .switchToggle:focus-visible .switchTrack {

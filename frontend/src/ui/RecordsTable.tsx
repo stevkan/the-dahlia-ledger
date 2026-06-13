@@ -159,6 +159,12 @@ export function RecordsTable({
     [rows],
   )
 
+  useEffect(() => {
+    if (selectedSeasonYears.length === 0 && seasonYears.length > 0) {
+      setSelectedSeasonYears([seasonYears[0]])
+    }
+  }, [seasonYears, selectedSeasonYears.length])
+
   const gardenRows = useMemo(
     () =>
       Array.from(new Set(rows.map((record) => record.meta?.rowOrBed ?? record.meta?.gardenRow).filter((row): row is string => Boolean(row)))).sort(

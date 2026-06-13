@@ -5,10 +5,12 @@ import { getDb } from '../src/firebase.js'
 
 const COMPANIES = 'companies'
 const GARDENS = 'gardens'
+const GARDEN_MEMBERS = 'gardenMembers'
 const USERS = 'users'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+const applyChanges = process.argv.includes('--apply')
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') })
 
@@ -34,10 +36,30 @@ async function listUsersById(userIds) {
 async function listGardensByOwnerUserId(userIds) {
   const uniqueIds = [...new Set(userIds.filter(Boolean))]
   const byOwner = new Map(uniqueIds.map((id) => [id, []]))
-  const snapshots = await Promise.all(uniqueIds.map(async (userId) => ({ userId, snap: await getDb().collection(GARDENS).where('ownerUserId', '==', userId).get() })))
+  const snapshots = await Promise.all(uniqueIds.map(async (userId) => {
+    const [ownerSnap, createdSnap, memberSnap] = await Promise.all([
+      getDb().collection(GARDENS).where('ownerUserId', '==', userId).get(),
+      getDb().collection(GARDENS).where('createdByUserId', '==', userId).get(),
+      getDb().collection(GARDEN_MEMBERS).where('userId', '==', userId).where('role', '==', 'owner').get(),
+    ])
 
-  for (const { userId, snap } of snapshots) {
-    byOwner.set(userId, snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })).sort(sortGardens))
+    const memberGardenIds = [...new Set(memberSnap.docs.map((doc) => doc.data().gardenId).filter(Boolean))]
+    const memberGardenDocs = await Promise.all(memberGardenIds.map((gardenId) => getDb().collection(GARDENS).doc(gardenId).get()))
+    return { userId, ownerSnap, createdSnap, memberGardenDocs }
+  }))
+
+  for (const { userId, ownerSnap, createdSnap, memberGardenDocs } of snapshots) {
+    const gardensById = new Map()
+    for (const doc of ownerSnap.docs) gardensById.set(doc.id, { id: doc.id, ...doc.data(), ownershipSource: 'garden.ownerUserId' })
+    for (const doc of createdSnap.docs) {
+      const existing = gardensById.get(doc.id)
+      gardensById.set(doc.id, { id: doc.id, ...doc.data(), ownershipSource: existing ? `${existing.ownershipSource}, garden.createdByUserId` : 'garden.createdByUserId' })
+    }
+    for (const doc of memberGardenDocs.filter((doc) => doc.exists)) {
+      const existing = gardensById.get(doc.id)
+      gardensById.set(doc.id, { id: doc.id, ...doc.data(), ownershipSource: existing ? `${existing.ownershipSource}, gardenMembers.owner` : 'gardenMembers.owner' })
+    }
+    byOwner.set(userId, Array.from(gardensById.values()).sort(sortGardens))
   }
 
   return byOwner
@@ -81,10 +103,20 @@ const assignments = legacyCompanies.map((company) => ({
 const assignable = assignments.filter((entry) => entry.assignment.status === 'assign')
 const skipped = assignments.filter((entry) => entry.assignment.status !== 'assign')
 
-console.log('Dry run: legacy company garden assignments')
+if (applyChanges) {
+  const timestamp = new Date().toISOString()
+  await Promise.all(assignable.map(({ company, assignment }) => getDb().collection(COMPANIES).doc(company.id).set({
+    ...company,
+    gardenId: assignment.garden.id,
+    updatedAt: timestamp,
+  }, { merge: false })))
+}
+
+console.log(`${applyChanges ? 'Apply' : 'Dry run'}: legacy company garden assignments`)
 console.log(`Companies missing gardenId: ${legacyCompanies.length}`)
 console.log(`Assignable: ${assignable.length}`)
 console.log(`Skipped: ${skipped.length}`)
+if (applyChanges) console.log(`Updated: ${assignable.length}`)
 console.log('')
 
 for (const { company, owner, assignment } of assignments) {
@@ -93,6 +125,7 @@ for (const { company, owner, assignment } of assignments) {
     console.log(`ASSIGN | ${company.name || '(unnamed company)'} | companyId=${company.id}`)
     console.log(`  owner: ${ownerText}`)
     console.log(`  garden: ${assignment.garden.name || '(unnamed garden)'} (${assignment.garden.id})`)
+    console.log(`  ownership source: ${assignment.garden.ownershipSource}`)
     console.log(`  reason: ${assignment.reason}; owned gardens=${assignment.gardenCount}`)
   } else {
     console.log(`SKIP   | ${company.name || '(unnamed company)'} | companyId=${company.id}`)
