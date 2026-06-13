@@ -42,6 +42,10 @@ function sortMembers(a, b) {
   return String(a.email ?? a.userId).localeCompare(String(b.email ?? b.userId))
 }
 
+function sortGardensByCreatedAt(a, b) {
+  return String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? '')) || String(a.id).localeCompare(String(b.id))
+}
+
 function isNewerMember(a, b) {
   return String(a.updatedAt ?? a.createdAt ?? '').localeCompare(String(b.updatedAt ?? b.createdAt ?? '')) > 0
 }
@@ -84,7 +88,10 @@ export async function ensureDefaultGarden(user) {
   const db = getDb()
   const stableRef = db.collection(GARDENS).doc(defaultGardenId(user))
   const stableDoc = await stableRef.get()
-  if (stableDoc.exists) return { id: stableDoc.id, ...stableDoc.data() }
+  if (stableDoc.exists) {
+    await ensureGardenMembership(user, stableRef.id, 'owner')
+    return { id: stableDoc.id, ...stableDoc.data() }
+  }
 
   const existing = await db.collection(GARDENS).where('ownerUserId', '==', user.uid).where('isDefault', '==', true).get()
   if (!existing.empty) {
@@ -140,20 +147,37 @@ async function assignLegacyRecordsToGarden(gardenId) {
 }
 
 export async function listGardens(user) {
-  const defaultGarden = await ensureDefaultGarden(user)
+  await ensureDefaultGarden(user)
   const db = getDb()
   const directMemberships = await db.collection(GARDEN_MEMBERS).where('userId', '==', user.uid).get()
   const gardenIds = new Set(directMemberships.docs.map((doc) => doc.data().gardenId).filter(Boolean))
-  gardenIds.add(defaultGarden.id)
 
   const docs = await Promise.all([...gardenIds].map((id) => db.collection(GARDENS).doc(id).get()))
   const unique = new Map()
   for (const doc of docs.filter((doc) => doc.exists)) {
     const garden = { id: doc.id, ...doc.data() }
-    const duplicateDefault = garden.isDefault && garden.ownerUserId === user.uid && garden.id !== defaultGarden.id
-    if (!duplicateDefault) unique.set(garden.id, garden)
+    unique.set(garden.id, garden)
   }
   return Array.from(unique.values()).sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')))
+}
+
+async function listAccessibleGardens(user) {
+  const db = getDb()
+  const directMemberships = await db.collection(GARDEN_MEMBERS).where('userId', '==', user.uid).get()
+  const gardenIds = new Set(directMemberships.docs.map((doc) => doc.data().gardenId).filter(Boolean))
+  const owned = await db.collection(GARDENS).where('ownerUserId', '==', user.uid).get()
+  for (const doc of owned.docs) gardenIds.add(doc.id)
+  const created = await db.collection(GARDENS).where('createdByUserId', '==', user.uid).get()
+  for (const doc of created.docs) gardenIds.add(doc.id)
+
+  const docs = await Promise.all([...gardenIds].map((id) => db.collection(GARDENS).doc(id).get()))
+  return docs.filter((doc) => doc.exists).map((doc) => ({ id: doc.id, ...doc.data() })).sort(sortGardensByCreatedAt)
+}
+
+async function listOwnerAccessibleGardens(user) {
+  const gardens = await listAccessibleGardens(user)
+  const access = await Promise.all(gardens.map(async (garden) => ({ garden, access: await getGardenAccess(user, garden.id) })))
+  return access.filter(({ access }) => access?.role === 'owner').map(({ garden }) => garden)
 }
 
 export async function createGarden(user, input) {
@@ -227,7 +251,7 @@ export async function getGardenUsageCounts(gardenId) {
 
 export async function deleteGarden(user, gardenId) {
   const access = await requireGardenAccess(user, gardenId)
-  if (access.role !== 'owner' && access.role !== 'admin') {
+  if (access.role !== 'owner') {
     const error = new Error('Garden admin access denied.')
     error.code = 'garden_write_denied'
     throw error
@@ -237,9 +261,11 @@ export async function deleteGarden(user, gardenId) {
   const doc = await ref.get()
   if (!doc.exists) return { deleted: false, counts: { records: 0, reminders: 0, orderItems: 0 } }
   const garden = { id: doc.id, ...doc.data() }
-  if (garden.isDefault) {
-    const error = new Error('Cannot delete the default garden.')
-    error.code = 'default_garden_delete'
+
+  const ownerAccessibleGardens = await listOwnerAccessibleGardens(user)
+  if (ownerAccessibleGardens.filter((ownedGarden) => ownedGarden.id !== garden.id).length === 0) {
+    const error = new Error('Cannot delete your last garden.')
+    error.code = 'last_garden'
     throw error
   }
 
@@ -441,6 +467,7 @@ export async function getGardenAccess(user, gardenId) {
   const garden = { id: gardenDoc.id, ...gardenDoc.data() }
   if (isGlobalAdmin(user)) return { garden, role: 'owner' }
   if (garden.ownerUserId === user.uid) return { garden, role: 'owner' }
+  if (garden.createdByUserId === user.uid) return { garden, role: 'owner' }
 
   const direct = await getDb().collection(GARDEN_MEMBERS).where('gardenId', '==', gardenId).where('userId', '==', user.uid).limit(1).get()
   if (!direct.empty) return { garden, role: direct.docs[0].data().role }
@@ -473,29 +500,23 @@ export async function resolveGardenId(user, gardenId) {
     await requireGardenAccess(user, gardenId)
     return gardenId
   }
-  const garden = await ensureDefaultGarden(user)
+  await ensureDefaultGarden(user)
+  const garden = (await listAccessibleGardens(user))[0]
   return garden.id
 }
 
-export function isDefaultGardenId(user, gardenId) {
-  return gardenId === defaultGardenId(user)
-}
-
-export async function getFirstDefaultGardenId() {
-  const snap = await getDb().collection(GARDENS).where('isDefault', '==', true).get()
-  const defaults = snap.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() }))
-    .sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? '')) || String(a.id).localeCompare(String(b.id)))
-  return defaults[0]?.id
-}
-
-export async function isFirstDefaultGarden(gardenId) {
+export async function isFallbackGarden(user, gardenId) {
   if (!gardenId) return false
-  return gardenId === await getFirstDefaultGardenId()
+  await ensureDefaultGarden(user)
+  return gardenId === (await listAccessibleGardens(user))[0]?.id
 }
 
 export async function resolveWritableGardenId(user, gardenId) {
-  const resolvedGardenId = gardenId || (await ensureDefaultGarden(user)).id
+  let resolvedGardenId = gardenId
+  if (!resolvedGardenId) {
+    await ensureDefaultGarden(user)
+    resolvedGardenId = (await listOwnerAccessibleGardens(user))[0]?.id
+  }
   await requireGardenWriteAccess(user, resolvedGardenId)
   return resolvedGardenId
 }

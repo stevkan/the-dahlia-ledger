@@ -25,6 +25,10 @@ type Props = {
 
 const GARDEN_ROLES: GardenRole[] = ['owner', 'admin', 'editor', 'viewer']
 
+function fallbackGarden(gardens: Garden[]) {
+  return [...gardens].sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? '')) || a.id.localeCompare(b.id))[0] ?? null
+}
+
 function shortUserId(userId: string) {
   if (userId.length <= 14) return userId
   return `${userId.slice(0, 6)}...${userId.slice(-6)}`
@@ -35,7 +39,7 @@ function inviteUrl(token: string) {
 }
 
 export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, globalAdminUserId, currentGardenId, onClose, onCreateGarden, onUpdateGarden, onDeleteGarden, onListGardenMembers, onSaveGardenMember, onDeleteGardenMember, onDeleteKnownUser, onListInvites, onCreateInvite, onResendInvite, onDeleteInvite, onOpenPlacementOptions, gardenOptions }: Props) {
-  const [selectedGardenId, setSelectedGardenId] = useState(currentGardenId || gardens[0]?.id || '')
+  const [selectedGardenId, setSelectedGardenId] = useState(currentGardenId || fallbackGarden(gardens)?.id || '')
   const [gardenMembers, setGardenMembers] = useState<GardenMember[]>([])
   const [selectedGardenMemberIds, setSelectedGardenMemberIds] = useState<string[]>([])
   const [gardenInvites, setGardenInvites] = useState<Invite[]>([])
@@ -293,10 +297,9 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
                     <button className="btn ghost compact" type="button" onClick={onOpenPlacementOptions}>Options</button>
                     <button className="btn ghost compact" type="button" disabled={busy || !gardenName.trim() || !gardenDetailsChanged} onClick={() => void saveGardenDetails()}>Save Details</button>
                   </div>
-                  <button className="btn danger compact" type="button" disabled={busy || selectedGarden.isDefault} onClick={() => void deleteSelectedGarden()}>{deleteGardenArmed ? 'Confirm Delete Garden' : 'Delete Garden'}</button>
+                  <button className="btn danger compact" type="button" disabled={busy} onClick={() => void deleteSelectedGarden()}>{deleteGardenArmed ? 'Confirm Delete Garden' : 'Delete Garden'}</button>
                 </div>
-                {selectedGarden.isDefault ? <div className="muted">The default garden cannot be deleted.</div> : null}
-                {deleteGardenArmed ? <div className="callout warn invoiceConfirmMessage">Click Confirm Delete Garden to permanently delete this garden. Deletion is blocked if it has records, reminders, or assigned order items.</div> : null}
+                {deleteGardenArmed ? <div className="callout warn invoiceConfirmMessage">Click Confirm Delete Garden to permanently delete this garden. Deletion is blocked if this is your last garden or if it has records, reminders, or assigned order items.</div> : null}
               </div>
             ) : null}
             {renderGardenMembers()}

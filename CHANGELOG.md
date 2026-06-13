@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.0-beta.3 - 2026-06-12
+
+- Updated garden access fallback handling to use the oldest accessible garden instead of only the default garden.
+- Allowed owners to delete non-last gardens while preventing deletion of a user's final garden.
+- Updated garden selection and deletion messaging to match the new fallback and last-garden behavior.
+
 ## 0.10.0-beta.2 - 2026-06-12
 
 - Added maintenance reminder completion history and snooze support.

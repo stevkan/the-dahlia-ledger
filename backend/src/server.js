@@ -16,7 +16,7 @@ import { getBucket, verifyFirebaseAppCheckToken, verifyFirebaseIdToken } from '.
 import { uploadPhotoBuffer } from './photos.js'
 import { getSettings, updateSettings } from './settings.js'
 import { completeMaintenanceReminder, createMaintenanceReminder, deleteMaintenanceReminder, listMaintenanceReminders, reopenMaintenanceReminder, updateMaintenanceReminder } from './maintenanceReminders.js'
-import { acceptInvite, createGarden, createInvite, deleteGarden, deleteInvite, isDefaultGardenId, isFirstDefaultGarden, listGardenMembers, listGardens, listInvites, removeGardenMember, resendInvite, resolveGardenId, resolveWritableGardenId, requireGardenAccess, requireGardenWriteAccess, updateGarden, upsertGardenMember } from './gardens.js'
+import { acceptInvite, createGarden, createInvite, deleteGarden, deleteInvite, isFallbackGarden, listGardenMembers, listGardens, listInvites, removeGardenMember, resendInvite, resolveGardenId, resolveWritableGardenId, requireGardenAccess, requireGardenWriteAccess, updateGarden, upsertGardenMember } from './gardens.js'
 import { extractOneNoteImages, imageRefKeys, oneNoteEntryToRecord, parseOneNoteMht } from './onenoteImport.js'
 import { importExcelLocations } from './excelImport.js'
 import { createExcelImportHistory, getLatestActiveExcelImportHistory, markExcelImportHistoryReverted } from './excelImportHistory.js'
@@ -121,7 +121,7 @@ function forbidden(res, e) {
     res.status(409).json({ error: e.code, message: e.message, counts: e.counts })
     return true
   }
-  if (e?.code === 'default_garden_delete') {
+  if (e?.code === 'last_garden') {
     res.status(409).json({ error: e.code, message: e.message })
     return true
   }
@@ -286,7 +286,7 @@ app.post('/api/invites/:token/accept', async (req, res) => {
 app.get('/api/records', async (req, res) => {
   try {
     const gardenId = await resolveGardenId(req.user, req.query.gardenId)
-    const records = await listRecords(gardenId, { includeLegacyUnassigned: await isFirstDefaultGarden(gardenId) })
+    const records = await listRecords(gardenId, { includeLegacyUnassigned: await isFallbackGarden(req.user, gardenId) })
     res.json({ records, gardenId })
   } catch (e) {
     if (forbidden(res, e)) return
@@ -449,7 +449,7 @@ const MaintenanceReminderInputSchema = z.object({
 app.get('/api/maintenance-reminders', async (req, res) => {
   try {
     const gardenId = await resolveGardenId(req.user, req.query.gardenId)
-    res.json({ reminders: await listMaintenanceReminders({ gardenId, userId: req.user.uid, includeLegacyUnassigned: isDefaultGardenId(req.user, gardenId) }), gardenId })
+    res.json({ reminders: await listMaintenanceReminders({ gardenId, userId: req.user.uid, includeLegacyUnassigned: await isFallbackGarden(req.user, gardenId) }), gardenId })
   } catch (e) {
     if (forbidden(res, e)) return
     throw e

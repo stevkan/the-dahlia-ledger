@@ -115,6 +115,10 @@ function highPriorityReminderMessage(count: number) {
   return `You have ${count} high priority reminder${count === 1 ? '' : 's'} needing attention.`
 }
 
+function fallbackGarden(gardens: Garden[]) {
+  return [...gardens].sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? '')) || a.id.localeCompare(b.id))[0] ?? null
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: {
@@ -231,7 +235,7 @@ export default function App() {
   const gardens = gardensQuery.data ?? []
   const knownUsers = usersQuery.data ?? []
   const globalAdmin = Boolean(user && meQuery.data?.globalAdmin)
-  const selectedGarden = gardens.find((garden) => garden.id === selectedGardenId) ?? gardens[0] ?? null
+  const selectedGarden = gardens.find((garden) => garden.id === selectedGardenId) ?? fallbackGarden(gardens)
   const activeGardenId = selectedGarden?.id ?? ''
   const gardenQuery = activeGardenId ? `?gardenId=${encodeURIComponent(activeGardenId)}` : ''
 
@@ -318,7 +322,7 @@ export default function App() {
   useEffect(() => {
     if (!gardens.length) return
     if (!selectedGardenId || !gardens.some((garden) => garden.id === selectedGardenId)) {
-      setSelectedGardenId(gardens[0].id)
+      setSelectedGardenId(fallbackGarden(gardens)?.id ?? '')
     }
   }, [gardens, selectedGardenId])
 
