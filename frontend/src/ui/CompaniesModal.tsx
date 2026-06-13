@@ -104,6 +104,7 @@ export function CompaniesModal({
   const hasValidEmail = !form.email.trim() || EMAIL_PATTERN.test(form.email.trim())
   const canSave = form.name.trim().length > 0 && hasValidEmail
   const selectedCompanyUsage = selectedCompany?.usage
+  const canDeleteSelectedCompany = selectedCompany?.canDelete !== false
   const canReassign = selectedCompanyIds.length > 0 && reassignOwnerUserId && !reassigning
 
   useEffect(() => {
@@ -335,13 +336,14 @@ export function CompaniesModal({
           <TextArea label="Notes" value={form.notes} onChange={(v) => setForm((p) => ({ ...p, notes: v }))} />
           {!hasValidEmail ? <div className="error inlineError companyError">Enter a valid email address.</div> : null}
           {error ? <div className="error inlineError companyError">{error}</div> : null}
+          {selectedCompanyId && !canDeleteSelectedCompany ? <div className="muted companyError">Shared company entries can be edited here, but only the company owner or a joint garden owner can delete them.</div> : null}
           {renderCompanyUsage()}
           <div className="rowActions companyActions">
             {selectedCompanyId ? <button className="btn ghost" type="button" onClick={clearForm}>Cancel Edit</button> : null}
             <button className="btn" type="button" disabled={!canSave || saving} onClick={() => void saveCompany()}>
               {saving ? 'Saving...' : selectedCompanyId ? 'Update Company' : 'Save Company'}
             </button>
-            {selectedCompanyId ? (
+            {selectedCompanyId && canDeleteSelectedCompany ? (
               <button ref={deleteButtonRef} className="btn danger companyDeleteButton" type="button" disabled={deleting || saving} onClick={() => void deleteSelectedCompany()}>
                 {deleting ? 'Deleting...' : deleteArmed ? 'Confirm Delete' : 'Delete Company'}
               </button>

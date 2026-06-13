@@ -97,6 +97,7 @@ export const DahliaRecordInputSchema = z.object({
 
 export const CompanyInputSchema = z.object({
   ownerUserId: z.string().optional().nullable(),
+  gardenId: z.string().optional().nullable(),
   name: z.string().min(1),
   website: z.string().optional().nullable(),
   email: z.string().optional().nullable(),

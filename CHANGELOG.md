@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0-beta.4 - 2026-06-13
+
+- Added garden-shared company visibility so garden members can view and update companies tied to their shared garden while preserving company ownership.
+- Restricted company deletion to the company owner or a joint garden owner and updated the Companies modal to hide unavailable delete actions.
+- Added a dry-run script for reporting legacy company `gardenId` assignments before backfilling existing company records.
+- Fixed default garden deletion so deleted defaults are not immediately recreated when the user already has another garden.
+- Improved garden deletion feedback and selection handling after successful or blocked deletes.
+
 ## 0.10.0-beta.3 - 2026-06-12
 
 - Updated garden access fallback handling to use the oldest accessible garden instead of only the default garden.

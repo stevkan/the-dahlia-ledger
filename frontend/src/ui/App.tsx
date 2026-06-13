@@ -228,7 +228,7 @@ export default function App() {
   const usersQuery = useQuery({
     queryKey: usersQueryKey,
     queryFn: async () => (await api<{ users: KnownUser[] }>('/api/users')).users,
-    enabled: Boolean(user && meQuery.data?.globalAdmin),
+    enabled: Boolean(user),
     refetchInterval: gardenManagementOpen ? KNOWN_USERS_REFRESH_INTERVAL_MS : false,
     staleTime: 5 * 60_000,
   })
@@ -253,10 +253,12 @@ export default function App() {
     refetchInterval: recordsRefreshIntervalMs || false,
     staleTime: 30_000,
   })
+  const activeCompaniesQueryKey = [...companiesQueryKey, activeGardenId] as const
   const companiesQuery = useQuery({
-    queryKey: companiesQueryKey,
-    queryFn: async () => (await api<{ companies: Company[] }>('/api/companies')).companies,
+    queryKey: activeCompaniesQueryKey,
+    queryFn: async () => (await api<{ companies: Company[] }>(`/api/companies${gardenQuery}`)).companies,
     enabled: Boolean(user),
+    refetchInterval: companiesOpen ? KNOWN_USERS_REFRESH_INTERVAL_MS : false,
     staleTime: 5 * 60_000,
   })
   const ordersQuery = useQuery({
@@ -811,20 +813,20 @@ export default function App() {
   }
 
   async function onCreateCompany(input: CompanyInput) {
-    const data = await api<{ company: Company }>('/api/companies', {
+    const data = await api<{ company: Company }>(`/api/companies${gardenQuery}`, {
       method: 'POST',
-      body: JSON.stringify(input),
+      body: JSON.stringify({ ...input, gardenId: activeGardenId || input.gardenId }),
     })
     await refreshOrders()
     return data.company
   }
 
   async function onUpdateCompany(id: string, input: CompanyInput) {
-    const data = await api<{ company: Company }>(`/api/companies/${encodeURIComponent(id)}`, {
+    const data = await api<{ company: Company }>(`/api/companies/${encodeURIComponent(id)}${gardenQuery}`, {
       method: 'PUT',
-      body: JSON.stringify(input),
+      body: JSON.stringify({ ...input, gardenId: activeGardenId || input.gardenId }),
     })
-    queryClient.setQueryData<Company[]>(companiesQueryKey, (current) => current?.map((company) => company.id === id ? data.company : company) ?? [data.company])
+    queryClient.setQueryData<Company[]>(activeCompaniesQueryKey, (current) => current?.map((company) => company.id === id ? data.company : company) ?? [data.company])
     const [refreshedCompanies] = await Promise.all([refreshCompanies(), refreshRecords(), queryClient.fetchQuery({
       queryKey: ordersQueryKey,
       queryFn: async () => (await api<{ orders: Order[] }>('/api/orders')).orders,
@@ -834,7 +836,7 @@ export default function App() {
   }
 
   async function onDeleteCompany(id: string) {
-    await api<{ ok: true }>(`/api/companies/${encodeURIComponent(id)}`, {
+    await api<{ ok: true }>(`/api/companies/${encodeURIComponent(id)}${gardenQuery}`, {
       method: 'DELETE',
     })
     await refreshOrders()

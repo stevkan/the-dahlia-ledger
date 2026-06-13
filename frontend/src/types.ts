@@ -217,6 +217,7 @@ export type MaintenanceReminderInput = Omit<MaintenanceReminder, 'id' | 'created
 export type Company = {
   id: string
   ownerUserId?: string
+  gardenId?: string
   name: string
   website?: string
   email?: string
@@ -228,6 +229,8 @@ export type Company = {
     orders?: Array<{ id: string; invoiceNumber?: string | null; orderDate?: string | null; totalCost?: number | null }>
     flowerRecords?: Array<{ id: string; recordNumber?: number | null; flowerName?: string; seasonYearStart?: number | null }>
   }
+  canUpdate?: boolean
+  canDelete?: boolean
   createdAt?: string
   updatedAt?: string
 }
@@ -272,7 +275,7 @@ export type Order = {
   updatedAt?: string
 }
 
-export type CompanyInput = Omit<Company, 'id' | 'createdAt' | 'updatedAt'>
+export type CompanyInput = Omit<Company, 'id' | 'usage' | 'canUpdate' | 'canDelete' | 'createdAt' | 'updatedAt'>
 export type OrderItemInput = Omit<OrderItem, 'id' | 'orderId' | 'createdAt' | 'updatedAt'>
 export type OrderInput = Omit<Order, 'id' | 'company' | 'items' | 'files' | 'createdAt' | 'updatedAt'> & { items: OrderItemInput[] }
 

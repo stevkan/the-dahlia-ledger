@@ -135,8 +135,12 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
       setDeleteGardenArmed(true)
       return
     }
+    const deletedGardenId = selectedGardenId
     await run(async () => {
-      await onDeleteGarden(selectedGardenId)
+      await onDeleteGarden(deletedGardenId)
+      const nextGarden = fallbackGarden(gardens.filter((garden) => garden.id !== deletedGardenId))
+      setSelectedGardenId(nextGarden?.id ?? '')
+      setDeleteGardenArmed(false)
     })
   }
 
@@ -238,10 +242,18 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
     try {
       await action()
     } catch (e: any) {
-      setError(e?.message ?? String(e))
+      setError(formatError(e))
     } finally {
       setBusy(false)
     }
+  }
+
+  function formatError(e: any) {
+    if (e?.details?.error === 'garden_in_use') {
+      const counts = e.details.counts ?? {}
+      return `Cannot delete this garden because it still has ${counts.records ?? 0} record${counts.records === 1 ? '' : 's'}, ${counts.reminders ?? 0} reminder${counts.reminders === 1 ? '' : 's'}, and ${counts.orderItems ?? 0} assigned order item${counts.orderItems === 1 ? '' : 's'}. Move or delete those items first.`
+    }
+    return e?.message ?? String(e)
   }
 
   async function copyUserId(userId: string) {

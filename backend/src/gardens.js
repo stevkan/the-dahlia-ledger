@@ -101,6 +101,14 @@ export async function ensureDefaultGarden(user) {
     return { id: stableRef.id, ...(await stableRef.get()).data() }
   }
 
+  const existingMemberships = await db.collection(GARDEN_MEMBERS).where('userId', '==', user.uid).get()
+  for (const membershipDoc of existingMemberships.docs) {
+    const gardenId = membershipDoc.data().gardenId
+    if (!gardenId) continue
+    const gardenDoc = await db.collection(GARDENS).doc(gardenId).get()
+    if (gardenDoc.exists) return { id: gardenDoc.id, ...gardenDoc.data() }
+  }
+
   const timestamp = nowIso()
   await stableRef.set(withoutUndefined({
     name: `${userDisplayName(user)} Garden`,
