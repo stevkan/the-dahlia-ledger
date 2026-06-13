@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.0-beta.6 - 2026-06-13
+
+- Added garden-specific placement option persistence so shared gardens can keep their own zone, row, and position lists.
+- Added migration from locally stored placement options to the active garden when no garden-specific options exist.
+- Updated garden management change tracking so placement option saves happen independently of garden detail saves.
+
 ## 0.10.0-beta.5 - 2026-06-13
 
 - Added apply support to the legacy company garden assignment script and expanded owner detection through created gardens and garden membership records.
