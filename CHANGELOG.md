@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.0-beta.2 - 2026-06-12
+
+- Added maintenance reminder completion history and snooze support.
+- Added reminder completion and snooze controls to the maintenance reminders modal.
+- Updated reminder alert styling and active reminder state handling.
+
 ## 0.10.0-beta.1 - 2026-06-12
 
 - Added multi-garden management with default gardens, member roles, invite links, and garden-scoped records, reminders, and order items.

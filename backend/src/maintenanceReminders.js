@@ -33,6 +33,7 @@ export async function listMaintenanceReminders({ gardenId, userId, includeLegacy
       gardenId: reminder.gardenId ?? (includeLegacyUnassigned ? gardenId : undefined),
       ownerUserId: reminder.ownerUserId ?? userId,
       visibility: reminder.visibility ?? 'garden',
+      priority: reminder.priority ?? 'normal',
     }))
     .sort(sortReminders)
 }
@@ -53,6 +54,7 @@ export async function createMaintenanceReminder(input, { gardenId, userId } = {}
         ownerUserId: input.ownerUserId || userId,
         assignedToUserId: input.assignedToUserId || undefined,
         visibility: input.visibility ?? 'garden',
+        priority: input.priority ?? 'normal',
         createdAt: timestamp,
         updatedAt: timestamp,
       }),
@@ -78,6 +80,7 @@ export async function updateMaintenanceReminder(id, input, { gardenId, userId } 
       ownerUserId: input.ownerUserId ?? doc.data().ownerUserId ?? userId,
       assignedToUserId: input.assignedToUserId || undefined,
       visibility: input.visibility ?? doc.data().visibility ?? 'garden',
+      priority: input.priority ?? doc.data().priority ?? 'normal',
       updatedAt: nowIso(),
     }),
     { merge: false },
@@ -99,8 +102,32 @@ export async function completeMaintenanceReminder(id, { gardenId, userId } = {})
       createdByUserId: doc.data().createdByUserId ?? userId,
       ownerUserId: doc.data().ownerUserId ?? userId,
       visibility: doc.data().visibility ?? 'garden',
+      priority: doc.data().priority ?? 'normal',
       completedAt: timestamp,
       completedByUserId: userId,
+      updatedAt: timestamp,
+    }),
+    { merge: false },
+  )
+  const updated = await doc.ref.get()
+  return { id: updated.id, ...updated.data() }
+}
+
+export async function reopenMaintenanceReminder(id, { gardenId, userId } = {}) {
+  const doc = await getDb().collection(COLLECTION).doc(id).get()
+  if (!doc.exists) return null
+  if (gardenId && doc.data().gardenId && doc.data().gardenId !== gardenId) return null
+
+  const timestamp = nowIso()
+  const { completedAt, completedByUserId, ...data } = doc.data()
+  await doc.ref.set(
+    withoutUndefined({
+      ...data,
+      gardenId: data.gardenId ?? gardenId,
+      createdByUserId: data.createdByUserId ?? userId,
+      ownerUserId: data.ownerUserId ?? userId,
+      visibility: data.visibility ?? 'garden',
+      priority: data.priority ?? 'normal',
       updatedAt: timestamp,
     }),
     { merge: false },

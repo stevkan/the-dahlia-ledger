@@ -104,8 +104,15 @@ function excelImportSummary(result: ExcelImportResult) {
   return `Updated ${counts.updatedCount} of ${counts.extractedCount} Excel location${counts.extractedCount === 1 ? '' : 's'}. ${followUpCount} need review.`
 }
 
-function todayDate() {
-  return new Date().toISOString().slice(0, 10)
+function canUserViewReminder(reminder: MaintenanceReminder, currentUserId?: string) {
+  const visibility = reminder.visibility ?? 'garden'
+  if (visibility === 'garden') return true
+
+  return Boolean(currentUserId && reminder.assignedToUserId === currentUserId)
+}
+
+function highPriorityReminderMessage(count: number) {
+  return `You have ${count} high priority reminder${count === 1 ? '' : 's'} needing attention.`
 }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -270,6 +277,7 @@ export default function App() {
     queryKey: maintenanceRemindersQueryKey(activeGardenId),
     queryFn: async () => (await api<{ reminders: MaintenanceReminder[] }>(`/api/maintenance-reminders${gardenQuery}`)).reminders,
     enabled: Boolean(user),
+    refetchInterval: KNOWN_USERS_REFRESH_INTERVAL_MS,
     staleTime: 30_000,
   })
   const gardenMembersQuery = useQuery({
@@ -286,7 +294,9 @@ export default function App() {
   const settings = settingsQuery.data ?? { agentDebugReviewEnabled: false }
   const maintenanceReminders = maintenanceRemindersQuery.data ?? []
   const gardenMembers = gardenMembersQuery.data ?? []
-  const dueReminderCount = maintenanceReminders.filter((reminder) => !reminder.completedAt && reminder.dueDate && reminder.dueDate <= todayDate()).length
+  const visibleIncompleteReminders = maintenanceReminders.filter((reminder) => !reminder.completedAt && canUserViewReminder(reminder, user?.uid))
+  const visibleReminderCount = visibleIncompleteReminders.length
+  const highPriorityIncompleteReminderCount = visibleIncompleteReminders.filter((reminder) => reminder.priority === 'high').length
   const loading = recordsQuery.isLoading
 
   const tableRows = useMemo(() => records, [records])
@@ -541,6 +551,11 @@ export default function App() {
 
   async function onCompleteMaintenanceReminder(id: string) {
     await api<{ reminder: MaintenanceReminder }>(`/api/maintenance-reminders/${encodeURIComponent(id)}/complete${gardenQuery}`, { method: 'POST' })
+    await refreshMaintenanceReminders()
+  }
+
+  async function onReopenMaintenanceReminder(id: string) {
+    await api<{ reminder: MaintenanceReminder }>(`/api/maintenance-reminders/${encodeURIComponent(id)}/reopen${gardenQuery}`, { method: 'POST' })
     await refreshMaintenanceReminders()
   }
 
@@ -1105,6 +1120,7 @@ export default function App() {
           <div className="brandTitle">The Dahlia Ledger</div>
           <div className="brandSub">Records, images, seasons, and notes</div>
         </div>
+        {highPriorityIncompleteReminderCount ? <div className="topPriorityMessage" role="status">{highPriorityReminderMessage(highPriorityIncompleteReminderCount)}</div> : null}
         <div className="topActions">
           <div className="actionAccordion" ref={gardenMenuRef}>
             <button
@@ -1250,7 +1266,7 @@ export default function App() {
               setSettingsMenuOpen(false)
             }}
           >
-            Reminders{dueReminderCount ? ` (${dueReminderCount})` : ''}
+            Reminders{visibleReminderCount ? ` (${visibleReminderCount})` : ''}
           </button>
           <div className="actionAccordion" ref={settingsMenuRef}>
             <button
@@ -1460,10 +1476,12 @@ export default function App() {
           reminders={maintenanceReminders}
           records={records}
           members={gardenMembers}
+          currentUserId={user?.uid}
           onClose={() => setMaintenanceRemindersOpen(false)}
           onCreate={onCreateMaintenanceReminder}
           onUpdate={onUpdateMaintenanceReminder}
           onComplete={onCompleteMaintenanceReminder}
+          onReopen={onReopenMaintenanceReminder}
           onDelete={onDeleteMaintenanceReminder}
         />
       ) : null}

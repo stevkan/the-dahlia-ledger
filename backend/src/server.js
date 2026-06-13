@@ -15,7 +15,7 @@ import { ingestText, reviewRecordMapping, proposeMissedIssueCorrection, runMetri
 import { getBucket, verifyFirebaseAppCheckToken, verifyFirebaseIdToken } from './firebase.js'
 import { uploadPhotoBuffer } from './photos.js'
 import { getSettings, updateSettings } from './settings.js'
-import { completeMaintenanceReminder, createMaintenanceReminder, deleteMaintenanceReminder, listMaintenanceReminders, updateMaintenanceReminder } from './maintenanceReminders.js'
+import { completeMaintenanceReminder, createMaintenanceReminder, deleteMaintenanceReminder, listMaintenanceReminders, reopenMaintenanceReminder, updateMaintenanceReminder } from './maintenanceReminders.js'
 import { acceptInvite, createGarden, createInvite, deleteGarden, deleteInvite, isDefaultGardenId, isFirstDefaultGarden, listGardenMembers, listGardens, listInvites, removeGardenMember, resendInvite, resolveGardenId, resolveWritableGardenId, requireGardenAccess, requireGardenWriteAccess, updateGarden, upsertGardenMember } from './gardens.js'
 import { extractOneNoteImages, imageRefKeys, oneNoteEntryToRecord, parseOneNoteMht } from './onenoteImport.js'
 import { importExcelLocations } from './excelImport.js'
@@ -443,6 +443,7 @@ const MaintenanceReminderInputSchema = z.object({
   ownerUserId: z.string().optional().nullable(),
   assignedToUserId: z.string().optional().nullable(),
   visibility: z.enum(['private', 'garden']).optional(),
+  priority: z.enum(['normal', 'high']).optional(),
 })
 
 app.get('/api/maintenance-reminders', async (req, res) => {
@@ -487,6 +488,18 @@ app.post('/api/maintenance-reminders/:id/complete', async (req, res) => {
   try {
     const gardenId = await resolveWritableGardenId(req.user, req.query.gardenId)
     const reminder = await completeMaintenanceReminder(req.params.id, { gardenId, userId: req.user.uid })
+    if (!reminder) return res.status(404).json({ error: 'not_found' })
+    res.json({ reminder })
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
+})
+
+app.post('/api/maintenance-reminders/:id/reopen', async (req, res) => {
+  try {
+    const gardenId = await resolveWritableGardenId(req.user, req.query.gardenId)
+    const reminder = await reopenMaintenanceReminder(req.params.id, { gardenId, userId: req.user.uid })
     if (!reminder) return res.status(404).json({ error: 'not_found' })
     res.json({ reminder })
   } catch (e) {

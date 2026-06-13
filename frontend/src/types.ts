@@ -206,6 +206,7 @@ export type MaintenanceReminder = {
   assignedToUserId?: string
   completedByUserId?: string
   visibility?: 'private' | 'garden'
+  priority?: 'normal' | 'high'
   createdAt?: string
   updatedAt?: string
   completedAt?: string
