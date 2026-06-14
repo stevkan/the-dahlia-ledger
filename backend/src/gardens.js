@@ -30,6 +30,27 @@ function userDisplayName(user) {
   return user?.name || user?.email || 'My'
 }
 
+function normalizedGardenOptions(options) {
+  if (!options) return undefined
+  return {
+    gardenAreas: normalizedOptionList(options.gardenAreas),
+    gardenRows: normalizedOptionList(options.gardenRows),
+    gardenPositions: normalizedOptionList(options.gardenPositions),
+  }
+}
+
+function normalizedOptionList(values) {
+  const seen = new Set()
+  return (values ?? [])
+    .map((value) => String(value).trim().replace(/\s+/g, ' '))
+    .filter((value) => {
+      const key = value.toLowerCase()
+      if (!value || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+}
+
 function isWriteRole(role) {
   return role === 'owner' || role === 'admin' || role === 'editor'
 }
@@ -238,6 +259,7 @@ export async function updateGarden(user, gardenId, input) {
     locationName: input.locationName || undefined,
     address: input.address || undefined,
     notes: input.notes || undefined,
+    gardenOptions: input.gardenOptions ? normalizedGardenOptions(input.gardenOptions) : doc.data().gardenOptions,
     updatedAt: nowIso(),
   }), { merge: false })
   const updated = await ref.get()

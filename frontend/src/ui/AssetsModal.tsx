@@ -4,6 +4,17 @@ import type { Asset, AssetFile, AssetInput, Company, CompanyInput, Order } from 
 
 const CATEGORIES = ['Soil', 'Container', 'Tool', 'Support', 'Label', 'Fertilizer', 'Other']
 
+const ASSET_FIELD_HINTS = {
+  asset: 'Enter the supply, tool, container, or other non-flower asset you want to track.',
+  category: 'Choose the type of asset so it is easier to browse and group later.',
+  quantity: 'Enter how many of this asset were purchased or added.',
+  totalCost: 'Enter the total cost for this asset purchase.',
+  notes: 'Add optional details about condition, use, storage, or other asset notes.',
+  invoiceItems: 'Link this asset to an existing invoice item when it was purchased as part of an invoice record.',
+  company: 'Select an existing company for a custom asset purchase entry.',
+  purchaseDate: 'Enter the purchase date for a custom asset entry.',
+}
+
 type AssetView = { mode: 'list' } | { mode: 'detail'; assetId: string } | { mode: 'form'; assetId?: string }
 type ConfirmAction = { type: 'deleteFile'; fileId: string } | { type: 'deleteAsset'; assetId: string } | null
 
@@ -17,19 +28,59 @@ function Overlay({ children, onCancelConfirm }: { children: React.ReactNode; onC
   )
 }
 
-function Field({ label, value, onChange, type, onBlur }: { label: string; value: string; onChange: (v: string) => void; type?: 'text' | 'number' | 'date'; onBlur?: () => void }) {
+function FieldLabel({ label, hint }: { label: string; hint?: string }) {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (!visible) return
+    const timeout = window.setTimeout(() => setVisible(false), 3000)
+    return () => window.clearTimeout(timeout)
+  }, [visible])
+
+  function showHint() {
+    setVisible(false)
+    window.requestAnimationFrame(() => setVisible(true))
+  }
+
+  function hideHint() {
+    setVisible(false)
+  }
+
+  return (
+    <div className="label fieldLabel">
+      <span>{label}</span>
+      {hint ? (
+        <button
+          className={`helpIcon${visible ? ' show' : ''}`}
+          type="button"
+          aria-label={`${label} hint`}
+          onMouseEnter={showHint}
+          onMouseLeave={hideHint}
+          onFocus={showHint}
+          onBlur={hideHint}
+          onClick={showHint}
+        >
+          ?
+          {visible ? <span className="helpTooltip" role="tooltip">{hint}</span> : null}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+function Field({ label, hint, value, onChange, type, onBlur }: { label: string; hint?: string; value: string; onChange: (v: string) => void; type?: 'text' | 'number' | 'date'; onBlur?: () => void }) {
   return (
     <label className="field">
-      <div className="label">{label}</div>
+      <FieldLabel label={label} hint={hint} />
       <input className="input" value={value} type={type ?? 'text'} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} />
     </label>
   )
 }
 
-function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function TextArea({ label, hint, value, onChange }: { label: string; hint?: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className="field">
-      <div className="label">{label}</div>
+      <FieldLabel label={label} hint={hint} />
       <textarea className="textarea" value={value} onChange={(e) => onChange(e.target.value)} />
     </label>
   )
@@ -436,17 +487,18 @@ export function AssetsModal({
       <div className="sectionBody orderForm">
         <div className="subTitle">{formAsset ? 'Edit Asset' : 'New Asset'}</div>
         <div className="grid2">
-          <Field label="Asset" value={asset} onChange={setAsset} />
+          <Field label="Asset" hint={ASSET_FIELD_HINTS.asset} value={asset} onChange={setAsset} />
           <label className="field">
-            <div className="label">Category</div>
+            <FieldLabel label="Category" hint={ASSET_FIELD_HINTS.category} />
             <select className="select" value={category} onChange={(e) => setCategory(e.target.value)}>
               <option value="">Select...</option>
               {CATEGORIES.map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
           </label>
-          <Field label="Quantity" type="number" value={quantity} onChange={setQuantity} />
+          <Field label="Quantity" hint={ASSET_FIELD_HINTS.quantity} type="number" value={quantity} onChange={setQuantity} />
           <Field
             label="Total Cost"
+            hint={ASSET_FIELD_HINTS.totalCost}
             value={totalCost}
             onChange={(value) => {
               const next = moneyInputValue(value)
@@ -455,10 +507,10 @@ export function AssetsModal({
             onBlur={() => setTotalCost((current) => current.trim() ? formatMoneyInput(current) : '')}
           />
         </div>
-        <TextArea label="Notes" value={notes} onChange={setNotes} />
+        <TextArea label="Notes" hint={ASSET_FIELD_HINTS.notes} value={notes} onChange={setNotes} />
         <div className="subTitle">Invoice</div>
         <label className="field linkedOrderSelect">
-          <div className="label">Invoice Items</div>
+          <FieldLabel label="Invoice Items" hint={ASSET_FIELD_HINTS.invoiceItems} />
           <select
             className="select"
             value=""
@@ -502,13 +554,13 @@ export function AssetsModal({
           <div className="customEntryBox">
         <div className="grid2">
           <label className="field">
-            <div className="label">Company</div>
+            <FieldLabel label="Company" hint={ASSET_FIELD_HINTS.company} />
             <select className="select" value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
               <option value="">Select...</option>
               {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
             </select>
           </label>
-          <Field label="Purchase Date" type="date" value={purchaseDate} onChange={setPurchaseDate} />
+          <Field label="Purchase Date" hint={ASSET_FIELD_HINTS.purchaseDate} type="date" value={purchaseDate} onChange={setPurchaseDate} />
         </div>
           </div>
         </div>

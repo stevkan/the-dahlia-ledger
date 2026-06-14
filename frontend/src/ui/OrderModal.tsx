@@ -27,6 +27,18 @@ type ConfirmAction = { type: 'deleteFile'; fileId: string } | { type: 'deleteOrd
 const EMPTY_ITEM: OrderItemForm = { flowerName: '', cultivarName: '', quantity: 1 }
 const UNKNOWN_YEAR = 'No Date'
 
+const ORDER_FIELD_HINTS = {
+  company: 'Select the company associated with this invoice record.',
+  newCompany: 'Enter a company name when the invoice is from a company that is not already listed.',
+  invoiceNumber: 'Enter the invoice, receipt, or order number from the vendor.',
+  orderDate: 'Enter the date shown on the invoice or the date the order was placed.',
+  totalCost: 'Enter the total invoice cost across all items.',
+  orderNotes: 'Add optional notes about this invoice, shipment, or order.',
+  flowerName: 'Enter the flower or item name from the invoice line item.',
+  itemCost: 'Enter the cost for this individual invoice item.',
+  gardenAssignment: 'Assign this invoice item to a garden, or leave it unassigned for later placement.',
+}
+
 function Overlay({ children, onCancelConfirm }: { children: React.ReactNode; onCancelConfirm: () => void }) {
   return (
     <div className="modalOverlay" onPointerDown={onCancelConfirm}>
@@ -37,19 +49,59 @@ function Overlay({ children, onCancelConfirm }: { children: React.ReactNode; onC
   )
 }
 
-function Field({ label, value, onChange, type, onBlur }: { label: string; value: string; onChange: (v: string) => void; type?: 'text' | 'number' | 'date'; onBlur?: () => void }) {
+function FieldLabel({ label, hint }: { label: string; hint?: string }) {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (!visible) return
+    const timeout = window.setTimeout(() => setVisible(false), 3000)
+    return () => window.clearTimeout(timeout)
+  }, [visible])
+
+  function showHint() {
+    setVisible(false)
+    window.requestAnimationFrame(() => setVisible(true))
+  }
+
+  function hideHint() {
+    setVisible(false)
+  }
+
+  return (
+    <div className="label fieldLabel">
+      <span>{label}</span>
+      {hint ? (
+        <button
+          className={`helpIcon${visible ? ' show' : ''}`}
+          type="button"
+          aria-label={`${label} hint`}
+          onMouseEnter={showHint}
+          onMouseLeave={hideHint}
+          onFocus={showHint}
+          onBlur={hideHint}
+          onClick={showHint}
+        >
+          ?
+          {visible ? <span className="helpTooltip" role="tooltip">{hint}</span> : null}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+function Field({ label, hint, value, onChange, type, onBlur }: { label: string; hint?: string; value: string; onChange: (v: string) => void; type?: 'text' | 'number' | 'date'; onBlur?: () => void }) {
   return (
     <label className="field">
-      <div className="label">{label}</div>
+      <FieldLabel label={label} hint={hint} />
       <input className="input" value={value} type={type ?? 'text'} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} />
     </label>
   )
 }
 
-function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function TextArea({ label, hint, value, onChange }: { label: string; hint?: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className="field">
-      <div className="label">{label}</div>
+      <FieldLabel label={label} hint={hint} />
       <textarea className="textarea" value={value} onChange={(e) => onChange(e.target.value)} />
     </label>
   )
@@ -593,17 +645,18 @@ export function OrderModal({
         <div className="subTitle">{formOrder ? 'Edit Invoice Record' : 'New Invoice Record'}</div>
         <div className="grid2">
           <label className="field">
-            <div className="label">Company</div>
+            <FieldLabel label="Company" hint={ORDER_FIELD_HINTS.company} />
             <select className="select" value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
               <option value="">Select...</option>
               {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
             </select>
           </label>
-          <Field label="New Company" value={newCompanyName} onChange={setNewCompanyName} />
-          <Field label="Invoice Number" value={invoiceNumber} onChange={setInvoiceNumber} />
-          <Field label="Order Date" type="date" value={orderDate} onChange={setOrderDate} />
+          <Field label="New Company" hint={ORDER_FIELD_HINTS.newCompany} value={newCompanyName} onChange={setNewCompanyName} />
+          <Field label="Invoice Number" hint={ORDER_FIELD_HINTS.invoiceNumber} value={invoiceNumber} onChange={setInvoiceNumber} />
+          <Field label="Order Date" hint={ORDER_FIELD_HINTS.orderDate} type="date" value={orderDate} onChange={setOrderDate} />
           <Field
             label="Total Cost"
+            hint={ORDER_FIELD_HINTS.totalCost}
             value={totalCost}
             onChange={(value) => {
               const next = moneyInputValue(value)
@@ -612,14 +665,15 @@ export function OrderModal({
             onBlur={() => setTotalCost((current) => current.trim() ? formatMoneyInput(current) : '')}
           />
         </div>
-        <TextArea label="Order Notes" value={notes} onChange={setNotes} />
+        <TextArea label="Order Notes" hint={ORDER_FIELD_HINTS.orderNotes} value={notes} onChange={setNotes} />
         <div className="subTitle">Order Items</div>
         <div className="orderItems">
           {items.map((item, index) => (
             <div className="grid2" key={index}>
-              <Field label="Flower Name" value={item.flowerName} onChange={(v) => setItems((p) => p.map((row, i) => (i === index ? { ...row, flowerName: v, cultivarName: v } : row)))} />
+              <Field label="Flower Name" hint={ORDER_FIELD_HINTS.flowerName} value={item.flowerName} onChange={(v) => setItems((p) => p.map((row, i) => (i === index ? { ...row, flowerName: v, cultivarName: v } : row)))} />
               <Field
                 label="Item Cost"
+                hint={ORDER_FIELD_HINTS.itemCost}
                 value={item.itemCost ?? ''}
                 onChange={(value) => {
                   const next = moneyInputValue(value)
@@ -628,7 +682,7 @@ export function OrderModal({
                 onBlur={() => setItems((p) => p.map((row, i) => (i === index ? { ...row, itemCost: row.itemCost?.trim() ? formatMoneyInput(row.itemCost) : '' } : row)))}
               />
               <label className="field gridSpanFull">
-                <div className="label">Garden Assignment</div>
+                <FieldLabel label="Garden Assignment" hint={ORDER_FIELD_HINTS.gardenAssignment} />
                 <select className="select" value={item.gardenId ?? ''} onChange={(event) => setItems((p) => p.map((row, i) => (i === index ? { ...row, gardenId: event.target.value || undefined } : row)))}>
                   <option value="">Unassigned</option>
                   {gardens.map((garden) => <option key={garden.id} value={garden.id}>{garden.name}</option>)}

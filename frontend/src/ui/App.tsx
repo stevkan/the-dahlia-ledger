@@ -74,16 +74,71 @@ function authErrorMessage(error: unknown) {
   return parts.join(' - ') || 'Microsoft sign-in failed.'
 }
 
-function loadGardenOptions(): GardenOptions {
-  if (typeof window === 'undefined') return DEFAULT_GARDEN_OPTIONS
+function loadStoredGardenOptions(): GardenOptions | null {
+  if (typeof window === 'undefined') return null
   const stored = window.localStorage.getItem(GARDEN_OPTIONS_STORAGE_KEY)
-  if (!stored) return DEFAULT_GARDEN_OPTIONS
+  if (!stored) return null
 
   try {
     return normalizeGardenOptions(JSON.parse(stored))
   } catch {
-    return DEFAULT_GARDEN_OPTIONS
+    return null
   }
+}
+
+function gardenOptionsEqual(a: GardenOptions, b: GardenOptions) {
+  return JSON.stringify(normalizeGardenOptions(a)) === JSON.stringify(normalizeGardenOptions(b))
+}
+
+function recordWithRenamedGardenOption(record: DahliaRecord, key: GardenOptionKey, previousValue: string, nextValue: string): DahliaRecordInput | null {
+  const next: DahliaRecordInput = {
+    ...record,
+    core: { ...(record.core ?? {}) },
+    growth: { ...(record.growth ?? {}) },
+    care: { ...(record.care ?? {}) },
+    tuber: { ...(record.tuber ?? {}) },
+    health: { ...(record.health ?? {}) },
+    meta: { ...(record.meta ?? {}) },
+  }
+  let changed = false
+
+  if (key === 'gardenAreas') {
+    if (next.meta.gardenArea === previousValue) {
+      next.meta.gardenArea = nextValue
+      changed = true
+    }
+    if (next.meta.gardenZone === previousValue) {
+      next.meta.gardenZone = nextValue
+      changed = true
+    }
+  }
+
+  if (key === 'gardenRows') {
+    if (next.meta.gardenRow === previousValue) {
+      next.meta.gardenRow = nextValue
+      changed = true
+    }
+    if (next.meta.rowOrBed === previousValue) {
+      next.meta.rowOrBed = nextValue
+      changed = true
+    }
+  }
+
+  if (key === 'gardenPositions') {
+    const previousPosition = Number(previousValue)
+    const nextPosition = Number(nextValue)
+    if (!Number.isFinite(previousPosition) || !Number.isFinite(nextPosition)) return null
+    if (next.meta.gardenPosition === previousPosition) {
+      next.meta.gardenPosition = nextPosition
+      changed = true
+    }
+    if (next.meta.position === previousPosition) {
+      next.meta.position = nextPosition
+      changed = true
+    }
+  }
+
+  return changed ? next : null
 }
 
 function loadRecordsRefreshInterval() {
@@ -198,7 +253,9 @@ export default function App() {
   const [gardenOptionsOpen, setGardenOptionsOpen] = useState(false)
   const [gardenManagementOpen, setGardenManagementOpen] = useState(false)
   const [gardenOptionsInitialGroup, setGardenOptionsInitialGroup] = useState<GardenOptionKey>('gardenAreas')
-  const [gardenOptions, setGardenOptions] = useState<GardenOptions>(loadGardenOptions)
+  const [gardenOptionsDraft, setGardenOptionsDraft] = useState<GardenOptions | null>(null)
+  const [storedGardenOptionsForMigration] = useState(loadStoredGardenOptions)
+  const [migratedGardenOptionIds, setMigratedGardenOptionIds] = useState<string[]>([])
   const [recordsRefreshIntervalMs, setRecordsRefreshIntervalMs] = useState(loadRecordsRefreshInterval)
   const [gardenMenuOpen, setGardenMenuOpen] = useState(false)
   const [recordsManagementOpen, setRecordsManagementOpen] = useState(false)
@@ -238,6 +295,7 @@ export default function App() {
   const selectedGarden = gardens.find((garden) => garden.id === selectedGardenId) ?? fallbackGarden(gardens)
   const activeGardenId = selectedGarden?.id ?? ''
   const gardenQuery = activeGardenId ? `?gardenId=${encodeURIComponent(activeGardenId)}` : ''
+  const gardenOptions = gardenOptionsDraft ?? normalizeGardenOptions(selectedGarden?.gardenOptions)
 
   const recordsQuery = useQuery({
     queryKey: recordsQueryKey(activeGardenId),
@@ -312,6 +370,19 @@ export default function App() {
     document.documentElement.style.colorScheme = theme
     window.localStorage.setItem(THEME_STORAGE_KEY, theme)
   }, [theme])
+
+  useEffect(() => {
+    setGardenOptionsDraft(null)
+  }, [activeGardenId])
+
+  useEffect(() => {
+    if (!activeGardenId || !selectedGarden || selectedGarden.gardenOptions || migratedGardenOptionIds.includes(activeGardenId)) return
+    const stored = storedGardenOptionsForMigration
+    if (!stored || gardenOptionsEqual(stored, DEFAULT_GARDEN_OPTIONS)) return
+
+    setMigratedGardenOptionIds((ids) => [...ids, activeGardenId])
+    void updateGarden(activeGardenId, { gardenOptions: stored })
+  }, [activeGardenId, migratedGardenOptionIds, selectedGarden, storedGardenOptionsForMigration])
 
   useEffect(() => {
     window.localStorage.setItem(GARDEN_OPTIONS_STORAGE_KEY, JSON.stringify(gardenOptions))
@@ -653,7 +724,7 @@ export default function App() {
     }
   }
 
-  async function updateGarden(gardenId: string, input: { name?: string; organizationName?: string; locationName?: string; address?: string; notes?: string }) {
+  async function updateGarden(gardenId: string, input: { name?: string; organizationName?: string; locationName?: string; address?: string; notes?: string; gardenOptions?: GardenOptions }) {
     setError(null)
     try {
       const data = await api<{ garden: Garden }>(`/api/gardens/${encodeURIComponent(gardenId)}`, {
@@ -789,6 +860,7 @@ export default function App() {
   }
 
   function duplicateRecord(record: DahliaRecord) {
+    const plantingState = record.meta?.plantingState ?? 'purchased_container'
     const draft: DahliaRecordInput = {
       flowerName: record.flowerName,
       gardenLocation: '',
@@ -803,7 +875,9 @@ export default function App() {
       tuber: { ...(record.tuber ?? {}) },
       health: {},
       meta: {
-        plantingState: record.meta?.plantingState ?? 'purchased_container',
+        plantingState,
+        gardenArea: plantingState === 'in_garden' ? 'Main Garden' : undefined,
+        gardenZone: plantingState === 'in_garden' ? 'Main Garden' : undefined,
       },
     }
 
@@ -860,7 +934,20 @@ export default function App() {
   }
 
   function updateGardenOptions(nextOptions: GardenOptions) {
-    setGardenOptions(normalizeGardenOptions(nextOptions))
+    const normalized = normalizeGardenOptions(nextOptions)
+    setGardenOptionsDraft(normalized)
+    if (activeGardenId) void updateGarden(activeGardenId, { gardenOptions: normalized })
+  }
+
+  async function renameGardenOptionReferences(key: GardenOptionKey, previousValue: string, nextValue: string) {
+    const updates = records
+      .map((record) => ({ record, input: recordWithRenamedGardenOption(record, key, previousValue, nextValue) }))
+      .filter((update): update is { record: DahliaRecord; input: DahliaRecordInput } => update.input !== null)
+
+    if (!updates.length) return
+
+    await Promise.all(updates.map(({ record, input }) => onUpdate(record.id, input, { keepOpen: active?.id === record.id, skipRefresh: true })))
+    await refreshRecords()
   }
 
   async function onCreateOrder(input: OrderInput) {
@@ -1515,7 +1602,6 @@ export default function App() {
           onResendInvite={resendInvite}
           onDeleteInvite={deleteInvite}
           onOpenPlacementOptions={() => openGardenOptions('gardenAreas')}
-          gardenOptions={gardenOptions}
         />
       ) : null}
 
@@ -1613,6 +1699,7 @@ export default function App() {
           initialGroup={gardenOptionsInitialGroup}
           onClose={() => setGardenOptionsOpen(false)}
           onChange={updateGardenOptions}
+          onRename={(key, previousValue, nextValue) => void renameGardenOptionReferences(key, previousValue, nextValue)}
         />
       ) : null}
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Garden, GardenMember, GardenOptions, GardenRole, Invite, KnownUser } from '../types'
+import type { Garden, GardenMember, GardenRole, Invite, KnownUser } from '../types'
 
 type Props = {
   gardens: Garden[]
@@ -20,10 +20,64 @@ type Props = {
   onResendInvite: (inviteId: string) => Promise<Invite>
   onDeleteInvite: (inviteId: string) => Promise<void>
   onOpenPlacementOptions: () => void
-  gardenOptions: GardenOptions
 }
 
 const GARDEN_ROLES: GardenRole[] = ['owner', 'admin', 'editor', 'viewer']
+
+const GARDEN_FIELD_HINTS = {
+  selectedGarden: 'Choose the garden whose details, members, and invites you want to manage.',
+  newGardenName: 'Enter the name for a new garden workspace.',
+  name: 'The display name for this garden throughout the app.',
+  organizationName: 'Optional organization, business, farm, or group name associated with this garden.',
+  locationName: 'Optional short location label, such as Home Garden, Greenhouse, or North Field.',
+  address: 'Optional physical address or location notes for this garden.',
+  notes: 'Optional internal notes about this garden.',
+  knownUser: 'Select an existing known user to add as a member of this garden.',
+  memberRole: 'Choose the access level for the selected or manually entered garden member.',
+  inviteEmail: 'Enter the email address that should receive access to this garden.',
+  inviteRole: 'Choose the access level assigned when the invite is accepted.',
+  inviteLink: 'Read-only invite URL that can be copied and shared with the invited user.',
+}
+
+function FieldLabel({ label, hint }: { label: string; hint?: string }) {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (!visible) return
+    const timeout = window.setTimeout(() => setVisible(false), 3000)
+    return () => window.clearTimeout(timeout)
+  }, [visible])
+
+  function showHint() {
+    setVisible(false)
+    window.requestAnimationFrame(() => setVisible(true))
+  }
+
+  function hideHint() {
+    setVisible(false)
+  }
+
+  return (
+    <div className="label fieldLabel">
+      <span>{label}</span>
+      {hint ? (
+        <button
+          className={`helpIcon${visible ? ' show' : ''}`}
+          type="button"
+          aria-label={`${label} hint`}
+          onMouseEnter={showHint}
+          onMouseLeave={hideHint}
+          onFocus={showHint}
+          onBlur={hideHint}
+          onClick={showHint}
+        >
+          ?
+          {visible ? <span className="helpTooltip" role="tooltip">{hint}</span> : null}
+        </button>
+      ) : null}
+    </div>
+  )
+}
 
 function fallbackGarden(gardens: Garden[]) {
   return [...gardens].sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? '')) || a.id.localeCompare(b.id))[0] ?? null
@@ -38,7 +92,7 @@ function inviteUrl(token: string) {
   return `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(token)}`
 }
 
-export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, globalAdminUserId, currentGardenId, onClose, onCreateGarden, onUpdateGarden, onDeleteGarden, onListGardenMembers, onSaveGardenMember, onDeleteGardenMember, onDeleteKnownUser, onListInvites, onCreateInvite, onResendInvite, onDeleteInvite, onOpenPlacementOptions, gardenOptions }: Props) {
+export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, globalAdminUserId, currentGardenId, onClose, onCreateGarden, onUpdateGarden, onDeleteGarden, onListGardenMembers, onSaveGardenMember, onDeleteGardenMember, onDeleteKnownUser, onListInvites, onCreateInvite, onResendInvite, onDeleteInvite, onOpenPlacementOptions }: Props) {
   const [selectedGardenId, setSelectedGardenId] = useState(currentGardenId || fallbackGarden(gardens)?.id || '')
   const [gardenMembers, setGardenMembers] = useState<GardenMember[]>([])
   const [selectedGardenMemberIds, setSelectedGardenMemberIds] = useState<string[]>([])
@@ -52,30 +106,23 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
   const [deleteGardenArmed, setDeleteGardenArmed] = useState(false)
   const [deleteKnownUserArmedId, setDeleteKnownUserArmedId] = useState('')
   const [gardenKnownUserId, setGardenKnownUserId] = useState('')
-  const [gardenAdvancedMemberOpen, setGardenAdvancedMemberOpen] = useState(false)
-  const [gardenMemberUserId, setGardenMemberUserId] = useState('')
-  const [gardenMemberEmail, setGardenMemberEmail] = useState('')
-  const [gardenMemberDisplayName, setGardenMemberDisplayName] = useState('')
   const [gardenRole, setGardenRole] = useState<GardenRole>('viewer')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('viewer')
   const [deleteInviteArmedId, setDeleteInviteArmedId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [savedGardenOptionsSnapshot, setSavedGardenOptionsSnapshot] = useState('')
 
   const selectedGarden = gardens.find((garden) => garden.id === selectedGardenId) ?? null
   const selectedGardenKnownUser = knownUsers.find((knownUser) => knownUser.userId === gardenKnownUserId) ?? null
   const availableGardenUsers = knownUsers.filter((knownUser) => !gardenMembers.some((member) => member.userId === knownUser.userId))
-  const gardenOptionsSnapshot = JSON.stringify(gardenOptions)
   const inviteEmailValid = !inviteEmail.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())
   const gardenDetailsChanged = Boolean(selectedGarden && (
     gardenName.trim() !== selectedGarden.name ||
     (gardenOrganizationName.trim() || undefined) !== selectedGarden.organizationName ||
     (gardenLocationName.trim() || undefined) !== selectedGarden.locationName ||
     (gardenAddress.trim() || undefined) !== selectedGarden.address ||
-    (gardenNotes.trim() || undefined) !== selectedGarden.notes ||
-    gardenOptionsSnapshot !== savedGardenOptionsSnapshot
+    (gardenNotes.trim() || undefined) !== selectedGarden.notes
   ))
 
   useEffect(() => {
@@ -89,7 +136,6 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
     setGardenLocationName(selectedGarden?.locationName ?? '')
     setGardenAddress(selectedGarden?.address ?? '')
     setGardenNotes(selectedGarden?.notes ?? '')
-    setSavedGardenOptionsSnapshot(gardenOptionsSnapshot)
     setDeleteGardenArmed(false)
   }, [selectedGarden])
 
@@ -125,7 +171,6 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
         address: gardenAddress.trim() || undefined,
         notes: gardenNotes.trim() || undefined,
       })
-      setSavedGardenOptionsSnapshot(gardenOptionsSnapshot)
     })
   }
 
@@ -163,16 +208,11 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
         role: gardenRole,
       }
     }
-    if (!gardenAdvancedMemberOpen || !gardenMemberUserId.trim()) return null
-    if (gardenMembers.some((member) => member.userId === gardenMemberUserId.trim())) return null
-    return { userId: gardenMemberUserId.trim(), email: gardenMemberEmail.trim() || undefined, displayName: gardenMemberDisplayName.trim() || undefined, role: gardenRole }
+    return null
   }
 
   function resetGardenMemberInputs() {
     setGardenKnownUserId('')
-    setGardenMemberUserId('')
-    setGardenMemberEmail('')
-    setGardenMemberDisplayName('')
   }
 
   async function createGardenInvite() {
@@ -281,13 +321,13 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
             <div className="subTitle">Gardens</div>
             <div className="grid2">
               <label className="field">
-                <div className="label">Selected garden</div>
+                <FieldLabel label="Selected garden" hint={GARDEN_FIELD_HINTS.selectedGarden} />
                 <select className="select" value={selectedGardenId} onChange={(event) => setSelectedGardenId(event.target.value)}>
                   {gardens.map((garden) => <option key={garden.id} value={garden.id}>{garden.name}</option>)}
                 </select>
               </label>
               <label className="field">
-                <div className="label">New garden name</div>
+                <FieldLabel label="New garden name" hint={GARDEN_FIELD_HINTS.newGardenName} />
                 <input className="input" value={newGardenName} onChange={(event) => setNewGardenName(event.target.value)} />
               </label>
             </div>
@@ -298,11 +338,11 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
               <div className="reminderSectionGroup">
                 <div className="reminderSectionHeader"><div className="subTitle">Garden Details</div></div>
                 <div className="grid2">
-                  <label className="field"><div className="label">Name</div><input className="input" value={gardenName} onChange={(event) => setGardenName(event.target.value)} /></label>
-                  <label className="field"><div className="label">Organization Name</div><input className="input" value={gardenOrganizationName} onChange={(event) => setGardenOrganizationName(event.target.value)} /></label>
-                  <label className="field"><div className="label">Location name</div><input className="input" value={gardenLocationName} onChange={(event) => setGardenLocationName(event.target.value)} /></label>
-                  <label className="field gridSpanFull"><div className="label">Address</div><input className="input" value={gardenAddress} onChange={(event) => setGardenAddress(event.target.value)} /></label>
-                  <label className="field gridSpanFull"><div className="label">Notes</div><textarea className="textarea" value={gardenNotes} rows={3} onChange={(event) => setGardenNotes(event.target.value)} /></label>
+                  <label className="field"><FieldLabel label="Name" hint={GARDEN_FIELD_HINTS.name} /><input className="input" value={gardenName} onChange={(event) => setGardenName(event.target.value)} /></label>
+                  <label className="field"><FieldLabel label="Organization Name" hint={GARDEN_FIELD_HINTS.organizationName} /><input className="input" value={gardenOrganizationName} onChange={(event) => setGardenOrganizationName(event.target.value)} /></label>
+                  <label className="field"><FieldLabel label="Location name" hint={GARDEN_FIELD_HINTS.locationName} /><input className="input" value={gardenLocationName} onChange={(event) => setGardenLocationName(event.target.value)} /></label>
+                  <label className="field gridSpanFull"><FieldLabel label="Address" hint={GARDEN_FIELD_HINTS.address} /><input className="input" value={gardenAddress} onChange={(event) => setGardenAddress(event.target.value)} /></label>
+                  <label className="field gridSpanFull"><FieldLabel label="Notes" hint={GARDEN_FIELD_HINTS.notes} /><textarea className="textarea" value={gardenNotes} rows={3} onChange={(event) => setGardenNotes(event.target.value)} /></label>
                 </div>
                 <div className="gardenDetailsActionRow">
                   <div className="rowActions reminderComposerActions">
@@ -326,41 +366,33 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
   )
 
   function renderGardenMembers() {
-    const duplicateManualUser = Boolean(gardenMemberUserId.trim() && gardenMembers.some((member) => member.userId === gardenMemberUserId.trim()))
+    const memberCountLabel = selectedGardenMemberIds.length || gardenMembers.length
 
     return (
       <div className="reminderSectionGroup">
-        <div className="reminderSectionHeader"><div><div className="subTitle">Garden Members</div><div className="photoGalleryCount">{selectedGardenMemberIds.length ? `${selectedGardenMemberIds.length} selected` : `${gardenMembers.length} member${gardenMembers.length === 1 ? '' : 's'}`}</div></div></div>
+        <div className="reminderSectionHeader"><div className="subTitle">Garden Members</div></div>
         <div className="grid2">
           <label className="field">
-            <div className="label">Known user</div>
+            <FieldLabel label="Known user" hint={GARDEN_FIELD_HINTS.knownUser} />
             <select className="select" value={gardenKnownUserId} onChange={(event) => setGardenKnownUserId(event.target.value)}>
               <option value="">Select a known user...</option>
               {availableGardenUsers.map((knownUser) => <option key={knownUser.userId} value={knownUser.userId}>{knownUser.displayName || knownUser.email || knownUser.userId}</option>)}
             </select>
           </label>
           <label className="field">
-            <div className="label">Role</div>
+            <FieldLabel label="Role" hint={GARDEN_FIELD_HINTS.memberRole} />
             <select className="select" value={gardenRole} onChange={(event) => setGardenRole(event.target.value as GardenRole)}>{GARDEN_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}</select>
           </label>
         </div>
-        <div className="advancedMemberSection">
-          <button className="btn ghost compact" type="button" onClick={() => setGardenAdvancedMemberOpen((open) => !open)}>{gardenAdvancedMemberOpen ? 'Hide Advanced Add' : 'Advanced: Add Existing User by ID'}</button>
-          {gardenAdvancedMemberOpen ? (
-            <div className="grid2 advancedMemberFields">
-              <label className="field"><div className="label">User ID</div><input className="input" value={gardenMemberUserId} onChange={(event) => setGardenMemberUserId(event.target.value)} disabled={Boolean(gardenKnownUserId)} /></label>
-              <label className="field"><div className="label">Email</div><input className="input" value={gardenMemberEmail} onChange={(event) => setGardenMemberEmail(event.target.value)} disabled={Boolean(gardenKnownUserId)} /></label>
-              <label className="field"><div className="label">Display name</div><input className="input" value={gardenMemberDisplayName} onChange={(event) => setGardenMemberDisplayName(event.target.value)} disabled={Boolean(gardenKnownUserId)} /></label>
-              <div className="muted advancedMemberHint">{duplicateManualUser ? 'This user is already a member.' : "Use this only for repair/backfill when you already know the user's authenticated ID."}</div>
-            </div>
-          ) : null}
-        </div>
         <div className="memberActionRow"><button className="btn ghost compact" type="button" disabled={busy || !gardenMemberInput()} onClick={() => void saveGardenMember()}>Save Member</button><button className="btn danger compact" type="button" disabled={busy || !selectedGardenMemberIds.length} onClick={() => void removeSelectedGardenMembers()}>Remove Selected</button></div>
-        <div className="memberCardGrid">
-          {gardenMembers.map((member) => {
-            const selected = selectedGardenMemberIds.includes(member.id)
-            return <div className={`memberCard${selected ? ' selected' : ''}`} key={member.id}><div className="memberCardBody"><span className="memberName">{member.displayName || member.email || member.userId}</span><span className="memberRoleBadge">{member.role}</span></div><label className="photoTileSelect" aria-label="Select garden member"><input type="checkbox" checked={selected} onChange={(event) => toggleSelectedGardenMember(member.id, event.target.checked)} /><span /></label></div>
-          })}
+        <div className="gardenMemberListSection">
+          <div className="subTitle">Members ({memberCountLabel})</div>
+          <div className="memberCardGrid">
+            {gardenMembers.map((member) => {
+              const selected = selectedGardenMemberIds.includes(member.id)
+              return <div className={`memberCard${selected ? ' selected' : ''}`} key={member.id}><div className="memberCardBody"><span className="memberName">{member.displayName || member.email || member.userId}</span><span className="memberRoleBadge">{member.role}</span></div><label className="photoTileSelect" aria-label="Select garden member"><input type="checkbox" checked={selected} onChange={(event) => toggleSelectedGardenMember(member.id, event.target.checked)} /><span /></label></div>
+            })}
+          </div>
         </div>
       </div>
     )
@@ -369,10 +401,10 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
   function renderInviteComposer() {
     return (
       <div className="reminderSectionGroup">
-        <div className="reminderSectionHeader"><div className="subTitle">Invite Links</div><span className="reminderCount">{gardenInvites.length}</span></div>
+        <div className="reminderSectionHeader"><div className="subTitle">Invite Links ({gardenInvites.length})</div></div>
         <div className="grid2">
-          <label className="field"><div className="label">Invite email</div><input className="input" type="email" inputMode="email" autoComplete="email" required value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} /></label>
-          <label className="field"><div className="label">Invite role</div><select className="select" value={inviteRole} onChange={(event) => setInviteRole(event.target.value)}>{GARDEN_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}</select></label>
+          <label className="field"><FieldLabel label="Invite email" hint={GARDEN_FIELD_HINTS.inviteEmail} /><input className="input" type="email" inputMode="email" autoComplete="email" required value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} /></label>
+          <label className="field"><FieldLabel label="Invite role" hint={GARDEN_FIELD_HINTS.inviteRole} /><select className="select" value={inviteRole} onChange={(event) => setInviteRole(event.target.value)}>{GARDEN_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}</select></label>
         </div>
         <div className="rowActions reminderComposerActions"><button className="btn ghost compact" type="button" disabled={busy || !selectedGardenId || !inviteEmail.trim() || !inviteEmailValid} onClick={() => void createGardenInvite()}>Create Invite</button></div>
       </div>
@@ -389,6 +421,7 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
             <div className="reminderCard" key={invite.id}>
               <div className="reminderCardDetails">
                 <div>{invite.email || 'Open invite'} · {invite.role} · {accepted ? 'Accepted' : 'Pending'}</div>
+                <FieldLabel label="Invite link" hint={GARDEN_FIELD_HINTS.inviteLink} />
                 <input className="input" readOnly value={inviteUrl(invite.token)} onFocus={(event) => event.currentTarget.select()} />
               </div>
               <div className="rowActions reminderComposerActions">

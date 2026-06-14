@@ -2,8 +2,10 @@
 
 ## 0.11.0-beta.1 - 2026-06-13
 
-- Updated garden option management with broader placement field support across records, orders, assets, companies, and reminders.
-- Improved garden option editing styles and modal behavior for shared garden workflows.
+- Added richer garden option management with delimited entry, ranges, reordering, default restoration, delete-all controls, and rename confirmation.
+- Added garden option rename propagation across records, order items, assets, companies, and maintenance reminders.
+- Added field help hints throughout garden, record, order, asset, company, and reminder forms.
+- Improved handling for orphaned record placement options and draft record number display.
 
 ## 0.10.0-beta.6 - 2026-06-13
 

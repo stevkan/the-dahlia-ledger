@@ -79,6 +79,11 @@ const GardenInputSchema = z.object({
   locationName: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  gardenOptions: z.object({
+    gardenAreas: z.array(z.string().trim().min(1)),
+    gardenRows: z.array(z.string().trim().min(1)),
+    gardenPositions: z.array(z.string().trim().min(1)),
+  }).optional(),
 })
 
 const MemberInputSchema = z.object({

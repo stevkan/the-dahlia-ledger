@@ -1,13 +1,13 @@
 import type { GardenOptions } from './types'
 
 export const GARDEN_OPTIONS_STORAGE_KEY = 'dahlia-tracker-garden-options'
-const DEFAULT_GARDEN_ROWS = [...buildGardenRows('AM'), 'EE', 'FF', 'GG']
-const PREVIOUS_DEFAULT_GARDEN_ROWS = buildGardenRows('LL')
+const DEFAULT_GARDEN_ROWS = ['A', 'B', 'C']
+const PREVIOUS_DEFAULT_GARDEN_ROWS = [...buildGardenRows('AM'), 'EE', 'FF', 'GG']
 
 export const DEFAULT_GARDEN_OPTIONS: GardenOptions = {
-  gardenAreas: ['Main Zone', 'North Island', 'South Island'],
+  gardenAreas: ['Main Garden'],
   gardenRows: DEFAULT_GARDEN_ROWS,
-  gardenPositions: Array.from({ length: 20 }, (_, index) => String(index + 1)),
+  gardenPositions: Array.from({ length: 10 }, (_, index) => String(index + 1)),
 }
 
 export function buildGardenRows(lastRow: string) {
@@ -53,8 +53,10 @@ function normalizeGardenRows(values: string[] | undefined) {
 }
 
 function normalizeList(values: string[] | undefined, fallback: string[]) {
+  if (!values) return fallback
+
   const seen = new Set<string>()
-  const normalized = (values ?? [])
+  return values
     .map((value) => value.trim())
     .filter((value) => {
       const key = value.toLowerCase()
@@ -62,6 +64,4 @@ function normalizeList(values: string[] | undefined, fallback: string[]) {
       seen.add(key)
       return true
     })
-
-  return normalized.length ? normalized : fallback
 }

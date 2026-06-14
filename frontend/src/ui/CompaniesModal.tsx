@@ -7,6 +7,14 @@ type CompanyDeleteConflict = {
   usage?: Company['usage']
 }
 
+const COMPANY_FIELD_HINTS = {
+  name: 'Name used for this vendor in invoices and records.',
+  website: 'Website for ordering or reference.',
+  email: 'Contact email for orders or follow-up.',
+  phone: 'Contact phone number for this company.',
+  notes: 'Optional account, ordering, or contact notes.',
+}
+
 function Overlay({ children }: { children: React.ReactNode }) {
   return (
     <div className="modalOverlay">
@@ -17,19 +25,59 @@ function Overlay({ children }: { children: React.ReactNode }) {
   )
 }
 
-function Field({ label, value, onChange, type = 'text', inputMode, pattern, placeholder }: { label: string; value: string; onChange: (v: string) => void; type?: string; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']; pattern?: string; placeholder?: string }) {
+function FieldLabel({ label, hint }: { label: string; hint?: string }) {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (!visible) return
+    const timeout = window.setTimeout(() => setVisible(false), 3000)
+    return () => window.clearTimeout(timeout)
+  }, [visible])
+
+  function showHint() {
+    setVisible(false)
+    window.requestAnimationFrame(() => setVisible(true))
+  }
+
+  function hideHint() {
+    setVisible(false)
+  }
+
+  return (
+    <div className="label fieldLabel">
+      <span>{label}</span>
+      {hint ? (
+        <button
+          className={`helpIcon${visible ? ' show' : ''}`}
+          type="button"
+          aria-label={`${label} hint`}
+          onMouseEnter={showHint}
+          onMouseLeave={hideHint}
+          onFocus={showHint}
+          onBlur={hideHint}
+          onClick={showHint}
+        >
+          ?
+          {visible ? <span className="helpTooltip companyFieldTooltip" role="tooltip">{hint}</span> : null}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+function Field({ label, hint, value, onChange, type = 'text', inputMode, pattern, placeholder }: { label: string; hint?: string; value: string; onChange: (v: string) => void; type?: string; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']; pattern?: string; placeholder?: string }) {
   return (
     <label className="field">
-      <div className="label">{label}</div>
+      <FieldLabel label={label} hint={hint} />
       <input className="input" type={type} inputMode={inputMode} pattern={pattern} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
     </label>
   )
 }
 
-function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function TextArea({ label, hint, value, onChange }: { label: string; hint?: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className="field">
-      <div className="label">{label}</div>
+      <FieldLabel label={label} hint={hint} />
       <textarea className="textarea" value={value} onChange={(e) => onChange(e.target.value)} />
     </label>
   )
@@ -328,12 +376,12 @@ export function CompaniesModal({
         <div className="companyForm">
           <div className="subTitle">{selectedCompanyId ? 'Edit Company' : 'New Company'}</div>
           <div className="grid2">
-            <Field label="Company Name" value={form.name} onChange={(v) => setForm((p) => ({ ...p, name: v }))} />
-            <Field label="Website" value={form.website} onChange={(v) => setForm((p) => ({ ...p, website: v }))} />
-            <Field label="Email" type="email" value={form.email} onChange={(v) => setForm((p) => ({ ...p, email: v }))} />
-            <Field label="Phone" type="tel" inputMode="numeric" pattern="\(\d{3}\) \d{3}-\d{4}" placeholder="(000) 000-0000" value={form.phone} onChange={(v) => setForm((p) => ({ ...p, phone: formatPhone(v) }))} />
+            <Field label="Company Name" hint={COMPANY_FIELD_HINTS.name} value={form.name} onChange={(v) => setForm((p) => ({ ...p, name: v }))} />
+            <Field label="Website" hint={COMPANY_FIELD_HINTS.website} value={form.website} onChange={(v) => setForm((p) => ({ ...p, website: v }))} />
+            <Field label="Email" hint={COMPANY_FIELD_HINTS.email} type="email" value={form.email} onChange={(v) => setForm((p) => ({ ...p, email: v }))} />
+            <Field label="Phone" hint={COMPANY_FIELD_HINTS.phone} type="tel" inputMode="numeric" pattern="\(\d{3}\) \d{3}-\d{4}" placeholder="(000) 000-0000" value={form.phone} onChange={(v) => setForm((p) => ({ ...p, phone: formatPhone(v) }))} />
           </div>
-          <TextArea label="Notes" value={form.notes} onChange={(v) => setForm((p) => ({ ...p, notes: v }))} />
+          <TextArea label="Notes" hint={COMPANY_FIELD_HINTS.notes} value={form.notes} onChange={(v) => setForm((p) => ({ ...p, notes: v }))} />
           {!hasValidEmail ? <div className="error inlineError companyError">Enter a valid email address.</div> : null}
           {error ? <div className="error inlineError companyError">{error}</div> : null}
           {selectedCompanyId && !canDeleteSelectedCompany ? <div className="muted companyError">Shared company entries can be edited here, but only the company owner or a joint garden owner can delete them.</div> : null}

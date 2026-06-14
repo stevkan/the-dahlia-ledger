@@ -899,6 +899,10 @@ th.sortable {
   padding: 16px;
 }
 
+.stackedModalOverlay {
+  z-index: 1100;
+}
+
 .modal {
   position: relative;
   z-index: 1;
@@ -1203,11 +1207,26 @@ th.sortable {
   margin-bottom: 6px;
 }
 
+.fieldMessage,
+.fieldWarning {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.fieldMessage {
+  color: var(--text-muted);
+}
+
+.fieldWarning {
+  color: #ffd36a;
+  font-weight: 650;
+}
+
 .memberActionRow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;
-  margin-top: 12px;
 }
 
 .memberActionRow .btn:first-child {
@@ -1216,6 +1235,10 @@ th.sortable {
 
 .memberActionRow .btn:last-child {
   justify-self: end;
+}
+
+.gardenMemberListSection {
+  margin-left: 18px;
 }
 
 .gardenDetailsActionRow {
@@ -1358,6 +1381,7 @@ th.sortable {
   align-items: center;
   gap: 6px;
   position: relative;
+  z-index: 10;
   align-self: flex-start;
   max-width: fit-content;
 }
@@ -1400,8 +1424,8 @@ th.sortable {
 .helpTooltip {
   position: absolute;
   left: 0;
-  bottom: calc(100% + 8px);
-  z-index: 5;
+  top: calc(100% + 8px);
+  z-index: 20;
   width: 220px;
   max-width: 240px;
   padding: 8px 10px;
@@ -1415,6 +1439,16 @@ th.sortable {
   line-height: 1.35;
   pointer-events: none;
   animation: tooltipFade 3s ease forwards;
+}
+
+.companyFieldTooltip {
+  width: 140px;
+  max-width: 140px;
+}
+
+.recordFieldTooltip {
+  width: 187px;
+  max-width: 204px;
 }
 
 .helpIcon:focus-visible {
@@ -1444,6 +1478,27 @@ th.sortable {
   background: var(--surface-raised);
   color: var(--text);
   padding: 10px 10px;
+}
+
+.input.orphanedField,
+.textarea.orphanedField,
+.select.orphanedField {
+  border-color: #f0c24a;
+  box-shadow: 0 0 0 3px rgba(240, 194, 74, 0.22);
+}
+
+.input.draftRecordNumber {
+  color: rgba(231, 237, 247, 0.5);
+  font-style: italic;
+}
+
+.input.recordNumberInput {
+  pointer-events: none;
+  user-select: none;
+}
+
+:root[data-theme="light"] .input.draftRecordNumber {
+  color: rgba(37, 49, 67, 0.5);
 }
 
 .select {
@@ -2331,8 +2386,47 @@ th.sortable {
   padding-left: 18px;
 }
 
-.gardenOptionsDescription {
+.gardenOptionsDescriptionRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
   margin-bottom: 10px;
+  min-height: 58px;
+}
+
+.gardenOptionsDescriptionContent {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 auto;
+}
+
+.gardenOptionsDescription {
+  min-width: 0;
+}
+
+.gardenOptionMoveActions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.gardenOptionDeleteControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.gardenOptionRestoreDefaults {
+  margin-left: auto;
+}
+
+.gardenOptionDeleteAll {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .gardenOptionValueList {

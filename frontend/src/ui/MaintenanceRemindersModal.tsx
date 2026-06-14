@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { DahliaRecord, GardenMember, MaintenanceReminder, MaintenanceReminderInput } from '../types'
 
 type Props = {
@@ -12,6 +12,56 @@ type Props = {
   onComplete: (id: string) => Promise<void>
   onReopen: (id: string) => Promise<void>
   onDelete: (id: string) => Promise<void>
+}
+
+const REMINDER_FIELD_HINTS = {
+  title: 'Short reminder name shown in the reminder list.',
+  assignedUser: 'Choose who should handle this reminder, or leave it unassigned.',
+  dueDate: 'Date when this reminder should become due.',
+  visibility: 'Private reminders show only to the assignee; garden reminders are shared.',
+  relatedRecord: 'Optionally link this reminder to a specific dahlia record.',
+  highPriority: 'Mark important reminders so they appear ahead of normal reminders.',
+  notes: 'Optional details, instructions, or context for the reminder.',
+}
+
+function FieldLabel({ label, hint }: { label: string; hint?: string }) {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (!visible) return
+    const timeout = window.setTimeout(() => setVisible(false), 3000)
+    return () => window.clearTimeout(timeout)
+  }, [visible])
+
+  function showHint() {
+    setVisible(false)
+    window.requestAnimationFrame(() => setVisible(true))
+  }
+
+  function hideHint() {
+    setVisible(false)
+  }
+
+  return (
+    <div className="label fieldLabel">
+      <span>{label}</span>
+      {hint ? (
+        <button
+          className={`helpIcon${visible ? ' show' : ''}`}
+          type="button"
+          aria-label={`${label} hint`}
+          onMouseEnter={showHint}
+          onMouseLeave={hideHint}
+          onFocus={showHint}
+          onBlur={hideHint}
+          onClick={showHint}
+        >
+          ?
+          {visible ? <span className="helpTooltip" role="tooltip">{hint}</span> : null}
+        </button>
+      ) : null}
+    </div>
+  )
 }
 
 function todayDate() {
@@ -260,11 +310,11 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
             <div className="subTitle">{editingReminderId ? 'Edit Reminder' : 'New Reminder'}</div>
             <div className="grid2">
               <label className="field gridSpanFull">
-                <div className="label">Title</div>
+                <FieldLabel label="Title" hint={REMINDER_FIELD_HINTS.title} />
                 <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Check storage notes for overwintered tubers" />
               </label>
               <label className="field">
-                <div className="label">Assigned user ID</div>
+                <FieldLabel label="Assigned user ID" hint={REMINDER_FIELD_HINTS.assignedUser} />
                 {members.length ? (
                   <select className="select" value={assignedToUserId} onChange={(e) => setAssignedToUserId(e.target.value)}>
                     <option value="">Unassigned</option>
@@ -275,29 +325,32 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
                 )}
               </label>
               <label className="field">
-                <div className="label">Due date</div>
+                <FieldLabel label="Due date" hint={REMINDER_FIELD_HINTS.dueDate} />
                 <input className="input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
               </label>
               <label className="field">
-                <div className="label">Visibility</div>
+                <FieldLabel label="Visibility" hint={REMINDER_FIELD_HINTS.visibility} />
                 <select className="select" value={visibility ?? 'garden'} onChange={(e) => setVisibility(e.target.value as MaintenanceReminder['visibility'])}>
                   <option value="private">Private</option>
                   <option value="garden">Garden</option>
                 </select>
               </label>
               <label className="field">
-                <div className="label">Related record</div>
+                <FieldLabel label="Related record" hint={REMINDER_FIELD_HINTS.relatedRecord} />
                 <select className="select" value={relatedRecordId} onChange={(e) => setRelatedRecordId(e.target.value)}>
                   <option value="">None</option>
                   {relatedRecordOptions.map((record) => <option key={record.id} value={record.id}>{recordLabel(record)}</option>)}
                 </select>
               </label>
-              <label className="radioOption reminderPriorityOption">
-                <input type="checkbox" checked={priority === 'high'} onChange={(e) => setPriority(e.target.checked ? 'high' : 'normal')} />
-                <span>High priority</span>
-              </label>
+              <div className="field reminderPriorityOption">
+                <FieldLabel label="Priority" hint={REMINDER_FIELD_HINTS.highPriority} />
+                <label className="radioOption">
+                  <input type="checkbox" checked={priority === 'high'} onChange={(e) => setPriority(e.target.checked ? 'high' : 'normal')} />
+                  <span>High priority</span>
+                </label>
+              </div>
               <label className="field gridSpanFull">
-                <div className="label">Notes</div>
+                <FieldLabel label="Notes" hint={REMINDER_FIELD_HINTS.notes} />
                 <textarea className="textarea" value={notes} rows={3} onChange={(e) => setNotes(e.target.value)} placeholder="Optional reminder details" />
               </label>
             </div>

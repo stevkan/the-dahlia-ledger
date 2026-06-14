@@ -121,6 +121,7 @@ export type Garden = {
   locationName?: string
   address?: string
   notes?: string
+  gardenOptions?: GardenOptions
   createdByUserId?: string
   isDefault?: boolean
   createdAt?: string
