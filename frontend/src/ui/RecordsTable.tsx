@@ -10,14 +10,14 @@ import {
   type SortingState,
 } from '@tanstack/react-table'
 import { useState } from 'react'
-import type { DahliaRecord, Order } from '../types'
+import type { DahliaRecordSummary, Order } from '../types'
 
 function compareGardenRows(a: string, b: string) {
   if (a.length !== b.length) return a.length - b.length
   return a.localeCompare(b)
 }
 
-function compareGardenLocations(a: DahliaRecord, b: DahliaRecord) {
+function compareGardenLocations(a: DahliaRecordSummary, b: DahliaRecordSummary) {
   const areaCompare = String(a.meta?.gardenZone ?? a.meta?.gardenArea ?? '').localeCompare(String(b.meta?.gardenZone ?? b.meta?.gardenArea ?? ''))
   if (areaCompare !== 0) return areaCompare
 
@@ -31,16 +31,14 @@ function compareGardenLocations(a: DahliaRecord, b: DahliaRecord) {
   return formatGardenLocation(a).localeCompare(formatGardenLocation(b), undefined, { numeric: true })
 }
 
-function resolveRecordPhoto(record: DahliaRecord) {
-  const recordDefault = record.recordPhotos?.find((photo) => photo.id === record.defaultRecordPhotoId)
-  const cultivarDefault = record.cultivarPhotos?.find((photo) => photo.id === record.defaultCultivarPhotoId)
+function resolveRecordPhoto(record: DahliaRecordSummary) {
   if (record.defaultPhotoScope === 'cultivar') {
-    return cultivarDefault?.thumbnailUrl || cultivarDefault?.imageUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl || recordDefault?.thumbnailUrl || recordDefault?.imageUrl || record.thumbnailUrl || record.imageUrl
+    return record.cultivarThumbnailUrl || record.cultivarImageUrl || record.thumbnailUrl || record.imageUrl
   }
-  return recordDefault?.thumbnailUrl || recordDefault?.imageUrl || cultivarDefault?.thumbnailUrl || cultivarDefault?.imageUrl || record.thumbnailUrl || record.imageUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl
+  return record.thumbnailUrl || record.imageUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl
 }
 
-function formatGardenLocation(record: DahliaRecord) {
+function formatGardenLocation(record: DahliaRecordSummary) {
   const plantingState = record.meta?.plantingState ?? 'purchased_container'
   if (plantingState === 'purchased_container') return 'Purchased Container'
   if (plantingState === 'garden_tray') return 'Garden Tray'
@@ -83,13 +81,13 @@ export function RecordsTable({
   onRefreshIntervalChange,
   onOpen,
 }: {
-  rows: DahliaRecord[]
+  rows: DahliaRecordSummary[]
   orders?: Order[]
   loading?: boolean
   refreshIntervalMs: number
   refreshIntervalOptions: number[]
   onRefreshIntervalChange: (intervalMs: number) => void
-  onOpen: (r: DahliaRecord) => void
+  onOpen: (r: DahliaRecordSummary) => void
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 25 })
@@ -103,7 +101,7 @@ export function RecordsTable({
   const gardenRowFilterRef = useRef<HTMLDetailsElement>(null)
   const pageSizeFilterRef = useRef<HTMLDetailsElement>(null)
 
-  const columns = useMemo<ColumnDef<DahliaRecord>[]>(
+  const columns = useMemo<ColumnDef<DahliaRecordSummary>[]>(
     () => [
       {
         header: '#',

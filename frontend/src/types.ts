@@ -158,6 +158,26 @@ export type Invite = {
 
 export type DahliaRecordInput = Omit<DahliaRecord, 'id' | 'recordNumber'> & { id?: string; recordNumber?: number }
 
+export type DahliaRecordSummary = Pick<
+  DahliaRecord,
+  | 'id'
+  | 'recordNumber'
+  | 'gardenId'
+  | 'flowerName'
+  | 'gardenLocation'
+  | 'seasonYearStart'
+  | 'thumbnailUrl'
+  | 'imageUrl'
+  | 'cultivarThumbnailUrl'
+  | 'cultivarImageUrl'
+  | 'defaultPhotoScope'
+> & {
+  core: Pick<DahliaRecord['core'], 'color' | 'size'>
+  growth: Pick<DahliaRecord['growth'], 'height'>
+  tuber: Pick<DahliaRecord['tuber'], 'source' | 'linkedOrderItemIds'>
+  meta: Pick<DahliaRecord['meta'], 'gardenArea' | 'gardenRow' | 'gardenPosition' | 'gardenZone' | 'rowOrBed' | 'position' | 'plantingState'>
+}
+
 export type AgentReviewFinding = {
   severity: 'low' | 'medium' | 'high'
   field: string

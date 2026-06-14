@@ -122,6 +122,42 @@ function cleanRecord(record) {
   })
 }
 
+export function toRecordSummary(record) {
+  return {
+    id: record.id,
+    recordNumber: record.recordNumber,
+    gardenId: record.gardenId,
+    flowerName: record.flowerName,
+    gardenLocation: record.gardenLocation,
+    seasonYearStart: record.seasonYearStart,
+    thumbnailUrl: record.thumbnailUrl,
+    imageUrl: record.imageUrl,
+    cultivarThumbnailUrl: record.cultivarThumbnailUrl,
+    cultivarImageUrl: record.cultivarImageUrl,
+    defaultPhotoScope: record.defaultPhotoScope,
+    core: {
+      color: record.core?.color,
+      size: record.core?.size,
+    },
+    growth: {
+      height: record.growth?.height,
+    },
+    tuber: {
+      source: record.tuber?.source,
+      linkedOrderItemIds: record.tuber?.linkedOrderItemIds,
+    },
+    meta: {
+      gardenArea: record.meta?.gardenArea,
+      gardenRow: record.meta?.gardenRow,
+      gardenPosition: record.meta?.gardenPosition,
+      gardenZone: record.meta?.gardenZone,
+      rowOrBed: record.meta?.rowOrBed,
+      position: record.meta?.position,
+      plantingState: record.meta?.plantingState,
+    },
+  }
+}
+
 async function findGardenLocationConflict(input, excludeId, gardenId) {
   const inputKey = getGardenKey(input)
   if (!inputKey) return null

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.0-beta.1 - 2026-06-14
+
+- Added a summary view for flower record listing so the table can load lightweight record data and fetch full records only when opened.
+
 ## 0.11.4-beta.1 - 2026-06-14
 
 - Fixed garden-scoped flower record listing to query the selected garden directly while preserving legacy unassigned records when requested.

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 import './env.js'
 import { AssetInputSchema, CompanyInputSchema, DahliaPhotoSchema, DahliaRecordInputSchema, OrderInputSchema } from './schema.js'
-import { listRecords, getRecord, createRecord, updateRecord, updateCultivarPhoto, updateCultivarPhotoDefault, updateRecordPhotoDefault, deleteCultivarPhoto, deleteRecord } from './records.js'
+import { listRecords, getRecord, createRecord, updateRecord, updateCultivarPhoto, updateCultivarPhotoDefault, updateRecordPhotoDefault, deleteCultivarPhoto, deleteRecord, toRecordSummary } from './records.js'
 import { addOrderFile, createCompany, createOrder, deleteCompany, deleteOrder, deleteOrderFile, ensureCompany, listCompaniesWithUsage, listOrders, normalizeCompanyKey, reassignCompanies, updateCompany, updateOrder } from './orders.js'
 import { addAssetFile, createAsset, deleteAsset, deleteAssetFile, listAssets, updateAsset } from './assets.js'
 import { ingestText, reviewRecordMapping, proposeMissedIssueCorrection, runMetricRequest, runMetricDrilldown } from './agent.js'
@@ -292,7 +292,7 @@ app.get('/api/records', async (req, res) => {
   try {
     const gardenId = await resolveGardenId(req.user, req.query.gardenId)
     const records = await listRecords(gardenId, { includeLegacyUnassigned: await isFallbackGarden(req.user, gardenId) })
-    res.json({ records, gardenId })
+    res.json({ records: req.query.view === 'summary' ? records.map(toRecordSummary) : records, gardenId })
   } catch (e) {
     if (forbidden(res, e)) return
     throw e

@@ -7,7 +7,7 @@ import {
   signOut,
   type User,
 } from 'firebase/auth'
-import type { AgentCorrectionResult, AgentReviewResult, Asset, AssetInput, Company, CompanyInput, CurrentUserProfile, DahliaPhoto, DahliaRecord, DahliaRecordInput, ExcelImportResult, ExcelImportRevertResult, Garden, GardenMember, GardenRole, Invite, KnownUser, MaintenanceReminder, MaintenanceReminderInput, Order, OrderInput } from '../types'
+import type { AgentCorrectionResult, AgentReviewResult, Asset, AssetInput, Company, CompanyInput, CurrentUserProfile, DahliaPhoto, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, ExcelImportResult, ExcelImportRevertResult, Garden, GardenMember, GardenRole, Invite, KnownUser, MaintenanceReminder, MaintenanceReminderInput, Order, OrderInput } from '../types'
 import type { GardenOptionKey, GardenOptions } from '../types'
 import { DEFAULT_GARDEN_OPTIONS, GARDEN_OPTIONS_STORAGE_KEY, normalizeGardenOptions, normalizeStoredGardenOptions } from '../gardenOptions'
 import { apiHeaders, auth, authHeaders, hasFirebaseConfig, initializeAuthPersistence } from '../firebase'
@@ -48,6 +48,14 @@ function LandscapeOnlyOverlay() {
 
 function recordsQueryKey(gardenId?: string) {
   return ['records', gardenId ?? 'default'] as const
+}
+
+function recordSummariesQueryKey(gardenId?: string) {
+  return ['records', gardenId ?? 'default', 'summary'] as const
+}
+
+function appendGardenQueryParam(gardenQuery: string, param: string) {
+  return gardenQuery ? `${gardenQuery}&${param}` : `?${param}`
 }
 
 function maintenanceRemindersQueryKey(gardenId?: string) {
@@ -297,11 +305,11 @@ export default function App() {
   const gardenQuery = activeGardenId ? `?gardenId=${encodeURIComponent(activeGardenId)}` : ''
   const gardenOptions = gardenOptionsDraft ?? normalizeGardenOptions(selectedGarden?.gardenOptions)
 
-  const recordsQuery = useQuery({
-    queryKey: recordsQueryKey(activeGardenId),
+  const recordSummariesQuery = useQuery({
+    queryKey: recordSummariesQueryKey(activeGardenId),
     queryFn: async () => {
       try {
-        return (await api<{ records: DahliaRecord[] }>(`/api/records${gardenQuery}`)).records
+        return (await api<{ records: DahliaRecordSummary[] }>(`/api/records${appendGardenQueryParam(gardenQuery, 'view=summary')}`)).records
       } catch (e: any) {
         if (e?.details?.error === 'garden_access_denied' && selectedGardenId) setSelectedGardenId('')
         throw e
@@ -309,6 +317,12 @@ export default function App() {
     },
     enabled: Boolean(user),
     refetchInterval: recordsRefreshIntervalMs || false,
+    staleTime: 30_000,
+  })
+  const recordsQuery = useQuery({
+    queryKey: recordsQueryKey(activeGardenId),
+    queryFn: async () => (await api<{ records: DahliaRecord[] }>(`/api/records${gardenQuery}`)).records,
+    enabled: Boolean(user) && (analyticsOpen || maintenanceRemindersOpen || gardenOptionsOpen || createOpen),
     staleTime: 30_000,
   })
   const activeCompaniesQueryKey = [...companiesQueryKey, activeGardenId] as const
@@ -352,6 +366,7 @@ export default function App() {
   })
 
   const records = (recordsQuery.data ?? []).filter((record) => !activeGardenId || record.gardenId === activeGardenId)
+  const recordSummaries = (recordSummariesQuery.data ?? []).filter((record) => !activeGardenId || record.gardenId === activeGardenId)
   const companies = companiesQuery.data ?? []
   const orders = ordersQuery.data ?? []
   const assets = assetsQuery.data ?? []
@@ -361,9 +376,9 @@ export default function App() {
   const visibleIncompleteReminders = maintenanceReminders.filter((reminder) => !reminder.completedAt && canUserViewReminder(reminder, user?.uid))
   const visibleReminderCount = visibleIncompleteReminders.length
   const highPriorityIncompleteReminderCount = visibleIncompleteReminders.filter((reminder) => reminder.priority === 'high').length
-  const loading = recordsQuery.isLoading
+  const loading = recordSummariesQuery.isLoading
 
-  const tableRows = useMemo(() => records, [records])
+  const tableRows = useMemo(() => recordSummaries, [recordSummaries])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -481,6 +496,30 @@ export default function App() {
       queryFn: async () => (await api<{ records: DahliaRecord[] }>(`/api/records${gardenQuery}`)).records,
       staleTime: 0,
     })
+  }
+
+  async function refreshRecordSummaries() {
+    return await queryClient.fetchQuery({
+      queryKey: recordSummariesQueryKey(activeGardenId),
+      queryFn: async () => (await api<{ records: DahliaRecordSummary[] }>(`/api/records${appendGardenQueryParam(gardenQuery, 'view=summary')}`)).records,
+      staleTime: 0,
+    })
+  }
+
+  async function openRecordFromSummary(summary: DahliaRecordSummary) {
+    setError(null)
+    const cachedRecord = records.find((record) => record.id === summary.id)
+    if (cachedRecord) {
+      setActive(cachedRecord)
+      return
+    }
+
+    const data = await api<{ record: DahliaRecord }>(`/api/records/${encodeURIComponent(summary.id)}${gardenQuery}`)
+    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (previous) => {
+      if (!previous) return [data.record]
+      return previous.some((record) => record.id === data.record.id) ? previous.map((record) => record.id === data.record.id ? data.record : record) : [...previous, data.record]
+    })
+    setActive(data.record)
   }
 
   async function refreshCompanies() {
@@ -648,7 +687,7 @@ export default function App() {
     })
     setCreateDraft(null)
     setCreateOpen(false)
-    await Promise.all([refreshRecords(), refreshCompanies()])
+    await Promise.all([refreshRecordSummaries(), refreshCompanies()])
   }
 
   async function onUpdate(id: string, input: DahliaRecordInput, options?: { keepOpen?: boolean; skipRefresh?: boolean }) {
@@ -659,7 +698,7 @@ export default function App() {
     if (options?.keepOpen) setActive(data.record)
     else setActive(null)
     if (!options?.skipRefresh) {
-      const [refreshedRecords] = await Promise.all([refreshRecords(), refreshCompanies()])
+      const [refreshedRecords] = await Promise.all([refreshRecords(), refreshRecordSummaries(), refreshCompanies()])
       if (options?.keepOpen) setActive(refreshedRecords.find((record) => record.id === id) ?? data.record)
     }
   }
@@ -670,6 +709,7 @@ export default function App() {
       body: JSON.stringify(photo),
     })
     queryClient.setQueryData(recordsQueryKey(activeGardenId), data.records)
+    await refreshRecordSummaries()
     setActive(data.records.find((record) => record.id === id) ?? null)
   }
 
@@ -679,6 +719,7 @@ export default function App() {
       body: JSON.stringify({ photo }),
     })
     queryClient.setQueryData(recordsQueryKey(activeGardenId), data.records)
+    await refreshRecordSummaries()
     setActive(data.record)
   }
 
@@ -688,6 +729,7 @@ export default function App() {
       body: JSON.stringify({ photo }),
     })
     queryClient.setQueryData(recordsQueryKey(activeGardenId), data.records)
+    await refreshRecordSummaries()
     setActive(data.records.find((record) => record.id === id) ?? null)
   }
 
@@ -697,6 +739,7 @@ export default function App() {
       body: JSON.stringify({ imageUrl }),
     })
     queryClient.setQueryData(recordsQueryKey(activeGardenId), data.records)
+    await refreshRecordSummaries()
     setActive(data.records.find((record) => record.id === id) ?? null)
   }
 
@@ -705,7 +748,7 @@ export default function App() {
       method: 'DELETE',
     })
     setActive(null)
-    await Promise.all([refreshRecords(), refreshCompanies()])
+    await Promise.all([refreshRecordSummaries(), refreshCompanies()])
   }
 
   async function createGarden(input: { name: string; organizationName?: string }) {
@@ -1509,11 +1552,11 @@ export default function App() {
             </button>
           </div>
           {error ? <div className="error">{error}</div> : null}
-          {recordsQuery.error ? <div className="error">{recordsQuery.error instanceof Error ? recordsQuery.error.message : String(recordsQuery.error)}</div> : null}
+          {recordSummariesQuery.error ? <div className="error">{recordSummariesQuery.error instanceof Error ? recordSummariesQuery.error.message : String(recordSummariesQuery.error)}</div> : null}
           <RecordsTable rows={tableRows} orders={orders} loading={loading} refreshIntervalMs={recordsRefreshIntervalMs} refreshIntervalOptions={RECORDS_REFRESH_INTERVAL_OPTIONS} onRefreshIntervalChange={setRecordsRefreshIntervalMs} onOpen={(r) => {
             setReviewResult(null)
             setCorrectionResult(null)
-            setActive(records.find((record) => record.id === r.id) ?? r)
+            void openRecordFromSummary(r)
           }} />
         </section>
 
