@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   flexRender,
@@ -107,6 +108,7 @@ export function RecordsTable({
   const seasonFilterRef = useRef<HTMLDetailsElement>(null)
   const gardenRowFilterRef = useRef<HTMLDetailsElement>(null)
   const pageSizeFilterRef = useRef<HTMLDetailsElement>(null)
+  const tableWrapRef = useRef<HTMLDivElement>(null)
 
   const columns = useMemo<ColumnDef<DahliaRecordSummary>[]>(
     () => [
@@ -306,6 +308,15 @@ export function RecordsTable({
   })
 
   const pageRows = table.getRowModel().rows
+  const virtualizer = useVirtualizer({
+    count: pageRows.length,
+    getScrollElement: () => tableWrapRef.current,
+    estimateSize: () => 63,
+    overscan: 8,
+  })
+  const virtualRows = virtualizer.getVirtualItems()
+  const virtualPaddingTop = virtualRows[0]?.start ?? 0
+  const virtualPaddingBottom = virtualRows.length > 0 ? virtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end : 0
   const pageCount = table.getPageCount()
   const pageStart = filteredRows.length === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1
   const pageEnd = Math.min(filteredRows.length, pageStart + pageRows.length - 1)
@@ -437,7 +448,7 @@ export function RecordsTable({
         </div>
       </div>
 
-      <div className="tableWrap">
+      <div className="tableWrap" ref={tableWrapRef}>
         <table className="table">
         <thead>
           {table.getHeaderGroups().map((hg) => (
@@ -461,7 +472,15 @@ export function RecordsTable({
               </td>
             </tr>
           ) : pageRows.length > 0 ? (
-            pageRows.map((r) => (
+            <>
+              {virtualPaddingTop > 0 ? (
+                <tr aria-hidden="true">
+                  <td colSpan={8} className="virtualTableSpacer" style={{ height: virtualPaddingTop }} />
+                </tr>
+              ) : null}
+              {virtualRows.map((virtualRow) => {
+                const r = pageRows[virtualRow.index]
+                return (
               <tr key={r.id} className="row" onClick={() => onOpen(r.original)}>
                 {r.getVisibleCells().map((c) => (
                   <td key={c.id} className={columnClassNames[c.column.id]}>
@@ -469,7 +488,14 @@ export function RecordsTable({
                   </td>
                 ))}
               </tr>
-            ))
+                )
+              })}
+              {virtualPaddingBottom > 0 ? (
+                <tr aria-hidden="true">
+                  <td colSpan={8} className="virtualTableSpacer" style={{ height: virtualPaddingBottom }} />
+                </tr>
+              ) : null}
+            </>
           ) : (
             <tr>
               <td colSpan={8} className="empty">

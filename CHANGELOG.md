@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.0-beta.1 - 2026-06-14
+
+- Added virtualized flower record table rendering to keep large paginated record lists responsive while scrolling.
+
 ## 0.13.0-beta.1 - 2026-06-14
 
 - Added paginated flower record summary loading with a load-more control to reduce initial record table fetch size.

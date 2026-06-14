@@ -871,6 +871,11 @@ th.sortable {
   background: var(--surface-hover);
 }
 
+.virtualTableSpacer {
+  padding: 0;
+  border-bottom: 0;
+}
+
 .thumb {
   width: 42px;
   height: 42px;
