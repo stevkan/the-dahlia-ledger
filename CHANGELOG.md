@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.3-beta.1 - 2026-06-14
+
+- Fixed flower record numbering so new records increment within the selected garden instead of across all gardens.
+- Added the Firestore composite index configuration needed for garden-scoped record numbering deployments.
+- Fixed garden detail updates so omitted optional fields are preserved instead of being cleared.
+- Added garden and zone context to company and garden option dependency record lists.
+
 ## 0.11.2-beta.1 - 2026-06-14
 
 - Prevented deleting garden placement options that are still used by planted records and added record links to help resolve those dependencies.

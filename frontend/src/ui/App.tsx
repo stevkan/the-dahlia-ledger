@@ -295,7 +295,7 @@ export default function App() {
   const selectedGarden = gardens.find((garden) => garden.id === selectedGardenId) ?? fallbackGarden(gardens)
   const activeGardenId = selectedGarden?.id ?? ''
   const gardenQuery = activeGardenId ? `?gardenId=${encodeURIComponent(activeGardenId)}` : ''
-  const gardenOptions = gardenOptionsDraft ?? normalizeStoredGardenOptions(selectedGarden?.gardenOptions)
+  const gardenOptions = gardenOptionsDraft ?? normalizeGardenOptions(selectedGarden?.gardenOptions)
 
   const recordsQuery = useQuery({
     queryKey: recordsQueryKey(activeGardenId),
@@ -731,6 +731,7 @@ export default function App() {
         method: 'PUT',
         body: JSON.stringify(input),
       })
+      queryClient.setQueryData<Garden[]>(gardensQueryKey, (current) => current?.map((garden) => garden.id === gardenId ? data.garden : garden) ?? [data.garden])
       await queryClient.invalidateQueries({ queryKey: gardensQueryKey })
       return data.garden
     } catch (e: any) {
@@ -1638,6 +1639,7 @@ export default function App() {
       {companiesOpen ? (
         <CompaniesModal
           companies={companies}
+          gardens={gardens}
           knownUsers={knownUsers}
           isGlobalAdmin={globalAdmin}
           usageRefreshing={companiesUsageRefreshing}
@@ -1696,6 +1698,7 @@ export default function App() {
       {gardenOptionsOpen ? (
         <GardenOptionsModal
           options={gardenOptions}
+          gardens={gardens}
           records={records}
           initialGroup={gardenOptionsInitialGroup}
           onClose={() => setGardenOptionsOpen(false)}

@@ -251,15 +251,16 @@ export async function updateGarden(user, gardenId, input) {
   const ref = getDb().collection(GARDENS).doc(gardenId)
   const doc = await ref.get()
   if (!doc.exists) return null
+  const current = doc.data()
 
   await ref.set(withoutUndefined({
-    ...doc.data(),
-    name: String(input.name ?? doc.data().name ?? '').trim(),
-    organizationName: input.organizationName || undefined,
-    locationName: input.locationName || undefined,
-    address: input.address || undefined,
-    notes: input.notes || undefined,
-    gardenOptions: input.gardenOptions ? normalizedGardenOptions(input.gardenOptions) : doc.data().gardenOptions,
+    ...current,
+    name: String(input.name ?? current.name ?? '').trim(),
+    organizationName: input.organizationName === undefined ? current.organizationName : input.organizationName || undefined,
+    locationName: input.locationName === undefined ? current.locationName : input.locationName || undefined,
+    address: input.address === undefined ? current.address : input.address || undefined,
+    notes: input.notes === undefined ? current.notes : input.notes || undefined,
+    gardenOptions: input.gardenOptions ? normalizedGardenOptions(input.gardenOptions) : current.gardenOptions,
     updatedAt: nowIso(),
   }), { merge: false })
   const updated = await ref.get()

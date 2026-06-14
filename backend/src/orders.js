@@ -103,9 +103,14 @@ function summarizeCompanyUsage({ orders = [], flowerRecords = [] }) {
     })),
     flowerRecords: flowerRecords.map((record) => ({
       id: record.id,
+      gardenId: record.gardenId ?? null,
       recordNumber: record.recordNumber ?? null,
       flowerName: record.flowerName ?? '',
       seasonYearStart: record.seasonYearStart ?? null,
+      meta: {
+        gardenArea: record.meta?.gardenArea ?? null,
+        gardenZone: record.meta?.gardenZone ?? null,
+      },
     })),
   }
 }

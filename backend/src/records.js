@@ -130,8 +130,8 @@ async function findGardenLocationConflict(input, excludeId, gardenId) {
   return records.find((record) => record.id !== excludeId && (record.gardenId ?? gardenId) === gardenId && record.seasonYearStart === input.seasonYearStart && getGardenKey(record) === inputKey) ?? null
 }
 
-async function getNextRecordNumber() {
-  const snap = await getDb().collection(COLLECTION).orderBy('recordNumber', 'desc').limit(1).get()
+async function getNextRecordNumber(gardenId) {
+  const snap = await getDb().collection(COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'desc').limit(1).get()
   const highest = snap.docs[0]?.data()?.recordNumber
   return Number.isInteger(highest) ? highest + 1 : 1
 }
@@ -178,7 +178,7 @@ export async function createRecord(input, gardenId) {
   const base = {
     ...withPhotoDefaults(normalizedInput),
     gardenId,
-    recordNumber: await getNextRecordNumber(),
+    recordNumber: await getNextRecordNumber(gardenId),
     thumbnailUrl: normalizedInput.thumbnailUrl || undefined,
     imageUrl: normalizedInput.imageUrl || undefined,
     cultivarThumbnailUrl: normalizedInput.cultivarThumbnailUrl || undefined,

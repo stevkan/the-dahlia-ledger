@@ -1,0 +1,19 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "dahliaRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "gardenId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "recordNumber",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

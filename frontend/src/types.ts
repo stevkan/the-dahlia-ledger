@@ -228,7 +228,7 @@ export type Company = {
     orderCount?: number
     flowerRecordCount?: number
     orders?: Array<{ id: string; invoiceNumber?: string | null; orderDate?: string | null; totalCost?: number | null }>
-    flowerRecords?: Array<{ id: string; recordNumber?: number | null; flowerName?: string; seasonYearStart?: number | null }>
+    flowerRecords?: Array<{ id: string; gardenId?: string | null; recordNumber?: number | null; flowerName?: string; seasonYearStart?: number | null; meta?: { gardenArea?: string | null; gardenZone?: string | null } }>
   }
   canUpdate?: boolean
   canDelete?: boolean

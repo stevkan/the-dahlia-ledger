@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Company, CompanyInput, DahliaRecord, KnownUser } from '../types'
+import type { Company, CompanyInput, DahliaRecord, Garden, KnownUser } from '../types'
+
+type FlowerUsageRecord = NonNullable<NonNullable<Company['usage']>['flowerRecords']>[number]
 
 type CompanyDeleteConflict = {
   error?: string
@@ -110,8 +112,15 @@ function toInput(form: typeof EMPTY_FORM): CompanyInput {
   }
 }
 
+function formatFlowerUsageDetails(record: FlowerUsageRecord, gardens: Garden[]) {
+  const gardenZone = record.meta?.gardenZone ?? record.meta?.gardenArea
+  const gardenName = gardens.find((garden) => garden.id === record.gardenId)?.name
+  return [record.flowerName || 'Unnamed flower', gardenZone ? `${gardenZone} zone` : null, gardenName, record.seasonYearStart].filter(Boolean).join(', ')
+}
+
 export function CompaniesModal({
   companies,
+  gardens,
   knownUsers,
   isGlobalAdmin,
   usageRefreshing,
@@ -124,6 +133,7 @@ export function CompaniesModal({
   onOpenOrder,
 }: {
   companies: Company[]
+  gardens: Garden[]
   knownUsers: KnownUser[]
   isGlobalAdmin: boolean
   usageRefreshing: boolean
@@ -308,7 +318,7 @@ export function CompaniesModal({
                   <button className="labelLink" type="button" onClick={() => onOpenRecord({ id: record.id })}>
                     #{record.recordNumber ?? record.id}
                   </button>
-                  {` - ${record.flowerName || 'Unnamed flower'}${record.seasonYearStart ? ` (${record.seasonYearStart})` : ''}`}
+                  {` - ${formatFlowerUsageDetails(record, gardens)}`}
                 </li>
               ))}
             </ul>

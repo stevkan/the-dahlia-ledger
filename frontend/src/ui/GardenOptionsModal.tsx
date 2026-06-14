@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_GARDEN_OPTIONS } from '../gardenOptions'
-import type { DahliaRecord, GardenOptionKey, GardenOptions } from '../types'
+import type { DahliaRecord, Garden, GardenOptionKey, GardenOptions } from '../types'
 
-type GardenOptionUsageRecord = Pick<DahliaRecord, 'id' | 'recordNumber' | 'flowerName' | 'seasonYearStart'>
+type GardenOptionUsageRecord = Pick<DahliaRecord, 'id' | 'gardenId' | 'recordNumber' | 'flowerName' | 'seasonYearStart' | 'meta'>
 
 const OPTION_GROUPS: { key: GardenOptionKey; title: string; description: string }[] = [
   { key: 'gardenAreas', title: 'Zones', description: 'Flexible zones or sections available for planted records.' },
@@ -189,8 +189,15 @@ function buildGardenOptionUsage(records: DahliaRecord[], key: GardenOptionKey) {
   return usageByValue
 }
 
+function formatGardenOptionUsageDetails(record: GardenOptionUsageRecord, gardens: Garden[]) {
+  const gardenZone = record.meta?.gardenZone ?? record.meta?.gardenArea
+  const gardenName = gardens.find((garden) => garden.id === record.gardenId)?.name
+  return [record.flowerName || 'Unnamed flower', gardenZone ? `${gardenZone} zone` : null, gardenName, record.seasonYearStart].filter(Boolean).join(', ')
+}
+
 export function GardenOptionsModal({
   options,
+  gardens,
   records,
   initialGroup = 'gardenAreas',
   onClose,
@@ -199,6 +206,7 @@ export function GardenOptionsModal({
   onOpenRecord,
 }: {
   options: GardenOptions
+  gardens: Garden[]
   records: DahliaRecord[]
   initialGroup?: GardenOptionKey
   onClose: () => void
@@ -364,7 +372,7 @@ export function GardenOptionsModal({
               <button className="labelLink" type="button" onClick={() => onOpenRecord?.({ id: record.id })}>
                 #{record.recordNumber ?? record.id}
               </button>
-              {` - ${record.flowerName || 'Unnamed flower'}${record.seasonYearStart ? ` (${record.seasonYearStart})` : ''}`}
+              {` - ${formatGardenOptionUsageDetails(record, gardens)}`}
             </li>
           ))}
         </ul>
