@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_GARDEN_OPTIONS } from '../gardenOptions'
-import type { GardenOptionKey, GardenOptions } from '../types'
+import type { DahliaRecord, GardenOptionKey, GardenOptions } from '../types'
+
+type GardenOptionUsageRecord = Pick<DahliaRecord, 'id' | 'recordNumber' | 'flowerName' | 'seasonYearStart'>
 
 const OPTION_GROUPS: { key: GardenOptionKey; title: string; description: string }[] = [
   { key: 'gardenAreas', title: 'Zones', description: 'Flexible zones or sections available for planted records.' },
@@ -153,18 +155,56 @@ function parseNewOptionValues(key: GardenOptionKey, value: string) {
   return parseDelimitedOptions(key, value).map(normalizeOption)
 }
 
+function recordGardenOptionValue(record: DahliaRecord, key: GardenOptionKey) {
+  if (key === 'gardenAreas') return record.meta?.gardenZone ?? record.meta?.gardenArea ?? ''
+  if (key === 'gardenRows') return record.meta?.rowOrBed ?? record.meta?.gardenRow ?? ''
+
+  const position = record.meta?.position ?? record.meta?.gardenPosition
+  return position ? String(position) : ''
+}
+
+function sortUsageRecords(records: GardenOptionUsageRecord[]) {
+  return [...records].sort((a, b) => (a.recordNumber ?? Number.MAX_SAFE_INTEGER) - (b.recordNumber ?? Number.MAX_SAFE_INTEGER))
+}
+
+function buildGardenOptionUsage(records: DahliaRecord[], key: GardenOptionKey) {
+  const usageByValue = new Map<string, GardenOptionUsageRecord[]>()
+
+  for (const record of records) {
+    if (record.meta?.plantingState !== 'in_garden') continue
+
+    const value = recordGardenOptionValue(record, key)
+    if (!value) continue
+
+    const normalizedValue = value.toLowerCase()
+    const usageRecords = usageByValue.get(normalizedValue) ?? []
+    usageRecords.push(record)
+    usageByValue.set(normalizedValue, usageRecords)
+  }
+
+  for (const [value, usageRecords] of usageByValue) {
+    usageByValue.set(value, sortUsageRecords(usageRecords))
+  }
+
+  return usageByValue
+}
+
 export function GardenOptionsModal({
   options,
+  records,
   initialGroup = 'gardenAreas',
   onClose,
   onChange,
   onRename,
+  onOpenRecord,
 }: {
   options: GardenOptions
+  records: DahliaRecord[]
   initialGroup?: GardenOptionKey
   onClose: () => void
   onChange: (options: GardenOptions) => void
   onRename?: (key: GardenOptionKey, previousValue: string, nextValue: string) => void
+  onOpenRecord?: (record: Pick<DahliaRecord, 'id'>) => void
 }) {
   const deleteControlsRef = useRef<HTMLDivElement | null>(null)
   const [activeGroup, setActiveGroup] = useState<GardenOptionKey>(initialGroup)
@@ -177,6 +217,15 @@ export function GardenOptionsModal({
 
   const selectedGroup = useMemo(() => OPTION_GROUPS.find((group) => group.key === activeGroup) ?? OPTION_GROUPS[0], [activeGroup])
   const values = options[activeGroup]
+  const activeUsageByValue = useMemo(() => buildGardenOptionUsage(records, activeGroup), [activeGroup, records])
+  const selectedUsageRecords = selectedValue ? activeUsageByValue.get(selectedValue.toLowerCase()) ?? [] : []
+  const allUsageRecords = useMemo(() => {
+    const uniqueRecords = new Map<string, GardenOptionUsageRecord>()
+    for (const usageRecords of activeUsageByValue.values()) {
+      for (const record of usageRecords) uniqueRecords.set(record.id, record)
+    }
+    return sortUsageRecords([...uniqueRecords.values()])
+  }, [activeUsageByValue])
   const canSave = formValue.trim().length > 0
   const normalizedFormValue = normalizeOption(formValue)
   const isRename = Boolean(selectedValue && normalizedFormValue && selectedValue !== normalizedFormValue)
@@ -267,6 +316,13 @@ export function GardenOptionsModal({
 
   function deleteSelectedValue() {
     if (!selectedValue) return
+    const usageRecords = deleteAllValues ? allUsageRecords : selectedUsageRecords
+    if (usageRecords.length) {
+      setDeleteArmed(false)
+      setError(`${deleteAllValues ? 'One or more values are' : `${selectedValue} is`} in use by other records. Open the listed records and change their placement before deleting.`)
+      return
+    }
+
     if (!deleteArmed) {
       setDeleteArmed(true)
       return
@@ -292,6 +348,28 @@ export function GardenOptionsModal({
     const [movedValue] = nextValues.splice(currentIndex, 1)
     nextValues.splice(nextIndex, 0, movedValue)
     onChange({ ...options, [activeGroup]: nextValues })
+  }
+
+  function renderOptionUsage() {
+    const usageRecords = deleteAllValues ? allUsageRecords : selectedUsageRecords
+    if (!usageRecords.length) return null
+
+    return (
+      <div className="error inlineError companyError companyDeleteConflict">
+        <div>{deleteAllValues ? 'These options are still in use by the following records.' : `${selectedValue} is still in use by the following records.`}</div>
+        <div className="companyDependencyTitle">Flower records</div>
+        <ul className="companyDependencyList">
+          {usageRecords.map((record) => (
+            <li key={record.id}>
+              <button className="labelLink" type="button" onClick={() => onOpenRecord?.({ id: record.id })}>
+                #{record.recordNumber ?? record.id}
+              </button>
+              {` - ${record.flowerName || 'Unnamed flower'}${record.seasonYearStart ? ` (${record.seasonYearStart})` : ''}`}
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
   }
 
   return (
@@ -353,6 +431,7 @@ export function GardenOptionsModal({
             }} />
           </label>
           {error ? <div className="error inlineError companyError">{error}</div> : null}
+          {renderOptionUsage()}
           <div className="rowActions companyActions">
             {selectedValue ? <button className="btn ghost" type="button" onClick={cancelEdit}>Cancel Edit</button> : null}
             <button className="btn" type="button" disabled={!canSave} onClick={saveValue}>

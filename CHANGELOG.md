@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.2-beta.1 - 2026-06-14
+
+- Prevented deleting garden placement options that are still used by planted records and added record links to help resolve those dependencies.
+
 ## 0.11.1-beta.1 - 2026-06-14
 
 - Fixed custom row/bed option saves so values matching the previous default row set are not reset to `A`, `B`, and `C` during live edits.

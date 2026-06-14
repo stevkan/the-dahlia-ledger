@@ -503,7 +503,6 @@ function SelectField({
   disabledOptions,
   onChange,
   labelAction,
-  invalid,
   message,
 }: {
   label: string
@@ -514,14 +513,13 @@ function SelectField({
   disabledOptions?: string[]
   onChange: (v: string | undefined) => void
   labelAction?: React.ReactNode
-  invalid?: boolean
   message?: string
 }) {
   const disabled = new Set(disabledOptions ?? [])
   const hasSelectedOption = options.some((option) => (option.includes('|') ? option.split('|')[0] : option) === value)
   const selectId = useMemo(() => `select-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, [label])
   const select = (
-    <select id={selectId} className={`select${invalid ? ' orphanedField' : ''}`} value={value ?? ''} onChange={(e) => onChange(e.target.value || undefined)}>
+    <select id={selectId} className="select" value={value ?? ''} onChange={(e) => onChange(e.target.value || undefined)}>
       <option value="">Select...</option>
       {value && !hasSelectedOption ? <option value={value}>{value}</option> : null}
       {options.map((option) => (
@@ -537,7 +535,7 @@ function SelectField({
       <div className="field">
         <FieldLabel label={label} hint={hint} required={required} action={labelAction} />
         {select}
-        {message ? <div className={invalid ? 'fieldWarning' : 'fieldMessage'}>{message}</div> : null}
+        {message ? <div className="fieldMessage">{message}</div> : null}
       </div>
     )
   }
@@ -546,7 +544,7 @@ function SelectField({
     <label className="field" htmlFor={selectId}>
       <FieldLabel label={label} hint={hint} required={required} action={labelAction} />
       {select}
-      {message ? <div className={invalid ? 'fieldWarning' : 'fieldMessage'}>{message}</div> : null}
+      {message ? <div className="fieldMessage">{message}</div> : null}
     </label>
   )
 }
@@ -682,9 +680,6 @@ export function RecordModal({
   const customSourceCompanyMatch = findCompanyNameMatch(companies, customSourceCompany)
   const selectedSourceCompany = customSourceCompanyMatch ?? customSourceCompany
   const selectedGardenKey = getGardenKey(gardenRow, positionValue)
-  const hasOrphanedGardenArea = plantingState === 'in_garden' && gardenArea.length > 0 && !gardenOptions.gardenAreas.includes(gardenArea)
-  const hasOrphanedGardenRow = plantingState === 'in_garden' && gardenRow.length > 0 && !gardenOptions.gardenRows.includes(gardenRow)
-  const hasOrphanedGardenPosition = plantingState === 'in_garden' && gardenPosition.length > 0 && !gardenOptions.gardenPositions.includes(gardenPosition)
   const usedGardenKeys = useMemo(() => {
     return new Set(
       (records ?? [])
@@ -1233,8 +1228,6 @@ export function RecordModal({
                   value={gardenArea}
                   options={gardenOptions.gardenAreas}
                   onChange={setGardenArea}
-                  invalid={hasOrphanedGardenArea}
-                  message={hasOrphanedGardenArea ? `This record's zone "${gardenArea}" is no longer available and has been orphaned.` : undefined}
                   labelAction={onOpenGardenOptions ? (
                     <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenAreas')}>
                       Zone
@@ -1248,8 +1241,6 @@ export function RecordModal({
                   value={gardenRow}
                   options={gardenOptions.gardenRows}
                   onChange={setGardenRow}
-                  invalid={hasOrphanedGardenRow}
-                  message={hasOrphanedGardenRow ? `This record's row/bed "${gardenRow}" is no longer available and has been orphaned.` : undefined}
                   labelAction={onOpenGardenOptions ? (
                     <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenRows')}>
                       Row/Bed
@@ -1264,8 +1255,6 @@ export function RecordModal({
                   options={gardenOptions.gardenPositions}
                   disabledOptions={gardenOptions.gardenPositions.filter((position) => isGardenOptionInUse(gardenRow, Number(position)))}
                   onChange={setGardenPosition}
-                  invalid={hasOrphanedGardenPosition}
-                  message={hasOrphanedGardenPosition ? `This record's position "${gardenPosition}" is no longer available and has been orphaned.` : undefined}
                   labelAction={onOpenGardenOptions ? (
                     <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenPositions')}>
                       Position

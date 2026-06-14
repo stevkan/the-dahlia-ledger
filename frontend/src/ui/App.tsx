@@ -1696,10 +1696,15 @@ export default function App() {
       {gardenOptionsOpen ? (
         <GardenOptionsModal
           options={gardenOptions}
+          records={records}
           initialGroup={gardenOptionsInitialGroup}
           onClose={() => setGardenOptionsOpen(false)}
           onChange={updateGardenOptions}
           onRename={(key, previousValue, nextValue) => void renameGardenOptionReferences(key, previousValue, nextValue)}
+          onOpenRecord={(record) => {
+            const nextActive = records.find((candidate) => candidate.id === record.id)
+            if (nextActive) setActive(nextActive)
+          }}
         />
       ) : null}
 
