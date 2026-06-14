@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth'
 import type { AgentCorrectionResult, AgentReviewResult, Asset, AssetInput, Company, CompanyInput, CurrentUserProfile, DahliaPhoto, DahliaRecord, DahliaRecordInput, ExcelImportResult, ExcelImportRevertResult, Garden, GardenMember, GardenRole, Invite, KnownUser, MaintenanceReminder, MaintenanceReminderInput, Order, OrderInput } from '../types'
 import type { GardenOptionKey, GardenOptions } from '../types'
-import { DEFAULT_GARDEN_OPTIONS, GARDEN_OPTIONS_STORAGE_KEY, normalizeGardenOptions } from '../gardenOptions'
+import { DEFAULT_GARDEN_OPTIONS, GARDEN_OPTIONS_STORAGE_KEY, normalizeGardenOptions, normalizeStoredGardenOptions } from '../gardenOptions'
 import { apiHeaders, auth, authHeaders, hasFirebaseConfig, initializeAuthPersistence } from '../firebase'
 import { RecordsTable } from './RecordsTable'
 import { RecordModal } from './RecordModal'
@@ -80,7 +80,7 @@ function loadStoredGardenOptions(): GardenOptions | null {
   if (!stored) return null
 
   try {
-    return normalizeGardenOptions(JSON.parse(stored))
+    return normalizeStoredGardenOptions(JSON.parse(stored))
   } catch {
     return null
   }
@@ -295,7 +295,7 @@ export default function App() {
   const selectedGarden = gardens.find((garden) => garden.id === selectedGardenId) ?? fallbackGarden(gardens)
   const activeGardenId = selectedGarden?.id ?? ''
   const gardenQuery = activeGardenId ? `?gardenId=${encodeURIComponent(activeGardenId)}` : ''
-  const gardenOptions = gardenOptionsDraft ?? normalizeGardenOptions(selectedGarden?.gardenOptions)
+  const gardenOptions = gardenOptionsDraft ?? normalizeStoredGardenOptions(selectedGarden?.gardenOptions)
 
   const recordsQuery = useQuery({
     queryKey: recordsQueryKey(activeGardenId),

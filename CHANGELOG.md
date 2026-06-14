@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.1-beta.1 - 2026-06-14
+
+- Fixed custom row/bed option saves so values matching the previous default row set are not reset to `A`, `B`, and `C` during live edits.
+
 ## 0.11.0-beta.1 - 2026-06-13
 
 - Added richer garden option management with delimited entry, ranges, reordering, default restoration, delete-all controls, and rename confirmation.

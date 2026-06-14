@@ -38,18 +38,25 @@ function nextGardenRow(row: string) {
 export function normalizeGardenOptions(value: Partial<GardenOptions> | null | undefined): GardenOptions {
   return {
     gardenAreas: normalizeList(value?.gardenAreas, DEFAULT_GARDEN_OPTIONS.gardenAreas),
-    gardenRows: normalizeGardenRows(value?.gardenRows),
+    gardenRows: normalizeList(value?.gardenRows, DEFAULT_GARDEN_ROWS),
     gardenPositions: normalizeList(value?.gardenPositions, DEFAULT_GARDEN_OPTIONS.gardenPositions),
   }
 }
 
-function normalizeGardenRows(values: string[] | undefined) {
-  const rows = normalizeList(values, DEFAULT_GARDEN_ROWS)
-  if (rows.length === PREVIOUS_DEFAULT_GARDEN_ROWS.length && rows.every((row, index) => row === PREVIOUS_DEFAULT_GARDEN_ROWS[index])) {
+export function normalizeStoredGardenOptions(value: Partial<GardenOptions> | null | undefined): GardenOptions {
+  const options = normalizeGardenOptions(value)
+  return {
+    ...options,
+    gardenRows: normalizeStoredGardenRows(options.gardenRows),
+  }
+}
+
+function normalizeStoredGardenRows(values: string[]) {
+  if (values.length === PREVIOUS_DEFAULT_GARDEN_ROWS.length && values.every((row, index) => row === PREVIOUS_DEFAULT_GARDEN_ROWS[index])) {
     return DEFAULT_GARDEN_ROWS
   }
 
-  return rows
+  return values
 }
 
 function normalizeList(values: string[] | undefined, fallback: string[]) {
