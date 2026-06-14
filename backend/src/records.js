@@ -203,6 +203,30 @@ export async function listRecords(gardenId, options = {}) {
     .sort((a, b) => a.recordNumber - b.recordNumber)
 }
 
+export async function listRecordsPage(gardenId, options = {}) {
+  const db = getDb()
+  const limit = Math.min(Math.max(Number(options.limit) || 100, 1), 250)
+  const startAfter = Number(options.startAfter)
+  let query = gardenId
+    ? db.collection(COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'asc')
+    : db.collection(COLLECTION).orderBy('recordNumber', 'asc')
+
+  if (Number.isFinite(startAfter)) query = query.startAfter(startAfter)
+
+  const snap = await query.limit(limit + 1).get()
+  const docs = snap.docs
+  const pageDocs = docs.slice(0, limit)
+
+  const records = pageDocs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .map((record) => cleanRecord({ ...record, gardenId: record.gardenId ?? (options.includeLegacyUnassigned ? gardenId : undefined) }))
+
+  return {
+    records,
+    nextCursor: docs.length > limit ? records.at(-1)?.recordNumber : undefined,
+  }
+}
+
 export async function getRecord(id) {
   const doc = await getDb().collection(COLLECTION).doc(id).get()
   if (!doc.exists) return null

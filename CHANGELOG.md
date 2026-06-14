@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.0-beta.1 - 2026-06-14
+
+- Added paginated flower record summary loading with a load-more control to reduce initial record table fetch size.
+
 ## 0.12.1-beta.1 - 2026-06-14
 
 - Improved photo edit performance by returning only changed records from photo mutations and patching the records cache instead of replacing it with a full reload.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   flexRender,
@@ -76,22 +76,29 @@ export function RecordsTable({
   rows,
   orders = [],
   loading = false,
+  loadingMore = false,
+  hasMore = false,
   refreshIntervalMs,
   refreshIntervalOptions,
   onRefreshIntervalChange,
+  onLoadMore,
   onOpen,
 }: {
   rows: DahliaRecordSummary[]
   orders?: Order[]
   loading?: boolean
+  loadingMore?: boolean
+  hasMore?: boolean
   refreshIntervalMs: number
   refreshIntervalOptions: number[]
   onRefreshIntervalChange: (intervalMs: number) => void
+  onLoadMore: () => void
   onOpen: (r: DahliaRecordSummary) => void
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 25 })
   const [search, setSearch] = useState('')
+  const deferredSearch = useDeferredValue(search)
   const [selectedSeasonYears, setSelectedSeasonYears] = useState<number[]>([])
   const [selectedGardenRows, setSelectedGardenRows] = useState<string[]>([])
   const [seasonFilterOpen, setSeasonFilterOpen] = useState(false)
@@ -187,7 +194,7 @@ export function RecordsTable({
   }, [orders])
 
   const filteredRows = useMemo(() => {
-    const query = search.trim().toLowerCase()
+    const query = deferredSearch.trim().toLowerCase()
     const selectedSeasonYearSet = new Set(selectedSeasonYears)
     const selectedGardenRowSet = new Set(selectedGardenRows)
 
@@ -210,7 +217,7 @@ export function RecordsTable({
 
       return searchableValues.some((value) => String(value ?? '').toLowerCase().includes(query))
     })
-  }, [rows, search, selectedSeasonYears, selectedGardenRows, linkedOrderSearchValuesByItemId])
+  }, [rows, deferredSearch, selectedSeasonYears, selectedGardenRows, linkedOrderSearchValuesByItemId])
 
   const seasonFilterLabel = useMemo(() => {
     if (selectedSeasonYears.length === 0) return 'All seasons'
@@ -302,6 +309,7 @@ export function RecordsTable({
   const pageCount = table.getPageCount()
   const pageStart = filteredRows.length === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1
   const pageEnd = Math.min(filteredRows.length, pageStart + pageRows.length - 1)
+  const loadedEndReached = pageEnd >= filteredRows.length
 
   return (
     <div className="recordsTableStack">
@@ -486,6 +494,9 @@ export function RecordsTable({
           </span>
           <button className="btn paginationButton" type="button" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
             Next
+          </button>
+          <button className="btn paginationButton" type="button" onClick={onLoadMore} disabled={!hasMore || loadingMore || !loadedEndReached}>
+            {loadingMore ? 'Loading...' : 'Load more'}
           </button>
         </div>
       </div>

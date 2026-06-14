@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   onAuthStateChanged,
   OAuthProvider,
@@ -29,6 +29,7 @@ const usersQueryKey = ['users'] as const
 const KNOWN_USERS_REFRESH_INTERVAL_MS = 30_000
 const DEFAULT_RECORDS_REFRESH_INTERVAL_MS = 15 * 60_000
 const RECORDS_REFRESH_INTERVAL_OPTIONS = [0, 30_000, 60_000, 5 * 60_000, 15 * 60_000, 30 * 60_000, 60 * 60_000]
+const RECORD_SUMMARIES_PAGE_SIZE = 100
 const companiesQueryKey = ['companies'] as const
 const ordersQueryKey = ['orders'] as const
 const assetsQueryKey = ['assets'] as const
@@ -71,6 +72,11 @@ function patchRecords(records: DahliaRecord[] | undefined, changedRecords: Dahli
 
 function appendGardenQueryParam(gardenQuery: string, param: string) {
   return gardenQuery ? `${gardenQuery}&${param}` : `?${param}`
+}
+
+type RecordsPage<T> = {
+  records: T[]
+  nextCursor?: number
 }
 
 function maintenanceRemindersQueryKey(gardenId?: string) {
@@ -320,16 +326,20 @@ export default function App() {
   const gardenQuery = activeGardenId ? `?gardenId=${encodeURIComponent(activeGardenId)}` : ''
   const gardenOptions = gardenOptionsDraft ?? normalizeGardenOptions(selectedGarden?.gardenOptions)
 
-  const recordSummariesQuery = useQuery({
+  const recordSummariesQuery = useInfiniteQuery({
     queryKey: recordSummariesQueryKey(activeGardenId),
-    queryFn: async () => {
+    queryFn: async ({ pageParam }) => {
       try {
-        return (await api<{ records: DahliaRecordSummary[] }>(`/api/records${appendGardenQueryParam(gardenQuery, 'view=summary')}`)).records
+        const params = [`view=summary`, `limit=${RECORD_SUMMARIES_PAGE_SIZE}`]
+        if (pageParam != null) params.push(`startAfter=${encodeURIComponent(String(pageParam))}`)
+        return await api<RecordsPage<DahliaRecordSummary>>(`/api/records${appendGardenQueryParam(gardenQuery, params.join('&'))}`)
       } catch (e: any) {
         if (e?.details?.error === 'garden_access_denied' && selectedGardenId) setSelectedGardenId('')
         throw e
       }
     },
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: Boolean(user),
     refetchInterval: recordsRefreshIntervalMs || false,
     staleTime: 30_000,
@@ -381,7 +391,7 @@ export default function App() {
   })
 
   const records = (recordsQuery.data ?? []).filter((record) => !activeGardenId || record.gardenId === activeGardenId)
-  const recordSummaries = (recordSummariesQuery.data ?? []).filter((record) => !activeGardenId || record.gardenId === activeGardenId)
+  const recordSummaries = (recordSummariesQuery.data?.pages.flatMap((page) => page.records) ?? []).filter((record) => !activeGardenId || record.gardenId === activeGardenId)
   const companies = companiesQuery.data ?? []
   const orders = ordersQuery.data ?? []
   const assets = assetsQuery.data ?? []
@@ -514,11 +524,18 @@ export default function App() {
   }
 
   async function refreshRecordSummaries() {
-    return await queryClient.fetchQuery({
+    const data = await queryClient.fetchInfiniteQuery({
       queryKey: recordSummariesQueryKey(activeGardenId),
-      queryFn: async () => (await api<{ records: DahliaRecordSummary[] }>(`/api/records${appendGardenQueryParam(gardenQuery, 'view=summary')}`)).records,
+      queryFn: async ({ pageParam }) => {
+        const params = [`view=summary`, `limit=${RECORD_SUMMARIES_PAGE_SIZE}`]
+        if (pageParam != null) params.push(`startAfter=${encodeURIComponent(String(pageParam))}`)
+        return await api<RecordsPage<DahliaRecordSummary>>(`/api/records${appendGardenQueryParam(gardenQuery, params.join('&'))}`)
+      },
+      initialPageParam: undefined as number | undefined,
+      getNextPageParam: (lastPage: RecordsPage<DahliaRecordSummary>) => lastPage.nextCursor,
       staleTime: 0,
     })
+    return data.pages.flatMap((page) => page.records)
   }
 
   async function openRecordFromSummary(summary: DahliaRecordSummary) {
@@ -1568,7 +1585,7 @@ export default function App() {
           </div>
           {error ? <div className="error">{error}</div> : null}
           {recordSummariesQuery.error ? <div className="error">{recordSummariesQuery.error instanceof Error ? recordSummariesQuery.error.message : String(recordSummariesQuery.error)}</div> : null}
-          <RecordsTable rows={tableRows} orders={orders} loading={loading} refreshIntervalMs={recordsRefreshIntervalMs} refreshIntervalOptions={RECORDS_REFRESH_INTERVAL_OPTIONS} onRefreshIntervalChange={setRecordsRefreshIntervalMs} onOpen={(r) => {
+          <RecordsTable rows={tableRows} orders={orders} loading={loading} loadingMore={recordSummariesQuery.isFetchingNextPage} hasMore={Boolean(recordSummariesQuery.hasNextPage)} refreshIntervalMs={recordsRefreshIntervalMs} refreshIntervalOptions={RECORDS_REFRESH_INTERVAL_OPTIONS} onRefreshIntervalChange={setRecordsRefreshIntervalMs} onLoadMore={() => void recordSummariesQuery.fetchNextPage()} onOpen={(r) => {
             setReviewResult(null)
             setCorrectionResult(null)
             void openRecordFromSummary(r)

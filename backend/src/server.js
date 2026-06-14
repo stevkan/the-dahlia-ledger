@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 import './env.js'
 import { AssetInputSchema, CompanyInputSchema, DahliaPhotoSchema, DahliaRecordInputSchema, OrderInputSchema } from './schema.js'
-import { listRecords, getRecord, createRecord, updateRecord, updateCultivarPhoto, updateCultivarPhotoDefault, updateRecordPhotoDefault, deleteCultivarPhoto, deleteRecord, toRecordSummary } from './records.js'
+import { listRecords, listRecordsPage, getRecord, createRecord, updateRecord, updateCultivarPhoto, updateCultivarPhotoDefault, updateRecordPhotoDefault, deleteCultivarPhoto, deleteRecord, toRecordSummary } from './records.js'
 import { addOrderFile, createCompany, createOrder, deleteCompany, deleteOrder, deleteOrderFile, ensureCompany, listCompaniesWithUsage, listOrders, normalizeCompanyKey, reassignCompanies, updateCompany, updateOrder } from './orders.js'
 import { addAssetFile, createAsset, deleteAsset, deleteAssetFile, listAssets, updateAsset } from './assets.js'
 import { ingestText, reviewRecordMapping, proposeMissedIssueCorrection, runMetricRequest, runMetricDrilldown } from './agent.js'
@@ -291,7 +291,14 @@ app.post('/api/invites/:token/accept', async (req, res) => {
 app.get('/api/records', async (req, res) => {
   try {
     const gardenId = await resolveGardenId(req.user, req.query.gardenId)
-    const records = await listRecords(gardenId, { includeLegacyUnassigned: await isFallbackGarden(req.user, gardenId) })
+    const includeLegacyUnassigned = await isFallbackGarden(req.user, gardenId)
+    if (req.query.limit && !includeLegacyUnassigned) {
+      const page = await listRecordsPage(gardenId, { limit: req.query.limit, startAfter: req.query.startAfter })
+      res.json({ records: req.query.view === 'summary' ? page.records.map(toRecordSummary) : page.records, nextCursor: page.nextCursor, gardenId })
+      return
+    }
+
+    const records = await listRecords(gardenId, { includeLegacyUnassigned })
     res.json({ records: req.query.view === 'summary' ? records.map(toRecordSummary) : records, gardenId })
   } catch (e) {
     if (forbidden(res, e)) return
