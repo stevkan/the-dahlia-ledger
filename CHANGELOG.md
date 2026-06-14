@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.0-beta.7 - 2026-06-13
+
+- Updated garden option management with broader placement field support across records, orders, assets, companies, and reminders.
+- Improved garden option editing styles and modal behavior for shared garden workflows.
+
 ## 0.10.0-beta.6 - 2026-06-13
 
 - Added garden-specific placement option persistence so shared gardens can keep their own zone, row, and position lists.
