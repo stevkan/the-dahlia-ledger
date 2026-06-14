@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.1-beta.1 - 2026-06-14
+
+- Improved photo edit performance by returning only changed records from photo mutations and patching the records cache instead of replacing it with a full reload.
+
 ## 0.12.0-beta.1 - 2026-06-14
 
 - Added a summary view for flower record listing so the table can load lightweight record data and fetch full records only when opened.

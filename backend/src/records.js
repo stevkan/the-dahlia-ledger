@@ -306,9 +306,10 @@ export async function updateCultivarPhoto(id, { cultivarImageUrl, cultivarThumbn
     }),
   )
 
+  const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
   return {
     updatedCount: matchedRecords.length,
-    records: await listRecords(),
+    records: updatedRecords.filter(Boolean),
   }
 }
 
@@ -344,9 +345,10 @@ export async function updateCultivarPhotoDefault(id, { photo }) {
     }),
   )
 
+  const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
   return {
     updatedCount: matchedRecords.length,
-    records: await listRecords(),
+    records: updatedRecords.filter(Boolean),
   }
 }
 
@@ -377,7 +379,6 @@ export async function updateRecordPhotoDefault(id, { photo }) {
 
   return {
     record: await getRecord(id),
-    records: await listRecords(),
   }
 }
 
@@ -415,9 +416,10 @@ export async function deleteCultivarPhoto(id, { imageUrl }) {
     }),
   )
 
+  const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
   return {
     updatedCount: matchedRecords.length,
-    records: await listRecords(),
+    records: updatedRecords.filter(Boolean),
   }
 }
 

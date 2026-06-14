@@ -54,6 +54,21 @@ function recordSummariesQueryKey(gardenId?: string) {
   return ['records', gardenId ?? 'default', 'summary'] as const
 }
 
+function patchRecords(records: DahliaRecord[] | undefined, changedRecords: DahliaRecord[]) {
+  if (!records || changedRecords.length === 0) return records
+
+  const changedById = new Map(changedRecords.map((record) => [record.id, record]))
+  let changed = false
+  const next = records.map((record) => {
+    const replacement = changedById.get(record.id)
+    if (!replacement) return record
+    changed = true
+    return replacement
+  })
+
+  return changed ? next : records
+}
+
 function appendGardenQueryParam(gardenQuery: string, param: string) {
   return gardenQuery ? `${gardenQuery}&${param}` : `?${param}`
 }
@@ -708,17 +723,17 @@ export default function App() {
       method: 'PUT',
       body: JSON.stringify(photo),
     })
-    queryClient.setQueryData(recordsQueryKey(activeGardenId), data.records)
+    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => patchRecords(records, data.records))
     await refreshRecordSummaries()
     setActive(data.records.find((record) => record.id === id) ?? null)
   }
 
   async function onSetRecordPhotoDefault(id: string, photo: DahliaPhoto) {
-    const data = await api<{ record: DahliaRecord; records: DahliaRecord[] }>(`/api/records/${encodeURIComponent(id)}/record-photo-default${gardenQuery}`, {
+    const data = await api<{ record: DahliaRecord }>(`/api/records/${encodeURIComponent(id)}/record-photo-default${gardenQuery}`, {
       method: 'PUT',
       body: JSON.stringify({ photo }),
     })
-    queryClient.setQueryData(recordsQueryKey(activeGardenId), data.records)
+    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => patchRecords(records, [data.record]))
     await refreshRecordSummaries()
     setActive(data.record)
   }
@@ -728,7 +743,7 @@ export default function App() {
       method: 'PUT',
       body: JSON.stringify({ photo }),
     })
-    queryClient.setQueryData(recordsQueryKey(activeGardenId), data.records)
+    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => patchRecords(records, data.records))
     await refreshRecordSummaries()
     setActive(data.records.find((record) => record.id === id) ?? null)
   }
@@ -738,7 +753,7 @@ export default function App() {
       method: 'DELETE',
       body: JSON.stringify({ imageUrl }),
     })
-    queryClient.setQueryData(recordsQueryKey(activeGardenId), data.records)
+    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => patchRecords(records, data.records))
     await refreshRecordSummaries()
     setActive(data.records.find((record) => record.id === id) ?? null)
   }
