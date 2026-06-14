@@ -150,11 +150,19 @@ function normalizeRecordText(input) {
 }
 
 export async function listRecords(gardenId, options = {}) {
-  const snap = await getDb().collection(COLLECTION).orderBy('recordNumber', 'asc').get()
+  const db = getDb()
+  const snap = gardenId
+    ? await db.collection(COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'asc').get()
+    : await db.collection(COLLECTION).orderBy('recordNumber', 'asc').get()
+  const docs = snap.docs
 
-  return snap.docs
+  if (gardenId && options.includeLegacyUnassigned) {
+    const legacySnap = await db.collection(COLLECTION).orderBy('recordNumber', 'asc').get()
+    docs.push(...legacySnap.docs.filter((doc) => !doc.data().gardenId))
+  }
+
+  return docs
     .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((record) => !gardenId || record.gardenId === gardenId || (options.includeLegacyUnassigned && !record.gardenId))
     .map((record) => cleanRecord({ ...record, gardenId: record.gardenId ?? (options.includeLegacyUnassigned ? gardenId : undefined) }))
     .sort((a, b) => a.recordNumber - b.recordNumber)
 }

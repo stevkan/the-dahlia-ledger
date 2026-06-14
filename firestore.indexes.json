@@ -13,6 +13,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "dahliaRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "gardenId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "recordNumber",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

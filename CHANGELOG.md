@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.4-beta.1 - 2026-06-14
+
+- Fixed garden-scoped flower record listing to query the selected garden directly while preserving legacy unassigned records when requested.
+
 ## 0.11.3-beta.1 - 2026-06-14
 
 - Fixed flower record numbering so new records increment within the selected garden instead of across all gardens.
