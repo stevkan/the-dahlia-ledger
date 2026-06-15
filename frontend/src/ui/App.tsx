@@ -523,6 +523,15 @@ export default function App() {
     })
   }
 
+  async function prepareRecordModalRecords() {
+    setError(null)
+    try {
+      await refreshRecords()
+    } catch (e: any) {
+      setError(e?.message ?? String(e))
+    }
+  }
+
   async function refreshRecordSummaries() {
     const data = await queryClient.fetchInfiniteQuery({
       queryKey: recordSummariesQueryKey(activeGardenId),
@@ -548,7 +557,7 @@ export default function App() {
 
     const data = await api<{ record: DahliaRecord }>(`/api/records/${encodeURIComponent(summary.id)}${gardenQuery}`)
     queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (previous) => {
-      if (!previous) return [data.record]
+      if (!previous) return previous
       return previous.some((record) => record.id === data.record.id) ? previous.map((record) => record.id === data.record.id ? data.record : record) : [...previous, data.record]
     })
     setActive(data.record)
@@ -935,7 +944,7 @@ export default function App() {
     setCorrectionResult(null)
   }
 
-  function duplicateRecord(record: DahliaRecord) {
+  async function duplicateRecord(record: DahliaRecord) {
     const plantingState = record.meta?.plantingState ?? 'purchased_container'
     const draft: DahliaRecordInput = {
       flowerName: record.flowerName,
@@ -959,6 +968,7 @@ export default function App() {
 
     setActive(null)
     setCreateDraft(draft)
+    await prepareRecordModalRecords()
     setCreateOpen(true)
   }
 
@@ -1575,9 +1585,10 @@ export default function App() {
         <section className="panel recordsPanel">
           <div className="panelTitle panelTitleRow">
             <span>Records</span>
-            <button className="btn compact" onClick={() => {
+            <button className="btn compact" onClick={async () => {
               setReviewResult(null)
               setCorrectionResult(null)
+              await prepareRecordModalRecords()
               setCreateOpen(true)
             }}>
               New Record
@@ -1687,6 +1698,7 @@ export default function App() {
           initial={null}
           draft={createDraft}
           records={records}
+          recordSummaries={recordSummaries}
           onClose={() => {
             setCreateDraft(null)
             setReviewResult(null)
@@ -1791,6 +1803,7 @@ export default function App() {
           mode="view"
           initial={active}
           records={records}
+          recordSummaries={recordSummaries}
           onClose={() => {
             setReviewResult(null)
             setCorrectionResult(null)

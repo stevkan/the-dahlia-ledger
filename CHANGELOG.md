@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.2-beta.1 - 2026-06-15
+
+- Fixed record editing and filtering so placement fields stay aligned with planted status changes in record tables and modals.
+
 ## 0.15.1-beta.1 - 2026-06-15
 
 - Fixed record summaries and row filters so non-planted records do not retain garden placement values in table filtering or location display.

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_GARDEN_OPTIONS } from '../gardenOptions'
-import type { AgentCorrectionResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, GardenOptionKey, GardenOptions, NotPlantedReason, NotViableReason, Order, PlantingState } from '../types'
+import type { AgentCorrectionResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, GardenOptionKey, GardenOptions, NotPlantedReason, NotViableReason, Order, PlantingState } from '../types'
 
 type SectionKey = 'core' | 'growth' | 'care' | 'tuber' | 'storage' | 'health' | 'varieties' | 'meta' | 'photos'
 type ConfirmAction = 'review' | 'delete' | 'duplicate' | null
@@ -586,6 +586,7 @@ export function RecordModal({
   initial,
   draft,
   records,
+  recordSummaries,
   onClose,
   onSave,
   onSetRecordPhotoDefault,
@@ -614,6 +615,7 @@ export function RecordModal({
   initial: DahliaRecord | null
   draft?: DahliaRecordInput | null
   records?: DahliaRecord[]
+  recordSummaries?: DahliaRecordSummary[]
   onClose: () => void
   onSave: (input: DahliaRecordInput, options?: { keepOpen?: boolean; skipRefresh?: boolean }) => void | Promise<void>
   onSetRecordPhotoDefault?: (photo: DahliaPhoto) => void | Promise<void>
@@ -621,7 +623,7 @@ export function RecordModal({
   onSetCultivarPhotoDefault?: (photo: DahliaPhoto) => void | Promise<void>
   onDeleteCultivarPhoto?: (imageUrl: string) => void | Promise<void>
   onDelete?: () => void | Promise<void>
-  onDuplicate?: (record: DahliaRecord) => void
+  onDuplicate?: (record: DahliaRecord) => void | Promise<void>
   onOpenRecord?: (record: DahliaRecord) => void
   onReview?: (record: DahliaRecordInput) => void | Promise<void>
   onProposeCorrection?: (record: DahliaRecordInput, userCorrection: string) => void | Promise<void>
@@ -683,15 +685,17 @@ export function RecordModal({
   const selectedSourceCompany = customSourceCompanyMatch ?? customSourceCompany
   const selectedGardenKey = getGardenKey(gardenRow, positionValue)
   const usedGardenKeys = useMemo(() => {
-    return new Set(
-      (records ?? [])
-        .filter((record) => record.id !== initial?.id)
-        .filter((record) => record.meta?.plantingState === 'in_garden')
-        .filter((record) => record.seasonYearStart === form.seasonYearStart)
-        .map((record) => getGardenKey(record.meta?.rowOrBed ?? record.meta?.gardenRow, record.meta?.position ?? record.meta?.gardenPosition))
-        .filter((key): key is string => Boolean(key)),
-    )
-  }, [form.seasonYearStart, initial?.id, records])
+    const keys = new Set<string>()
+    ;[...(records ?? []), ...(recordSummaries ?? [])].forEach((record) => {
+      if (record.id === initial?.id) return
+      if (record.meta?.plantingState !== 'in_garden') return
+      if (record.seasonYearStart !== form.seasonYearStart) return
+
+      const key = getGardenKey(record.meta?.rowOrBed ?? record.meta?.gardenRow, record.meta?.position ?? record.meta?.gardenPosition)
+      if (key) keys.add(key)
+    })
+    return keys
+  }, [form.seasonYearStart, initial?.id, recordSummaries, records])
   const gardenLocationInUse = Boolean(selectedGardenKey && usedGardenKeys.has(selectedGardenKey))
 
   const canSave = useMemo(() => {
