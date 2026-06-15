@@ -115,6 +115,7 @@ export function RecordsTable({
   const [seasonFilterOpen, setSeasonFilterOpen] = useState(false)
   const [gardenRowFilterOpen, setGardenRowFilterOpen] = useState(false)
   const [pageSizeFilterOpen, setPageSizeFilterOpen] = useState(false)
+  const defaultSeasonAppliedRef = useRef(false)
   const seasonFilterRef = useRef<HTMLDetailsElement>(null)
   const gardenRowFilterRef = useRef<HTMLDetailsElement>(null)
   const pageSizeFilterRef = useRef<HTMLDetailsElement>(null)
@@ -177,7 +178,8 @@ export function RecordsTable({
   )
 
   useEffect(() => {
-    if (selectedSeasonYears.length === 0 && seasonYears.length > 0) {
+    if (!defaultSeasonAppliedRef.current && selectedSeasonYears.length === 0 && seasonYears.length > 0) {
+      defaultSeasonAppliedRef.current = true
       setSelectedSeasonYears([seasonYears[0]])
     }
   }, [seasonYears, selectedSeasonYears.length])

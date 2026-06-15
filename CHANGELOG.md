@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.0-beta.2 - 2026-06-15
+
+- Fixed the records table season default so clearing season filters is not immediately overwritten after the initial default is applied.
+
 ## 0.15.0-beta.1 - 2026-06-15
 
 - Added paginated garden-scoped record summary endpoints with cursor support and Firestore indexes for common record sorts.
