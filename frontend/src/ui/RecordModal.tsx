@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_GARDEN_OPTIONS } from '../gardenOptions'
 import type { AgentCorrectionResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, GardenOptionKey, GardenOptions, NotPlantedReason, NotViableReason, Order, PlantingState } from '../types'
+import { DropdownField } from './DropdownField'
 
 type SectionKey = 'core' | 'growth' | 'care' | 'tuber' | 'storage' | 'health' | 'varieties' | 'meta' | 'photos'
 type ConfirmAction = 'review' | 'delete' | 'duplicate' | null
@@ -519,17 +520,21 @@ function SelectField({
 }) {
   const disabled = new Set(disabledOptions ?? [])
   const hasSelectedOption = options.some((option) => (option.includes('|') ? option.split('|')[0] : option) === value)
-  const selectId = useMemo(() => `select-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, [label])
   const select = (
-    <select id={selectId} className="select" value={value ?? ''} onChange={(e) => onChange(e.target.value || undefined)}>
-      <option value="">Select...</option>
-      {value && !hasSelectedOption ? <option value={value}>{value}</option> : null}
-      {options.map((option) => (
-        <option key={option} value={option.includes('|') ? option.split('|')[0] : option} disabled={disabled.has(option)}>
-          {option.includes('|') ? option.split('|')[1] : option}
-        </option>
-      ))}
-    </select>
+    <DropdownField
+      label={label}
+      value={value ?? ''}
+      options={[
+        { value: '', label: 'Select...' },
+        ...(value && !hasSelectedOption ? [{ value, label: value }] : []),
+        ...options.map((option) => ({
+          value: option.includes('|') ? option.split('|')[0] : option,
+          label: option.includes('|') ? option.split('|')[1] : option,
+          disabled: disabled.has(option),
+        })),
+      ]}
+      onChange={(nextValue) => onChange(nextValue || undefined)}
+    />
   )
 
   if (labelAction) {
@@ -543,7 +548,7 @@ function SelectField({
   }
 
   return (
-    <label className="field" htmlFor={selectId}>
+      <label className="field">
       <FieldLabel label={label} hint={hint} required={required} action={labelAction} />
       {select}
       {message ? <div className="fieldMessage">{message}</div> : null}
@@ -1441,11 +1446,17 @@ export function RecordModal({
                     <>
                       <label className="field linkedOrderSelect">
                         <FieldLabel label="Invoice Items" hint="Associate one or more saved invoice order items with this dahlia record." />
-                        <select
-                          className="select"
+                        <DropdownField
+                          label="Invoice Items"
                           value=""
-                          onChange={(e) => {
-                            const value = e.target.value
+                          options={[
+                            { value: '', label: 'Select...' },
+                            ...orders.flatMap((order) => order.items.map((item) => ({
+                              value: item.id,
+                              label: `${order.company?.name ?? 'Company'} ${order.invoiceNumber ? `- ${order.invoiceNumber}` : ''} - ${item.flowerName}`,
+                            }))),
+                          ]}
+                          onChange={(value) => {
                             if (!value) return
                             setForm((p) => ({
                               ...p,
@@ -1455,16 +1466,7 @@ export function RecordModal({
                               },
                             }))
                           }}
-                        >
-                          <option value="">Select...</option>
-                          {orders.flatMap((order) =>
-                            order.items.map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {order.company?.name ?? 'Company'} {order.invoiceNumber ? `- ${order.invoiceNumber}` : ''} - {item.flowerName}
-                              </option>
-                            )),
-                          )}
-                        </select>
+                        />
                       </label>
                       {linkedOrderRows.length ? (
                         <div className="tableWrap miniTable">

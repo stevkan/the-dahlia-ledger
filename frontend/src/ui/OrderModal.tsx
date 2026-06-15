@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import type { Company, CompanyInput, Garden, Order, OrderFile, OrderInput } from '../types'
+import { DropdownField } from './DropdownField'
 
 type OrderItemForm = {
   id?: string
@@ -646,10 +647,7 @@ export function OrderModal({
         <div className="grid2">
           <label className="field">
             <FieldLabel label="Company" hint={ORDER_FIELD_HINTS.company} />
-            <select className="select" value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
-              <option value="">Select...</option>
-              {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
-            </select>
+            <DropdownField label="Company" value={companyId} options={[{ value: '', label: 'Select...' }, ...companies.map((company) => ({ value: company.id, label: company.name }))]} onChange={setCompanyId} />
           </label>
           <Field label="New Company" hint={ORDER_FIELD_HINTS.newCompany} value={newCompanyName} onChange={setNewCompanyName} />
           <Field label="Invoice Number" hint={ORDER_FIELD_HINTS.invoiceNumber} value={invoiceNumber} onChange={setInvoiceNumber} />
@@ -683,10 +681,7 @@ export function OrderModal({
               />
               <label className="field gridSpanFull">
                 <FieldLabel label="Garden Assignment" hint={ORDER_FIELD_HINTS.gardenAssignment} />
-                <select className="select" value={item.gardenId ?? ''} onChange={(event) => setItems((p) => p.map((row, i) => (i === index ? { ...row, gardenId: event.target.value || undefined } : row)))}>
-                  <option value="">Unassigned</option>
-                  {gardens.map((garden) => <option key={garden.id} value={garden.id}>{garden.name}</option>)}
-                </select>
+                <DropdownField label="Garden Assignment" value={item.gardenId ?? ''} options={[{ value: '', label: 'Unassigned' }, ...gardens.map((garden) => ({ value: garden.id, label: garden.name }))]} onChange={(value) => setItems((p) => p.map((row, i) => (i === index ? { ...row, gardenId: value || undefined } : row)))} />
               </label>
             </div>
           ))}

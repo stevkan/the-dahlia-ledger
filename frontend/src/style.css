@@ -976,6 +976,10 @@ th.sortable {
   background: var(--surface-raised);
 }
 
+.reminderComposer .grid2 {
+  align-items: start;
+}
+
 .reminderComposerActions {
   justify-content: flex-start;
 }
@@ -1189,6 +1193,207 @@ th.sortable {
 .reminderPriorityOption {
   align-self: end;
   min-height: 42px;
+}
+
+.dropdownField,
+.reminderDropdown {
+  position: relative;
+}
+
+.dropdownButton,
+.reminderDropdownButton {
+  display: block;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dropdownButton:focus-visible,
+.reminderDropdownButton:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.dropdownOptions,
+.reminderDropdownOptions {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: grid;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface-menu);
+  box-shadow: var(--shadow-menu);
+}
+
+.dropdownOption,
+.reminderDropdownOption {
+  padding: 9px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dropdownOption:first-child,
+.reminderDropdownOption:first-child {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.dropdownOption:last-child,
+.reminderDropdownOption:last-child {
+  border-bottom: 0;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.dropdownOption:disabled {
+  color: var(--text-soft);
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.dropdownOption:hover:not(:disabled),
+.dropdownOption[aria-selected="true"],
+.reminderDropdownOption:hover,
+.reminderDropdownOption[aria-selected="true"] {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+
+.relatedRecordField {
+  display: grid;
+  gap: 0;
+}
+
+.reminderComposer .field > .fieldLabel {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+.relatedRecordHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.relatedRecordHeader div.fieldLabel {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+.seasonFilterControl {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.seasonFilterLabel {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.seasonFilterSwitch .switchTrack {
+  width: 92px;
+}
+
+.relatedRecordSearchWrap {
+  position: relative;
+}
+
+.relatedRecordSearchWrap .input {
+  padding-right: 34px;
+}
+
+.relatedRecordClear {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.relatedRecordClear:hover {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+
+.relatedRecordOptions {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: grid;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface-menu);
+  box-shadow: var(--shadow-menu);
+}
+
+.relatedRecordOption {
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--border-soft);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.relatedRecordOption:last-child {
+  border-bottom: 0;
+}
+
+.relatedRecordOption:first-child {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.relatedRecordOption:last-child {
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.relatedRecordOption:hover,
+.relatedRecordOption[aria-selected="true"] {
+  background: var(--surface-hover);
+}
+
+.relatedRecordOptionName {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.relatedRecordOptionMeta {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 @media (max-width: 720px) {
@@ -1520,6 +1725,11 @@ th.sortable {
 .select option {
   background: var(--input-option-bg);
   color: var(--text);
+}
+
+.remindersModal .settingsSelect,
+.remindersModal .settingsSelect option {
+  border-radius: 12px;
 }
 
 .photoField {

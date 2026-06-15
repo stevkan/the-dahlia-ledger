@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Garden, GardenMember, GardenRole, Invite, KnownUser } from '../types'
+import { DropdownField } from './DropdownField'
 
 type Props = {
   gardens: Garden[]
@@ -322,9 +323,7 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
             <div className="grid2">
               <label className="field">
                 <FieldLabel label="Selected garden" hint={GARDEN_FIELD_HINTS.selectedGarden} />
-                <select className="select" value={selectedGardenId} onChange={(event) => setSelectedGardenId(event.target.value)}>
-                  {gardens.map((garden) => <option key={garden.id} value={garden.id}>{garden.name}</option>)}
-                </select>
+                <DropdownField label="Selected garden" value={selectedGardenId} options={gardens.map((garden) => ({ value: garden.id, label: garden.name }))} onChange={setSelectedGardenId} />
               </label>
               <label className="field">
                 <FieldLabel label="New garden name" hint={GARDEN_FIELD_HINTS.newGardenName} />
@@ -374,14 +373,11 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
         <div className="grid2">
           <label className="field">
             <FieldLabel label="Known user" hint={GARDEN_FIELD_HINTS.knownUser} />
-            <select className="select" value={gardenKnownUserId} onChange={(event) => setGardenKnownUserId(event.target.value)}>
-              <option value="">Select a known user...</option>
-              {availableGardenUsers.map((knownUser) => <option key={knownUser.userId} value={knownUser.userId}>{knownUser.displayName || knownUser.email || knownUser.userId}</option>)}
-            </select>
+            <DropdownField label="Known user" value={gardenKnownUserId} options={[{ value: '', label: 'Select a known user...' }, ...availableGardenUsers.map((knownUser) => ({ value: knownUser.userId, label: knownUser.displayName || knownUser.email || knownUser.userId }))]} onChange={setGardenKnownUserId} />
           </label>
           <label className="field">
             <FieldLabel label="Role" hint={GARDEN_FIELD_HINTS.memberRole} />
-            <select className="select" value={gardenRole} onChange={(event) => setGardenRole(event.target.value as GardenRole)}>{GARDEN_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}</select>
+            <DropdownField label="Role" value={gardenRole} options={GARDEN_ROLES.map((role) => ({ value: role, label: role }))} onChange={(value) => setGardenRole(value as GardenRole)} />
           </label>
         </div>
         <div className="memberActionRow"><button className="btn ghost compact" type="button" disabled={busy || !gardenMemberInput()} onClick={() => void saveGardenMember()}>Save Member</button><button className="btn danger compact" type="button" disabled={busy || !selectedGardenMemberIds.length} onClick={() => void removeSelectedGardenMembers()}>Remove Selected</button></div>
@@ -404,7 +400,7 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
         <div className="reminderSectionHeader"><div className="subTitle">Invite Links ({gardenInvites.length})</div></div>
         <div className="grid2">
           <label className="field"><FieldLabel label="Invite email" hint={GARDEN_FIELD_HINTS.inviteEmail} /><input className="input" type="email" inputMode="email" autoComplete="email" required value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} /></label>
-          <label className="field"><FieldLabel label="Invite role" hint={GARDEN_FIELD_HINTS.inviteRole} /><select className="select" value={inviteRole} onChange={(event) => setInviteRole(event.target.value)}>{GARDEN_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}</select></label>
+          <label className="field"><FieldLabel label="Invite role" hint={GARDEN_FIELD_HINTS.inviteRole} /><DropdownField label="Invite role" value={inviteRole} options={GARDEN_ROLES.map((role) => ({ value: role, label: role }))} onChange={setInviteRole} /></label>
         </div>
         <div className="rowActions reminderComposerActions"><button className="btn ghost compact" type="button" disabled={busy || !selectedGardenId || !inviteEmail.trim() || !inviteEmailValid} onClick={() => void createGardenInvite()}>Create Invite</button></div>
       </div>

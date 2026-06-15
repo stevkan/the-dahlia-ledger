@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import type { Asset, AssetFile, AssetInput, Company, CompanyInput, Order } from '../types'
+import { DropdownField } from './DropdownField'
 
 const CATEGORIES = ['Soil', 'Container', 'Tool', 'Support', 'Label', 'Fertilizer', 'Other']
 
@@ -490,10 +491,7 @@ export function AssetsModal({
           <Field label="Asset" hint={ASSET_FIELD_HINTS.asset} value={asset} onChange={setAsset} />
           <label className="field">
             <FieldLabel label="Category" hint={ASSET_FIELD_HINTS.category} />
-            <select className="select" value={category} onChange={(e) => setCategory(e.target.value)}>
-              <option value="">Select...</option>
-              {CATEGORIES.map((option) => <option key={option} value={option}>{option}</option>)}
-            </select>
+            <DropdownField label="Category" value={category} options={[{ value: '', label: 'Select...' }, ...CATEGORIES.map((option) => ({ value: option, label: option }))]} onChange={setCategory} />
           </label>
           <Field label="Quantity" hint={ASSET_FIELD_HINTS.quantity} type="number" value={quantity} onChange={setQuantity} />
           <Field
@@ -511,24 +509,21 @@ export function AssetsModal({
         <div className="subTitle">Invoice</div>
         <label className="field linkedOrderSelect">
           <FieldLabel label="Invoice Items" hint={ASSET_FIELD_HINTS.invoiceItems} />
-          <select
-            className="select"
+          <DropdownField
+            label="Invoice Items"
             value=""
-            onChange={(e) => {
-              const value = e.target.value
+            options={[
+              { value: '', label: 'Select...' },
+              ...orders.flatMap((order) => order.items.map((item) => ({
+                value: item.id,
+                label: `${order.company?.name ?? 'Company'} ${order.invoiceNumber ? `- ${order.invoiceNumber}` : ''} - ${item.flowerName}`,
+              }))),
+            ]}
+            onChange={(value) => {
               if (!value) return
               setLinkedOrderItemIds((current) => Array.from(new Set([...current, value])))
             }}
-          >
-            <option value="">Select...</option>
-            {orders.flatMap((order) =>
-              order.items.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {order.company?.name ?? 'Company'} {order.invoiceNumber ? `- ${order.invoiceNumber}` : ''} - {item.flowerName}
-                </option>
-              )),
-            )}
-          </select>
+          />
         </label>
         {linkedOrderRows.length ? (
           <div className="tableWrap miniTable">
@@ -555,10 +550,7 @@ export function AssetsModal({
         <div className="grid2">
           <label className="field">
             <FieldLabel label="Company" hint={ASSET_FIELD_HINTS.company} />
-            <select className="select" value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
-              <option value="">Select...</option>
-              {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
-            </select>
+            <DropdownField label="Company" value={companyId} options={[{ value: '', label: 'Select...' }, ...companies.map((company) => ({ value: company.id, label: company.name }))]} onChange={setCompanyId} />
           </label>
           <Field label="Purchase Date" hint={ASSET_FIELD_HINTS.purchaseDate} type="date" value={purchaseDate} onChange={setPurchaseDate} />
         </div>

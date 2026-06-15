@@ -4,6 +4,7 @@ import { jsPDF } from 'jspdf'
 import type { AgentReviewResult, AgentVisualization, Company, DahliaRecord, MaintenanceReminderInput } from '../types'
 import agentHelperCapabilities from '../agentHelperCapabilities.json'
 import { apiHeaders } from '../firebase'
+import { DropdownField } from './DropdownField'
 
 const AgentVisualizationView = lazy(async () => {
   const module = await import('./AgentVisualizationView')
@@ -444,6 +445,7 @@ export function AnalyticsPanel({
   const [sortBy, setSortBy] = useState<AnalyticsSort>('company')
   const [chartType, setChartType] = useState<AnalyticsChartType>('bar')
   const [busy, setBusy] = useState(false)
+  const [expandedDropdownOptions, setExpandedDropdownOptions] = useState(0)
   const [result, setResult] = useState<string | null>(null)
   const [visualization, setVisualization] = useState<AgentVisualization | null>(null)
   const [drilldown, setDrilldown] = useState<AnalyticsDrilldown | null>(null)
@@ -691,6 +693,10 @@ export function AnalyticsPanel({
     setChartType(defaultChartTypeForMetric(nextMetric))
   }
 
+  function updateExpandedDropdown(open: boolean, optionCount: number) {
+    setExpandedDropdownOptions(open ? optionCount : 0)
+  }
+
   function canDrilldown(nextMetric: AnalyticsMetric) {
     return [
       'missing_data_summary',
@@ -802,22 +808,31 @@ export function AnalyticsPanel({
   return (
     <div className="agent analyticsPanel">
       <div className="muted">Choose a supported chart, set parameters, then generate the visualization from saved records.</div>
-      <div className="analyticsControls">
+      <div
+        className="analyticsControls"
+        style={expandedDropdownOptions ? { paddingBottom: Math.min(expandedDropdownOptions * 40, 220) + 4 } : undefined}
+      >
         <label className="field">
           <div className="label">Chart</div>
-          <select className="select" value={metric} onChange={(e) => selectMetric(e.target.value as AnalyticsMetric)}>
-            <option value="average_item_cost_by_company">Average Item Cost by Company</option>
-            <option value="average_item_cost_by_form">Average Item Cost by Form</option>
-            <option value="flower_count_by_company_and_season">Flower Count by Company and Season</option>
-            <option value="flower_count_by_planting_state">Flowers by Planting State</option>
-            <option value="flower_purchase_count_by_company">Flowers Purchased by Company</option>
-            <option value="garden_fill_by_area">Garden Fill by Area</option>
-            <option value="height_vs_bloom_size">Height vs Bloom Size</option>
-            <option value="invoice_total_by_company">Invoice Total by Company</option>
-            <option value="invoice_total_by_season">Invoice Total by Season</option>
-            <option value="linked_vs_unlinked_purchase_records">Linked vs Unlinked Purchase Records</option>
-            <option value="missing_data_summary">Missing Data Summary</option>
-          </select>
+          <DropdownField
+            label="Chart"
+            value={metric}
+            options={[
+              { value: 'average_item_cost_by_company', label: 'Average Item Cost by Company' },
+              { value: 'average_item_cost_by_form', label: 'Average Item Cost by Form' },
+              { value: 'flower_count_by_company_and_season', label: 'Flower Count by Company and Season' },
+              { value: 'flower_count_by_planting_state', label: 'Flowers by Planting State' },
+              { value: 'flower_purchase_count_by_company', label: 'Flowers Purchased by Company' },
+              { value: 'garden_fill_by_area', label: 'Garden Fill by Area' },
+              { value: 'height_vs_bloom_size', label: 'Height vs Bloom Size' },
+              { value: 'invoice_total_by_company', label: 'Invoice Total by Company' },
+              { value: 'invoice_total_by_season', label: 'Invoice Total by Season' },
+              { value: 'linked_vs_unlinked_purchase_records', label: 'Linked vs Unlinked Purchase Records' },
+              { value: 'missing_data_summary', label: 'Missing Data Summary' },
+            ]}
+            onChange={(value) => selectMetric(value as AnalyticsMetric)}
+            onOpenChange={updateExpandedDropdown}
+          />
         </label>
         <label className="field">
           <div className="label">Season year</div>
@@ -853,21 +868,11 @@ export function AnalyticsPanel({
         </label>
         <label className="field">
           <div className="label">Sort by</div>
-          <select className="select" value={sortBy} onChange={(e) => setSortBy(e.target.value as AnalyticsSort)}>
-            <option value="company">Name</option>
-            <option value="value_desc">Highest count first</option>
-            <option value="value_asc">Lowest count first</option>
-          </select>
+          <DropdownField label="Sort by" value={sortBy} options={[{ value: 'company', label: 'Name' }, { value: 'value_desc', label: 'Highest count first' }, { value: 'value_asc', label: 'Lowest count first' }]} onChange={(value) => setSortBy(value as AnalyticsSort)} onOpenChange={updateExpandedDropdown} />
         </label>
         <label className="field">
           <div className="label">Display</div>
-          <select className="select" value={chartType} onChange={(e) => setChartType(e.target.value as AnalyticsChartType)}>
-            <option value="bar">Bar chart</option>
-            <option value="line">Line chart</option>
-            <option value="pie">Pie chart</option>
-            <option value="scatter">Scatter plot</option>
-            <option value="table">Table</option>
-          </select>
+          <DropdownField label="Display" value={chartType} options={[{ value: 'bar', label: 'Bar chart' }, { value: 'line', label: 'Line chart' }, { value: 'pie', label: 'Pie chart' }, { value: 'scatter', label: 'Scatter plot' }, { value: 'table', label: 'Table' }]} onChange={(value) => setChartType(value as AnalyticsChartType)} onOpenChange={updateExpandedDropdown} />
         </label>
       </div>
       <div className="agentInputFooter analyticsActions">

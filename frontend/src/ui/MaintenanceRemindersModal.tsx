@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DahliaRecord, GardenMember, MaintenanceReminder, MaintenanceReminderInput } from '../types'
 
+type RelatedRecordSeasonFilter = 'current' | 'all'
+
+type ReminderDropdownOption = {
+  value: string
+  label: string
+}
+
 type Props = {
   reminders: MaintenanceReminder[]
   records: DahliaRecord[]
@@ -64,6 +71,50 @@ function FieldLabel({ label, hint }: { label: string; hint?: string }) {
   )
 }
 
+function ReminderDropdown({ label, value, options, onChange }: { label: string; value: string; options: ReminderDropdownOption[]; onChange: (value: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const selectedOption = options.find((option) => option.value === value) ?? options[0]
+
+  function selectOption(optionValue: string) {
+    onChange(optionValue)
+    setOpen(false)
+  }
+
+  return (
+    <div className="reminderDropdown" onBlur={(e) => {
+      if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false)
+    }}>
+      <button
+        className="reminderDropdownButton select"
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={label}
+        onClick={() => setOpen((current) => !current)}
+      >
+        {selectedOption?.label ?? ''}
+      </button>
+      {open ? (
+        <div className="reminderDropdownOptions" role="listbox" aria-label={label}>
+          {options.map((option) => (
+            <button
+              className="reminderDropdownOption"
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={option.value === value}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => selectOption(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function todayDate() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -87,6 +138,19 @@ function sortRelatedRecords(records: DahliaRecord[]) {
 
     return String(a.gardenLocation ?? '').localeCompare(String(b.gardenLocation ?? ''), undefined, { numeric: true })
   })
+}
+
+function currentSeasonYear(records: DahliaRecord[]) {
+  return records.reduce((latest, record) => Math.max(latest, record.seasonYearStart || 0), 0)
+}
+
+function recordMatchesSearch(record: DahliaRecord, search: string) {
+  const normalizedSearch = search.trim().toLocaleLowerCase()
+  if (!normalizedSearch) return true
+
+  return [record.flowerName, record.gardenLocation, String(record.seasonYearStart)]
+    .filter(Boolean)
+    .some((value) => String(value).toLocaleLowerCase().includes(normalizedSearch))
 }
 
 function reminderTimestamp(reminder: MaintenanceReminder) {
@@ -126,6 +190,9 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
   const [notes, setNotes] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [relatedRecordId, setRelatedRecordId] = useState('')
+  const [relatedRecordSearch, setRelatedRecordSearch] = useState('')
+  const [relatedRecordSeasonFilter, setRelatedRecordSeasonFilter] = useState<RelatedRecordSeasonFilter>('current')
+  const [relatedRecordSearchFocused, setRelatedRecordSearchFocused] = useState(false)
   const [assignedToUserId, setAssignedToUserId] = useState('')
   const [visibility, setVisibility] = useState<MaintenanceReminder['visibility']>('garden')
   const [priority, setPriority] = useState<MaintenanceReminder['priority']>('normal')
@@ -140,8 +207,33 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
   const dueReminders = sortActiveReminders(visibleReminders.filter((reminder) => isDue(reminder)))
   const todoReminders = sortActiveReminders(visibleReminders.filter((reminder) => !reminder.completedAt && !isDue(reminder)))
   const completedReminders = sortRemindersByTimestampDesc(visibleReminders.filter((reminder) => reminder.completedAt))
-  const relatedRecordOptions = sortRelatedRecords(records)
+  const selectedRelatedRecord = records.find((record) => record.id === relatedRecordId)
+  const currentSeason = currentSeasonYear(records)
+  const relatedRecordOptions = sortRelatedRecords(records.filter((record) => {
+    if (relatedRecordSeasonFilter === 'current' && currentSeason && record.seasonYearStart !== currentSeason) return false
+    return recordMatchesSearch(record, relatedRecordSearch)
+  })).slice(0, 8)
+  const assigneeOptions = [{ value: '', label: 'Unassigned' }, ...members.map((member) => ({ value: member.userId, label: member.displayName || member.email || member.userId }))]
+  const showRelatedRecordOptions = relatedRecordSearchFocused && relatedRecordOptions.length > 0
   const canSaveReminder = Boolean(title.trim() && dueDate && visibility)
+
+  function selectRelatedRecord(record: DahliaRecord) {
+    setRelatedRecordId(record.id)
+    setRelatedRecordSearch(recordLabel(record))
+    setRelatedRecordSearchFocused(false)
+  }
+
+  function clearRelatedRecord() {
+    setRelatedRecordId('')
+    setRelatedRecordSearch('')
+    setRelatedRecordSearchFocused(true)
+  }
+
+  function updateRelatedRecordSearch(value: string) {
+    setRelatedRecordSearch(value)
+    setRelatedRecordSearchFocused(true)
+    if (!selectedRelatedRecord || value !== recordLabel(selectedRelatedRecord)) setRelatedRecordId('')
+  }
 
   function toggleExpanded(id: string) {
     setExpandedReminderIds((current) => {
@@ -177,6 +269,7 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
     setNotes('')
     setDueDate('')
     setRelatedRecordId('')
+    setRelatedRecordSearch('')
     setAssignedToUserId('')
     setVisibility('garden')
     setPriority('normal')
@@ -185,11 +278,13 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
   }
 
   function editReminder(reminder: MaintenanceReminder) {
+    const relatedRecord = records.find((record) => record.id === reminder.relatedRecordIds?.[0])
     setConfirmingDeleteReminderId(null)
     setTitle(reminder.title)
     setNotes(reminder.notes ?? '')
     setDueDate(reminder.dueDate ?? '')
-    setRelatedRecordId(reminder.relatedRecordIds?.[0] ?? '')
+    setRelatedRecordId(relatedRecord?.id ?? '')
+    setRelatedRecordSearch(relatedRecord ? recordLabel(relatedRecord) : '')
     setAssignedToUserId(reminder.assignedToUserId ?? '')
     setVisibility(reminder.visibility ?? 'garden')
     setPriority(reminder.priority ?? 'normal')
@@ -316,10 +411,7 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
               <label className="field">
                 <FieldLabel label="Assigned user ID" hint={REMINDER_FIELD_HINTS.assignedUser} />
                 {members.length ? (
-                  <select className="select" value={assignedToUserId} onChange={(e) => setAssignedToUserId(e.target.value)}>
-                    <option value="">Unassigned</option>
-                    {members.map((member) => <option key={member.id} value={member.userId}>{member.displayName || member.email || member.userId}</option>)}
-                  </select>
+                  <ReminderDropdown label="Assigned user ID" value={assignedToUserId} options={assigneeOptions} onChange={setAssignedToUserId} />
                 ) : (
                   <input className="input" value={assignedToUserId} onChange={(e) => setAssignedToUserId(e.target.value)} placeholder="Optional user ID" />
                 )}
@@ -330,18 +422,53 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
               </label>
               <label className="field">
                 <FieldLabel label="Visibility" hint={REMINDER_FIELD_HINTS.visibility} />
-                <select className="select" value={visibility ?? 'garden'} onChange={(e) => setVisibility(e.target.value as MaintenanceReminder['visibility'])}>
-                  <option value="private">Private</option>
-                  <option value="garden">Garden</option>
-                </select>
+                <ReminderDropdown label="Visibility" value={visibility ?? 'garden'} options={[{ value: 'private', label: 'Private' }, { value: 'garden', label: 'Garden' }]} onChange={(value) => setVisibility(value as MaintenanceReminder['visibility'])} />
               </label>
-              <label className="field">
-                <FieldLabel label="Related record" hint={REMINDER_FIELD_HINTS.relatedRecord} />
-                <select className="select" value={relatedRecordId} onChange={(e) => setRelatedRecordId(e.target.value)}>
-                  <option value="">None</option>
-                  {relatedRecordOptions.map((record) => <option key={record.id} value={record.id}>{recordLabel(record)}</option>)}
-                </select>
-              </label>
+              <div className="field relatedRecordField">
+                <div className="relatedRecordHeader">
+                  <FieldLabel label="Related record" hint={REMINDER_FIELD_HINTS.relatedRecord} />
+                  <div className="seasonFilterControl" aria-label="Season filter">
+                    <span className="seasonFilterLabel">Season</span>
+                    <button
+                      className={`switchToggle seasonFilterSwitch${relatedRecordSeasonFilter === 'all' ? ' on' : ''}`}
+                      type="button"
+                      role="switch"
+                      aria-checked={relatedRecordSeasonFilter === 'all'}
+                      aria-label={`Season filter: ${relatedRecordSeasonFilter === 'current' ? 'Current' : 'All'}`}
+                      onClick={() => setRelatedRecordSeasonFilter((current) => current === 'current' ? 'all' : 'current')}
+                    >
+                      <span className="switchTrack">
+                        <span className="switchLabel">{relatedRecordSeasonFilter === 'current' ? 'Current' : 'All'}</span>
+                        <span className="switchThumb" />
+                      </span>
+                    </button>
+                  </div>
+                </div>
+                <div className="relatedRecordSearchWrap">
+                  <input
+                    className="input"
+                    value={relatedRecordSearch}
+                    onChange={(e) => updateRelatedRecordSearch(e.target.value)}
+                    onFocus={() => setRelatedRecordSearchFocused(true)}
+                    onBlur={() => window.setTimeout(() => setRelatedRecordSearchFocused(false), 120)}
+                    placeholder={currentSeason ? `Search ${currentSeason} records` : 'Search records'}
+                    role="combobox"
+                    aria-expanded={showRelatedRecordOptions}
+                    aria-autocomplete="list"
+                  />
+                  {relatedRecordId ? <button className="relatedRecordClear" type="button" aria-label="Clear related record" onMouseDown={(e) => e.preventDefault()} onClick={clearRelatedRecord}>×</button> : null}
+                  {showRelatedRecordOptions ? (
+                    <div className="relatedRecordOptions" role="listbox">
+                      {relatedRecordOptions.map((record) => (
+                        <button className="relatedRecordOption" key={record.id} type="button" role="option" aria-selected={record.id === relatedRecordId} onMouseDown={(e) => e.preventDefault()} onClick={() => selectRelatedRecord(record)}>
+                          <span className="relatedRecordOptionName">{record.flowerName}</span>
+                          <span className="relatedRecordOptionMeta">{record.seasonYearStart}{record.gardenLocation ? ` - ${record.gardenLocation}` : ''}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
               <div className="field reminderPriorityOption">
                 <FieldLabel label="Priority" hint={REMINDER_FIELD_HINTS.highPriority} />
                 <label className="radioOption">

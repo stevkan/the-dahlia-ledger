@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Company, CompanyInput, DahliaRecord, Garden, KnownUser } from '../types'
+import { DropdownField } from './DropdownField'
 
 type FlowerUsageRecord = NonNullable<NonNullable<Company['usage']>['flowerRecords']>[number]
 
@@ -339,12 +340,7 @@ export function CompaniesModal({
         </div>
         <label className="field">
           <div className="label">Assign selected companies to</div>
-          <select className="select" value={reassignOwnerUserId} onChange={(event) => setReassignOwnerUserId(event.target.value)}>
-            <option value="">Choose known user...</option>
-            {knownUsers.map((knownUser) => (
-              <option key={knownUser.userId} value={knownUser.userId}>{knownUser.displayName || knownUser.email || knownUser.userId}</option>
-            ))}
-          </select>
+          <DropdownField label="Assign selected companies to" value={reassignOwnerUserId} options={[{ value: '', label: 'Choose known user...' }, ...knownUsers.map((knownUser) => ({ value: knownUser.userId, label: knownUser.displayName || knownUser.email || knownUser.userId }))]} onChange={setReassignOwnerUserId} />
         </label>
         <div className="rowActions companyActions">
           <button className="btn ghost" type="button" disabled={!companies.length || reassigning} onClick={toggleAllCompanies}>{selectedCompanyIds.length === companies.length ? 'Clear Selection' : 'Select All'}</button>
