@@ -1,6 +1,8 @@
 import { getDb } from './firebase.js'
 const COLLECTION = 'dahliaRecords'
 const ONENOTE_IMPORT_NOTE = 'Imported from OneNote MHT.'
+const RECORD_SUMMARY_CACHE_TTL_MS = 30_000
+const recordSummaryCache = new Map()
 
 function nowIso() {
   return new Date().toISOString()
@@ -15,6 +17,14 @@ function withoutUndefined(value) {
       .filter(([, v]) => v !== undefined)
       .map(([k, v]) => [k, withoutUndefined(v)]),
   )
+}
+
+function recordSummaryCacheKey(gardenId, options = {}) {
+  return `${gardenId ?? 'all'}:${options.includeLegacyUnassigned ? 'legacy' : 'current'}`
+}
+
+function clearRecordSummaryCache() {
+  recordSummaryCache.clear()
 }
 
 function getPlacement(record) {
@@ -158,6 +168,17 @@ export function toRecordSummary(record) {
   }
 }
 
+export async function listRecordSummaries(gardenId, options = {}) {
+  const key = recordSummaryCacheKey(gardenId, options)
+  const cached = recordSummaryCache.get(key)
+  if (cached && cached.expiresAt > Date.now()) return cached.value
+
+  const records = await listRecords(gardenId, options)
+  const value = records.map(toRecordSummary)
+  recordSummaryCache.set(key, { value, expiresAt: Date.now() + RECORD_SUMMARY_CACHE_TTL_MS })
+  return value
+}
+
 async function findGardenLocationConflict(input, excludeId, gardenId) {
   const inputKey = getGardenKey(input)
   if (!inputKey) return null
@@ -259,6 +280,7 @@ export async function createRecord(input, gardenId) {
   }
 
   const ref = await getDb().collection(COLLECTION).add(withoutUndefined(base))
+  clearRecordSummaryCache()
   return await getRecord(ref.id)
 }
 
@@ -290,6 +312,7 @@ export async function updateRecord(id, input, gardenId) {
   }
 
   await getDb().collection(COLLECTION).doc(id).set(withoutUndefined(next), { merge: false })
+  clearRecordSummaryCache()
   return await getRecord(id)
 }
 
@@ -330,6 +353,7 @@ export async function updateCultivarPhoto(id, { cultivarImageUrl, cultivarThumbn
     }),
   )
 
+  clearRecordSummaryCache()
   const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
   return {
     updatedCount: matchedRecords.length,
@@ -369,6 +393,7 @@ export async function updateCultivarPhotoDefault(id, { photo }) {
     }),
   )
 
+  clearRecordSummaryCache()
   const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
   return {
     updatedCount: matchedRecords.length,
@@ -401,6 +426,7 @@ export async function updateRecordPhotoDefault(id, { photo }) {
     { merge: false },
   )
 
+  clearRecordSummaryCache()
   return {
     record: await getRecord(id),
   }
@@ -440,6 +466,7 @@ export async function deleteCultivarPhoto(id, { imageUrl }) {
     }),
   )
 
+  clearRecordSummaryCache()
   const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
   return {
     updatedCount: matchedRecords.length,
@@ -449,5 +476,6 @@ export async function deleteCultivarPhoto(id, { imageUrl }) {
 
 export async function deleteRecord(id) {
   await getDb().collection(COLLECTION).doc(id).delete()
+  clearRecordSummaryCache()
   return true
 }

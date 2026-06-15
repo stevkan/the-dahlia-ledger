@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.2-beta.2 - 2026-06-15
+
+- Improved record summary loading with a short-lived backend cache and added Firestore indexes for common garden-scoped record sorts.
+
 ## 0.14.2-beta.1 - 2026-06-15
 
 - Improved record table search responsiveness by precomputing searchable row text before applying filters.
