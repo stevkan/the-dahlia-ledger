@@ -68,6 +68,15 @@ const columnClassNames: Record<string, string> = {
 const pageSizeOptions = [10, 25, 50, 100]
 const RECORD_THUMB_SIZE = 42
 
+type SearchableRecordRow = {
+  record: DahliaRecordSummary
+  searchableText: string
+}
+
+function normalizeSearchValues(values: unknown[]) {
+  return values.map((value) => String(value ?? '').toLowerCase()).join(' ')
+}
+
 function refreshIntervalLabel(intervalMs: number) {
   if (intervalMs === 0) return 'Off'
   if (intervalMs < 60_000) return `${intervalMs / 1000} sec`
@@ -196,17 +205,10 @@ export function RecordsTable({
     return lookup
   }, [orders])
 
-  const filteredRows = useMemo(() => {
-    const query = deferredSearch.trim().toLowerCase()
-    const selectedSeasonYearSet = new Set(selectedSeasonYears)
-    const selectedGardenRowSet = new Set(selectedGardenRows)
-
-    return rows.filter((record) => {
-      if (selectedSeasonYearSet.size > 0 && !selectedSeasonYearSet.has(record.seasonYearStart)) return false
-      if (selectedGardenRowSet.size > 0 && !selectedGardenRowSet.has(record.meta?.rowOrBed ?? record.meta?.gardenRow ?? '')) return false
-      if (!query) return true
-
-      const searchableValues = [
+  const searchableRows = useMemo<SearchableRecordRow[]>(() => {
+    return rows.map((record) => ({
+      record,
+      searchableText: normalizeSearchValues([
         record.recordNumber,
         record.flowerName,
         record.core.color,
@@ -216,11 +218,22 @@ export function RecordsTable({
         record.seasonYearStart,
         record.tuber.source,
         ...(record.tuber.linkedOrderItemIds ?? []).flatMap((id) => linkedOrderSearchValuesByItemId.get(id) ?? []),
-      ]
+      ]),
+    }))
+  }, [rows, linkedOrderSearchValuesByItemId])
 
-      return searchableValues.some((value) => String(value ?? '').toLowerCase().includes(query))
-    })
-  }, [rows, deferredSearch, selectedSeasonYears, selectedGardenRows, linkedOrderSearchValuesByItemId])
+  const filteredRows = useMemo(() => {
+    const query = deferredSearch.trim().toLowerCase()
+    const selectedSeasonYearSet = new Set(selectedSeasonYears)
+    const selectedGardenRowSet = new Set(selectedGardenRows)
+
+    return searchableRows.filter(({ record, searchableText }) => {
+      if (selectedSeasonYearSet.size > 0 && !selectedSeasonYearSet.has(record.seasonYearStart)) return false
+      if (selectedGardenRowSet.size > 0 && !selectedGardenRowSet.has(record.meta?.rowOrBed ?? record.meta?.gardenRow ?? '')) return false
+      if (query && !searchableText.includes(query)) return false
+      return true
+    }).map(({ record }) => record)
+  }, [searchableRows, deferredSearch, selectedSeasonYears, selectedGardenRows])
 
   const seasonFilterLabel = useMemo(() => {
     if (selectedSeasonYears.length === 0) return 'All seasons'

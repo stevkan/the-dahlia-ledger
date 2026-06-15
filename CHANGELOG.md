@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.2-beta.1 - 2026-06-15
+
+- Improved record table search responsiveness by precomputing searchable row text before applying filters.
+
 ## 0.14.1-beta.1 - 2026-06-15
 
 - Fixed record and photo thumbnail image sizing to reduce layout shifts in virtualized record views and photo previews.
