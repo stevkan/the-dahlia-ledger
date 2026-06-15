@@ -66,6 +66,7 @@ const columnClassNames: Record<string, string> = {
 }
 
 const pageSizeOptions = [10, 25, 50, 100]
+const RECORD_THUMB_SIZE = 42
 
 function refreshIntervalLabel(intervalMs: number) {
   if (intervalMs === 0) return 'Off'
@@ -121,7 +122,7 @@ export function RecordsTable({
         id: 'thumb',
         cell: ({ row }) => {
           const url = resolveRecordPhoto(row.original)
-          return url ? <img className="thumb" src={url} alt="" loading="lazy" decoding="async" /> : <div className="thumb ph" />
+          return url ? <img className="thumb" src={url} alt="" loading="lazy" decoding="async" width={RECORD_THUMB_SIZE} height={RECORD_THUMB_SIZE} /> : <div className="thumb ph" />
         },
         enableSorting: false,
       },

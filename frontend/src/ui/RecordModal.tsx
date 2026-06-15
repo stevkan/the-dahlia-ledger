@@ -47,6 +47,8 @@ const BLOOM_WIDTH_OPTIONS = [
   'M - up to 4"',
   'MC - up to 2"',
 ]
+const PHOTO_PREVIEW_SIZE = 160
+const PHOTO_GALLERY_THUMB_SIZE = 112
 
 const DEFAULT_INPUT: DahliaRecordInput = {
   flowerName: '',
@@ -1295,7 +1297,7 @@ export function RecordModal({
           >
             {currentPhoto && !photoLoadError ? (
               <div className="photoPreviewFrame">
-                <img key={currentPhoto} className="photoPreview" src={currentPhoto} alt="Selected dahlia" loading="lazy" decoding="async" onError={() => setPhotoLoadError(true)} />
+                <img key={currentPhoto} className="photoPreview" src={currentPhoto} alt="Selected dahlia" loading="lazy" decoding="async" width={PHOTO_PREVIEW_SIZE} height={PHOTO_PREVIEW_SIZE} onError={() => setPhotoLoadError(true)} />
                 <button className="photoPreviewOverlayButton" type="button" onClick={() => { setViewerPhotoUrl(currentViewerPhoto); setPhotoViewerOpen(true) }} aria-label="View larger flower photo" />
               </div>
             ) : (
@@ -1829,7 +1831,7 @@ function PhotoGallery({ title, empty, photos, defaultPhotoId, overallDefaultPhot
             return (
               <div key={photo.id} className={`photoTile${isDefault ? ' default' : ''}${isSelected ? ' selected' : ''}`}>
                 <button className="photoTileImageButton" type="button" onClick={() => onView(viewerUrl)}>
-                  <img src={thumbnailUrl} alt="Dahlia gallery item" loading="lazy" decoding="async" />
+                  <img src={thumbnailUrl} alt="Dahlia gallery item" loading="lazy" decoding="async" width={PHOTO_GALLERY_THUMB_SIZE} height={PHOTO_GALLERY_THUMB_SIZE} />
                 </button>
                 <label className="photoTileSelect" aria-label={`Select ${title} photo`}>
                   <input type="checkbox" checked={isSelected} onChange={(event) => toggleSelected(photo.id, event.target.checked)} />

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.1-beta.1 - 2026-06-15
+
+- Fixed record and photo thumbnail image sizing to reduce layout shifts in virtualized record views and photo previews.
+
 ## 0.14.0-beta.1 - 2026-06-14
 
 - Added virtualized flower record table rendering to keep large paginated record lists responsive while scrolling.
