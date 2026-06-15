@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.1-beta.1 - 2026-06-15
+
+- Fixed record summaries and row filters so non-planted records do not retain garden placement values in table filtering or location display.
+
 ## 0.15.0-beta.2 - 2026-06-15
 
 - Fixed the records table season default so clearing season filters is not immediately overwritten after the initial default is applied.

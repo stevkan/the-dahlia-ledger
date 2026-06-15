@@ -120,10 +120,10 @@ function cleanCoreNotes(notes) {
 }
 
 function cleanRecord(record) {
-  const placement = getPlacement(record)
+  const placement = record?.meta?.plantingState === 'in_garden' ? getPlacement(record) : {}
   return withPhotoDefaults({
     ...record,
-    gardenLocation: record.gardenLocation || [placement.rowOrBed, placement.position].filter(Boolean).join(''),
+    gardenLocation: record.meta?.plantingState === 'in_garden' ? record.gardenLocation || [placement.rowOrBed, placement.position].filter(Boolean).join('') : '',
     core: {
       ...(record.core ?? {}),
       notes: cleanCoreNotes(record.core?.notes),
@@ -138,6 +138,8 @@ function cleanRecord(record) {
 }
 
 export function toRecordSummary(record) {
+  const placement = record?.meta?.plantingState === 'in_garden' ? getPlacement(record) : {}
+
   return {
     id: record.id,
     recordNumber: record.recordNumber,
@@ -162,12 +164,12 @@ export function toRecordSummary(record) {
       linkedOrderItemIds: record.tuber?.linkedOrderItemIds,
     },
     meta: {
-      gardenArea: record.meta?.gardenArea,
-      gardenRow: record.meta?.gardenRow,
-      gardenPosition: record.meta?.gardenPosition,
-      gardenZone: record.meta?.gardenZone,
-      rowOrBed: record.meta?.rowOrBed,
-      position: record.meta?.position,
+      gardenArea: placement.zone,
+      gardenRow: placement.rowOrBed,
+      gardenPosition: placement.position,
+      gardenZone: placement.zone,
+      rowOrBed: placement.rowOrBed,
+      position: placement.position,
       plantingState: record.meta?.plantingState,
     },
   }

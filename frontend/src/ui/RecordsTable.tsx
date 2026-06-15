@@ -54,6 +54,11 @@ function formatGardenLocation(record: DahliaRecordSummary) {
   return [gardenArea, rowAndPosition].filter(Boolean).join(' - ')
 }
 
+function getInGardenRow(record: DahliaRecordSummary) {
+  if (record.meta?.plantingState !== 'in_garden') return ''
+  return record.meta?.rowOrBed ?? record.meta?.gardenRow ?? ''
+}
+
 const columnClassNames: Record<string, string> = {
   recordNumber: 'colRecordNumber',
   thumb: 'colThumbnail',
@@ -186,7 +191,7 @@ export function RecordsTable({
 
   const gardenRows = useMemo(
     () =>
-      Array.from(new Set(rows.map((record) => record.meta?.rowOrBed ?? record.meta?.gardenRow).filter((row): row is string => Boolean(row)))).sort(
+      Array.from(new Set(rows.map(getInGardenRow).filter(Boolean))).sort(
         compareGardenRows,
       ),
     [rows],
@@ -231,7 +236,7 @@ export function RecordsTable({
 
     return searchableRows.filter(({ record, searchableText }) => {
       if (selectedSeasonYearSet.size > 0 && !selectedSeasonYearSet.has(record.seasonYearStart)) return false
-      if (selectedGardenRowSet.size > 0 && !selectedGardenRowSet.has(record.meta?.rowOrBed ?? record.meta?.gardenRow ?? '')) return false
+      if (selectedGardenRowSet.size > 0 && !selectedGardenRowSet.has(getInGardenRow(record))) return false
       if (query && !searchableText.includes(query)) return false
       return true
     }).map(({ record }) => record)
