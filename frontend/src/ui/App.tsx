@@ -79,6 +79,93 @@ type RecordsPage<T> = {
   nextCursor?: number
 }
 
+type InfiniteRecordsData<T> = {
+  pages: RecordsPage<T>[]
+  pageParams: unknown[]
+}
+
+function recordToSummary(record: DahliaRecord): DahliaRecordSummary {
+  return {
+    id: record.id,
+    recordNumber: record.recordNumber,
+    gardenId: record.gardenId,
+    flowerName: record.flowerName,
+    gardenLocation: record.gardenLocation,
+    seasonYearStart: record.seasonYearStart,
+    thumbnailUrl: record.thumbnailUrl,
+    imageUrl: record.imageUrl,
+    cultivarThumbnailUrl: record.cultivarThumbnailUrl,
+    cultivarImageUrl: record.cultivarImageUrl,
+    defaultPhotoScope: record.defaultPhotoScope,
+    core: {
+      color: record.core.color,
+      size: record.core.size,
+    },
+    growth: {
+      height: record.growth.height,
+    },
+    tuber: {
+      source: record.tuber.source,
+      linkedOrderItemIds: record.tuber.linkedOrderItemIds,
+    },
+    meta: {
+      gardenArea: record.meta.gardenArea,
+      gardenRow: record.meta.gardenRow,
+      gardenPosition: record.meta.gardenPosition,
+      gardenZone: record.meta.gardenZone,
+      rowOrBed: record.meta.rowOrBed,
+      position: record.meta.position,
+      plantingState: record.meta.plantingState,
+    },
+  }
+}
+
+function patchRecordSummaries(
+  data: InfiniteRecordsData<DahliaRecordSummary> | undefined,
+  changedRecords: DahliaRecord[],
+  deletedRecordIds: string[] = [],
+) {
+  if (!data || (changedRecords.length === 0 && deletedRecordIds.length === 0)) return data
+
+  const changedById = new Map(changedRecords.map((record) => [record.id, recordToSummary(record)]))
+  const deletedIds = new Set(deletedRecordIds)
+  const seenIds = new Set<string>()
+  let changed = false
+
+  const pages = data.pages.map((page, pageIndex) => {
+    const records: DahliaRecordSummary[] = []
+    for (const record of page.records) {
+      if (deletedIds.has(record.id)) {
+        changed = true
+        continue
+      }
+
+      const replacement = changedById.get(record.id)
+      if (replacement) {
+        records.push(replacement)
+        seenIds.add(record.id)
+        changed = true
+      } else {
+        records.push(record)
+      }
+    }
+
+    if (pageIndex === 0) {
+      for (const [id, record] of changedById) {
+        if (!seenIds.has(id)) {
+          records.unshift(record)
+          seenIds.add(id)
+          changed = true
+        }
+      }
+    }
+
+    return records === page.records ? page : { ...page, records }
+  })
+
+  return changed ? { ...data, pages } : data
+}
+
 function maintenanceRemindersQueryKey(gardenId?: string) {
   return ['maintenance-reminders', gardenId ?? 'default'] as const
 }
@@ -391,7 +478,13 @@ export default function App() {
   })
 
   const records = (recordsQuery.data ?? []).filter((record) => !activeGardenId || record.gardenId === activeGardenId)
-  const recordSummaries = (recordSummariesQuery.data?.pages.flatMap((page) => page.records) ?? []).filter((record) => !activeGardenId || record.gardenId === activeGardenId)
+  const recordsById = useMemo(() => new Map(records.map((record) => [record.id, record])), [records])
+  const recordSummaries = (recordSummariesQuery.data?.pages.flatMap((page) => page.records) ?? [])
+    .filter((record) => !activeGardenId || record.gardenId === activeGardenId)
+    .map((summary) => {
+      const cachedRecord = recordsById.get(summary.id)
+      return cachedRecord ? recordToSummary(cachedRecord) : summary
+    })
   const companies = companiesQuery.data ?? []
   const orders = ordersQuery.data ?? []
   const assets = assetsQuery.data ?? []
@@ -545,6 +638,13 @@ export default function App() {
       staleTime: 0,
     })
     return data.pages.flatMap((page) => page.records)
+  }
+
+  function patchRecordSummaryCache(changedRecords: DahliaRecord[], deletedRecordIds: string[] = []) {
+    queryClient.setQueryData<InfiniteRecordsData<DahliaRecordSummary>>(
+      recordSummariesQueryKey(activeGardenId),
+      (data) => patchRecordSummaries(data, changedRecords, deletedRecordIds),
+    )
   }
 
   async function openRecordFromSummary(summary: DahliaRecordSummary) {
@@ -722,10 +822,12 @@ export default function App() {
   }
 
   async function onCreate(input: DahliaRecordInput) {
-    await api<{ record: DahliaRecord }>(`/api/records${gardenQuery}`, {
+    const data = await api<{ record: DahliaRecord }>(`/api/records${gardenQuery}`, {
       method: 'POST',
       body: JSON.stringify({ ...input, gardenId: activeGardenId || input.gardenId }),
     })
+    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => records ? [data.record, ...records] : [data.record])
+    patchRecordSummaryCache([data.record])
     setCreateDraft(null)
     setCreateOpen(false)
     await Promise.all([refreshRecordSummaries(), refreshCompanies()])
@@ -736,6 +838,8 @@ export default function App() {
       method: 'PUT',
       body: JSON.stringify({ ...input, gardenId: activeGardenId || input.gardenId }),
     })
+    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => patchRecords(records, [data.record]) ?? [data.record])
+    patchRecordSummaryCache([data.record])
     if (options?.keepOpen) setActive(data.record)
     else setActive(null)
     if (!options?.skipRefresh) {
@@ -750,6 +854,7 @@ export default function App() {
       body: JSON.stringify(photo),
     })
     queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => patchRecords(records, data.records))
+    patchRecordSummaryCache(data.records)
     await refreshRecordSummaries()
     setActive(data.records.find((record) => record.id === id) ?? null)
   }
@@ -760,6 +865,7 @@ export default function App() {
       body: JSON.stringify({ photo }),
     })
     queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => patchRecords(records, [data.record]))
+    patchRecordSummaryCache([data.record])
     await refreshRecordSummaries()
     setActive(data.record)
   }
@@ -770,6 +876,7 @@ export default function App() {
       body: JSON.stringify({ photo }),
     })
     queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => patchRecords(records, data.records))
+    patchRecordSummaryCache(data.records)
     await refreshRecordSummaries()
     setActive(data.records.find((record) => record.id === id) ?? null)
   }
@@ -780,6 +887,7 @@ export default function App() {
       body: JSON.stringify({ imageUrl }),
     })
     queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => patchRecords(records, data.records))
+    patchRecordSummaryCache(data.records)
     await refreshRecordSummaries()
     setActive(data.records.find((record) => record.id === id) ?? null)
   }
@@ -788,6 +896,8 @@ export default function App() {
     await api<{ ok: true }>(`/api/records/${encodeURIComponent(id)}${gardenQuery}`, {
       method: 'DELETE',
     })
+    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => records?.filter((record) => record.id !== id))
+    patchRecordSummaryCache([], [id])
     setActive(null)
     await Promise.all([refreshRecordSummaries(), refreshCompanies()])
   }

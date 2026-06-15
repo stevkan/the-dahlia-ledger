@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.0-beta.1 - 2026-06-15
+
+- Improved record create, edit, photo, and delete flows so cached record summaries update immediately before background refreshes complete.
+
 ## 0.15.2-beta.1 - 2026-06-15
 
 - Fixed record editing and filtering so placement fields stay aligned with planted status changes in record tables and modals.
