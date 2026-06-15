@@ -1,5 +1,6 @@
 import { getDb } from './firebase.js'
 const COLLECTION = 'dahliaRecords'
+const SUMMARY_COLLECTION = 'dahliaRecordSummaries'
 const ONENOTE_IMPORT_NOTE = 'Imported from OneNote MHT.'
 const RECORD_SUMMARY_CACHE_TTL_MS = 30_000
 const recordSummaryCache = new Map()
@@ -25,6 +26,10 @@ function recordSummaryCacheKey(gardenId, options = {}) {
 
 function clearRecordSummaryCache() {
   recordSummaryCache.clear()
+}
+
+function isMissingFirestoreIndexError(error) {
+  return error?.code === 9 || error?.code === 'failed-precondition'
 }
 
 function getPlacement(record) {
@@ -168,13 +173,57 @@ export function toRecordSummary(record) {
   }
 }
 
+async function writeRecordSummary(record) {
+  if (!record?.id) return
+  await getDb().collection(SUMMARY_COLLECTION).doc(record.id).set(withoutUndefined(toRecordSummary(record)), { merge: false })
+}
+
+async function deleteRecordSummary(id) {
+  await getDb().collection(SUMMARY_COLLECTION).doc(id).delete()
+}
+
+function cleanRecordSummary(summary, options = {}) {
+  return withoutUndefined({
+    ...summary,
+    gardenId: summary.gardenId ?? (options.includeLegacyUnassigned ? options.gardenId : undefined),
+  })
+}
+
+async function backfillMissingSummaries(records) {
+  await Promise.all(records.map((record) => writeRecordSummary(record)))
+}
+
 export async function listRecordSummaries(gardenId, options = {}) {
   const key = recordSummaryCacheKey(gardenId, options)
   const cached = recordSummaryCache.get(key)
   if (cached && cached.expiresAt > Date.now()) return cached.value
 
-  const records = await listRecords(gardenId, options)
-  const value = records.map(toRecordSummary)
+  const db = getDb()
+  let summaries
+  try {
+    const snap = gardenId
+      ? await db.collection(SUMMARY_COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'asc').get()
+      : await db.collection(SUMMARY_COLLECTION).orderBy('recordNumber', 'asc').get()
+    summaries = snap.docs.map((d) => cleanRecordSummary({ id: d.id, ...d.data() }, { ...options, gardenId }))
+
+    if (gardenId && options.includeLegacyUnassigned) {
+      const legacySnap = await db.collection(SUMMARY_COLLECTION).orderBy('recordNumber', 'asc').get()
+      summaries.push(...legacySnap.docs.filter((doc) => !doc.data().gardenId).map((d) => cleanRecordSummary({ id: d.id, ...d.data() }, { ...options, gardenId })))
+    }
+  } catch (e) {
+    if (!isMissingFirestoreIndexError(e)) throw e
+    const records = await listRecords(gardenId, options)
+    await backfillMissingSummaries(records)
+    summaries = records.map(toRecordSummary)
+  }
+
+  let value = summaries.sort((a, b) => a.recordNumber - b.recordNumber)
+  if (value.length === 0) {
+    const records = await listRecords(gardenId, options)
+    await backfillMissingSummaries(records)
+    value = records.map(toRecordSummary)
+  }
+
   recordSummaryCache.set(key, { value, expiresAt: Date.now() + RECORD_SUMMARY_CACHE_TTL_MS })
   return value
 }
@@ -248,6 +297,46 @@ export async function listRecordsPage(gardenId, options = {}) {
   }
 }
 
+export async function listRecordSummariesPage(gardenId, options = {}) {
+  const db = getDb()
+  const limit = Math.min(Math.max(Number(options.limit) || 100, 1), 250)
+  const startAfter = Number(options.startAfter)
+  let query = gardenId
+    ? db.collection(SUMMARY_COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'asc')
+    : db.collection(SUMMARY_COLLECTION).orderBy('recordNumber', 'asc')
+
+  if (Number.isFinite(startAfter)) query = query.startAfter(startAfter)
+
+  let snap
+  try {
+    snap = await query.limit(limit + 1).get()
+  } catch (e) {
+    if (!isMissingFirestoreIndexError(e)) throw e
+    const fullPage = await listRecordsPage(gardenId, options)
+    await backfillMissingSummaries(fullPage.records)
+    return {
+      records: fullPage.records.map(toRecordSummary),
+      nextCursor: fullPage.nextCursor,
+    }
+  }
+  if (snap.empty && !Number.isFinite(startAfter)) {
+    const fullPage = await listRecordsPage(gardenId, options)
+    await backfillMissingSummaries(fullPage.records)
+    return {
+      records: fullPage.records.map(toRecordSummary),
+      nextCursor: fullPage.nextCursor,
+    }
+  }
+
+  const docs = snap.docs
+  const records = docs.slice(0, limit).map((d) => cleanRecordSummary({ id: d.id, ...d.data() }, { gardenId }))
+
+  return {
+    records,
+    nextCursor: docs.length > limit ? records.at(-1)?.recordNumber : undefined,
+  }
+}
+
 export async function getRecord(id) {
   const doc = await getDb().collection(COLLECTION).doc(id).get()
   if (!doc.exists) return null
@@ -280,6 +369,7 @@ export async function createRecord(input, gardenId) {
   }
 
   const ref = await getDb().collection(COLLECTION).add(withoutUndefined(base))
+  await writeRecordSummary({ id: ref.id, ...base })
   clearRecordSummaryCache()
   return await getRecord(ref.id)
 }
@@ -312,6 +402,7 @@ export async function updateRecord(id, input, gardenId) {
   }
 
   await getDb().collection(COLLECTION).doc(id).set(withoutUndefined(next), { merge: false })
+  await writeRecordSummary({ id, ...next })
   clearRecordSummaryCache()
   return await getRecord(id)
 }
@@ -353,8 +444,9 @@ export async function updateCultivarPhoto(id, { cultivarImageUrl, cultivarThumbn
     }),
   )
 
-  clearRecordSummaryCache()
   const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
+  await backfillMissingSummaries(updatedRecords.filter(Boolean))
+  clearRecordSummaryCache()
   return {
     updatedCount: matchedRecords.length,
     records: updatedRecords.filter(Boolean),
@@ -393,8 +485,9 @@ export async function updateCultivarPhotoDefault(id, { photo }) {
     }),
   )
 
-  clearRecordSummaryCache()
   const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
+  await backfillMissingSummaries(updatedRecords.filter(Boolean))
+  clearRecordSummaryCache()
   return {
     updatedCount: matchedRecords.length,
     records: updatedRecords.filter(Boolean),
@@ -426,9 +519,11 @@ export async function updateRecordPhotoDefault(id, { photo }) {
     { merge: false },
   )
 
+  const updatedRecord = await getRecord(id)
+  if (updatedRecord) await writeRecordSummary(updatedRecord)
   clearRecordSummaryCache()
   return {
-    record: await getRecord(id),
+    record: updatedRecord,
   }
 }
 
@@ -466,8 +561,9 @@ export async function deleteCultivarPhoto(id, { imageUrl }) {
     }),
   )
 
-  clearRecordSummaryCache()
   const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
+  await backfillMissingSummaries(updatedRecords.filter(Boolean))
+  clearRecordSummaryCache()
   return {
     updatedCount: matchedRecords.length,
     records: updatedRecords.filter(Boolean),
@@ -476,6 +572,7 @@ export async function deleteCultivarPhoto(id, { imageUrl }) {
 
 export async function deleteRecord(id) {
   await getDb().collection(COLLECTION).doc(id).delete()
+  await deleteRecordSummary(id)
   clearRecordSummaryCache()
   return true
 }

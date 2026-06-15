@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.0-beta.1 - 2026-06-15
+
+- Added paginated garden-scoped record summary endpoints with cursor support and Firestore indexes for common record sorts.
+
 ## 0.14.2-beta.2 - 2026-06-15
 
 - Improved record summary loading with a short-lived backend cache and added Firestore indexes for common garden-scoped record sorts.
