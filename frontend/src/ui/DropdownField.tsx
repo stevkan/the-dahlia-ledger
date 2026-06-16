@@ -12,13 +12,15 @@ type Props = {
   options: DropdownOption[]
   onChange: (value: string) => void
   onOpenChange?: (open: boolean, optionCount: number) => void
+  disabled?: boolean
 }
 
-export function DropdownField({ label, value, options, onChange, onOpenChange }: Props) {
+export function DropdownField({ label, value, options, onChange, onOpenChange, disabled = false }: Props) {
   const [open, setOpen] = useState(false)
   const selectedOption = options.find((option) => option.value === value) ?? options[0]
 
   function setDropdownOpen(nextOpen: boolean) {
+    if (disabled && nextOpen) return
     setOpen(nextOpen)
     onOpenChange?.(nextOpen, options.length)
   }
@@ -39,6 +41,7 @@ export function DropdownField({ label, value, options, onChange, onOpenChange }:
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={label}
+        disabled={disabled}
         onClick={() => setDropdownOpen(!open)}
       >
         {selectedOption?.label ?? ''}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { DEFAULT_GARDEN_OPTIONS } from '../gardenOptions'
-import type { DahliaRecord, Garden, GardenOptionKey, GardenOptions } from '../types'
+import { DEFAULT_GARDEN_OPTIONS, stableGardenOptionId } from '../gardenOptions'
+import type { DahliaRecord, Garden, GardenOptionKey, GardenOptions, GardenRowOption, GardenZoneOption } from '../types'
 
 type GardenOptionUsageRecord = Pick<DahliaRecord, 'id' | 'gardenId' | 'recordNumber' | 'flowerName' | 'seasonYearStart' | 'meta'>
 
@@ -167,11 +167,12 @@ function sortUsageRecords(records: GardenOptionUsageRecord[]) {
   return [...records].sort((a, b) => (a.recordNumber ?? Number.MAX_SAFE_INTEGER) - (b.recordNumber ?? Number.MAX_SAFE_INTEGER))
 }
 
-function buildGardenOptionUsage(records: DahliaRecord[], key: GardenOptionKey) {
+function buildGardenOptionUsage(records: DahliaRecord[], key: GardenOptionKey, zoneName?: string) {
   const usageByValue = new Map<string, GardenOptionUsageRecord[]>()
 
   for (const record of records) {
     if (record.meta?.plantingState !== 'in_garden') continue
+    if (key === 'gardenRows' && zoneName && (record.meta.gardenZone ?? record.meta.gardenArea) !== zoneName) continue
 
     const value = recordGardenOptionValue(record, key)
     if (!value) continue
@@ -203,6 +204,7 @@ export function GardenOptionsModal({
   onClose,
   onChange,
   onRename,
+  onMoveRow,
   onOpenRecord,
 }: {
   options: GardenOptions
@@ -211,21 +213,31 @@ export function GardenOptionsModal({
   initialGroup?: GardenOptionKey
   onClose: () => void
   onChange: (options: GardenOptions) => void
-  onRename?: (key: GardenOptionKey, previousValue: string, nextValue: string) => void
+  onRename?: (key: GardenOptionKey, previousValue: string, nextValue: string, zoneName?: string) => void
+  onMoveRow?: (rowValue: string, previousZoneName: string, nextZoneName: string) => void
   onOpenRecord?: (record: Pick<DahliaRecord, 'id'>) => void
 }) {
   const deleteControlsRef = useRef<HTMLDivElement | null>(null)
   const [activeGroup, setActiveGroup] = useState<GardenOptionKey>(initialGroup)
   const [selectedValue, setSelectedValue] = useState('')
+  const [selectedZoneId, setSelectedZoneId] = useState(options.gardenZones[0]?.id ?? '')
   const [formValue, setFormValue] = useState('')
   const [deleteArmed, setDeleteArmed] = useState(false)
   const [deleteAllValues, setDeleteAllValues] = useState(false)
   const [renameArmed, setRenameArmed] = useState(false)
+  const [moveTargetZoneId, setMoveTargetZoneId] = useState('')
+  const [moveArmed, setMoveArmed] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const selectedGroup = useMemo(() => OPTION_GROUPS.find((group) => group.key === activeGroup) ?? OPTION_GROUPS[0], [activeGroup])
-  const values = options[activeGroup]
-  const activeUsageByValue = useMemo(() => buildGardenOptionUsage(records, activeGroup), [activeGroup, records])
+  const selectedZone = options.gardenZones.find((zone) => zone.id === selectedZoneId) ?? options.gardenZones[0]
+  const rowOptions = selectedZone?.rows ?? []
+  const values = activeGroup === 'gardenAreas'
+    ? options.gardenZones.map((zone) => zone.name)
+    : activeGroup === 'gardenRows'
+      ? rowOptions.map((row) => row.name)
+      : options.gardenPositions
+  const activeUsageByValue = useMemo(() => buildGardenOptionUsage(records, activeGroup, activeGroup === 'gardenRows' ? selectedZone?.name : undefined), [activeGroup, records, selectedZone?.name])
   const selectedUsageRecords = selectedValue ? activeUsageByValue.get(selectedValue.toLowerCase()) ?? [] : []
   const allUsageRecords = useMemo(() => {
     const uniqueRecords = new Map<string, GardenOptionUsageRecord>()
@@ -237,6 +249,12 @@ export function GardenOptionsModal({
   const canSave = formValue.trim().length > 0
   const normalizedFormValue = normalizeOption(formValue)
   const isRename = Boolean(selectedValue && normalizedFormValue && selectedValue !== normalizedFormValue)
+
+  useEffect(() => {
+    if (activeGroup !== 'gardenRows') return
+    if (selectedZoneId && options.gardenZones.some((zone) => zone.id === selectedZoneId)) return
+    setSelectedZoneId(options.gardenZones[0]?.id ?? '')
+  }, [activeGroup, options.gardenZones, selectedZoneId])
 
   useEffect(() => {
     if (!deleteArmed) return
@@ -257,12 +275,34 @@ export function GardenOptionsModal({
     setDeleteArmed(false)
     setDeleteAllValues(false)
     setRenameArmed(false)
+    setMoveTargetZoneId('')
+    setMoveArmed(false)
     setError(null)
   }
 
   function selectGroup(key: GardenOptionKey) {
     setActiveGroup(key)
+    if (key === 'gardenRows' && !selectedZoneId) setSelectedZoneId(options.gardenZones[0]?.id ?? '')
     clearForm()
+  }
+
+  function selectZone(zoneId: string) {
+    setSelectedZoneId(zoneId)
+    clearForm()
+  }
+
+  function nextOptionsWithZones(gardenZones: GardenZoneOption[]): GardenOptions {
+    return {
+      ...options,
+      gardenZones,
+      gardenAreas: gardenZones.map((zone) => zone.name),
+      gardenRows: gardenZones.flatMap((zone) => zone.rows.map((row) => row.name)).filter((row, index, rows) => rows.findIndex((candidate) => candidate.toLowerCase() === row.toLowerCase()) === index),
+    }
+  }
+
+  function nextOptionsWithRows(rows: GardenRowOption[]): GardenOptions {
+    if (!selectedZone) return options
+    return nextOptionsWithZones(options.gardenZones.map((zone) => zone.id === selectedZone.id ? { ...zone, rows } : zone))
   }
 
   function editValue(value: string) {
@@ -276,6 +316,8 @@ export function GardenOptionsModal({
     setDeleteArmed(false)
     setDeleteAllValues(false)
     setRenameArmed(false)
+    setMoveTargetZoneId('')
+    setMoveArmed(false)
     setError(null)
   }
 
@@ -286,6 +328,8 @@ export function GardenOptionsModal({
       setDeleteArmed(false)
       setDeleteAllValues(false)
       setRenameArmed(false)
+      setMoveTargetZoneId('')
+      setMoveArmed(false)
       setError(null)
       return
     }
@@ -314,11 +358,27 @@ export function GardenOptionsModal({
       return
     }
 
-    const nextValues = selectedValue
-      ? values.map((value) => (value === selectedValue ? nextValue : value))
-      : [...values, ...uniqueNewValues]
-    onChange({ ...options, [activeGroup]: nextValues })
-    if (selectedValue && selectedValue !== nextValue) onRename?.(activeGroup, selectedValue, nextValue)
+    if (activeGroup === 'gardenAreas') {
+      const nextZones = selectedValue
+        ? options.gardenZones.map((zone) => zone.name === selectedValue ? { ...zone, name: nextValue } : zone)
+        : [...options.gardenZones, ...uniqueNewValues.map((value) => ({ id: stableGardenOptionId('zone', value), name: value, rows: [] }))]
+      onChange(nextOptionsWithZones(nextZones))
+    } else if (activeGroup === 'gardenRows') {
+      if (!selectedZone) {
+        setError('Select a zone before adding rows or beds.')
+        return
+      }
+      const nextRows = selectedValue
+        ? rowOptions.map((row) => row.name === selectedValue ? { ...row, name: nextValue } : row)
+        : [...rowOptions, ...uniqueNewValues.map((value) => ({ id: stableGardenOptionId('row', `${selectedZone.name}:${value}`), name: value }))]
+      onChange(nextOptionsWithRows(nextRows))
+    } else {
+      const nextValues = selectedValue
+        ? values.map((value) => (value === selectedValue ? nextValue : value))
+        : [...values, ...uniqueNewValues]
+      onChange({ ...options, [activeGroup]: nextValues })
+    }
+    if (selectedValue && selectedValue !== nextValue) onRename?.(activeGroup, selectedValue, nextValue, activeGroup === 'gardenRows' ? selectedZone?.name : undefined)
     clearForm()
   }
 
@@ -336,12 +396,20 @@ export function GardenOptionsModal({
       return
     }
 
-    onChange({ ...options, [activeGroup]: deleteAllValues ? [] : values.filter((value) => value !== selectedValue) })
+    if (activeGroup === 'gardenAreas') {
+      onChange(nextOptionsWithZones(deleteAllValues ? [] : options.gardenZones.filter((zone) => zone.name !== selectedValue)))
+    } else if (activeGroup === 'gardenRows') {
+      onChange(nextOptionsWithRows(deleteAllValues ? [] : rowOptions.filter((row) => row.name !== selectedValue)))
+    } else {
+      onChange({ ...options, [activeGroup]: deleteAllValues ? [] : values.filter((value) => value !== selectedValue) })
+    }
     clearForm()
   }
 
   function restoreDefaultValues() {
-    onChange({ ...options, [activeGroup]: DEFAULT_GARDEN_OPTIONS[activeGroup] })
+    if (activeGroup === 'gardenAreas') onChange({ ...options, gardenAreas: DEFAULT_GARDEN_OPTIONS.gardenAreas, gardenZones: DEFAULT_GARDEN_OPTIONS.gardenZones, gardenRows: DEFAULT_GARDEN_OPTIONS.gardenRows })
+    else if (activeGroup === 'gardenRows') onChange(nextOptionsWithRows(DEFAULT_GARDEN_OPTIONS.gardenRows.map((row) => ({ id: stableGardenOptionId('row', `${selectedZone?.name ?? 'Main Garden'}:${row}`), name: row }))))
+    else onChange({ ...options, [activeGroup]: DEFAULT_GARDEN_OPTIONS[activeGroup] })
     clearForm()
   }
 
@@ -352,21 +420,65 @@ export function GardenOptionsModal({
     const nextIndex = currentIndex + direction
     if (currentIndex < 0 || nextIndex < 0 || nextIndex >= values.length) return
 
-    const nextValues = [...values]
-    const [movedValue] = nextValues.splice(currentIndex, 1)
-    nextValues.splice(nextIndex, 0, movedValue)
-    onChange({ ...options, [activeGroup]: nextValues })
+    if (activeGroup === 'gardenAreas') {
+      const nextZones = [...options.gardenZones]
+      const [movedValue] = nextZones.splice(currentIndex, 1)
+      nextZones.splice(nextIndex, 0, movedValue)
+      onChange(nextOptionsWithZones(nextZones))
+    } else if (activeGroup === 'gardenRows') {
+      const nextRows = [...rowOptions]
+      const [movedValue] = nextRows.splice(currentIndex, 1)
+      nextRows.splice(nextIndex, 0, movedValue)
+      onChange(nextOptionsWithRows(nextRows))
+    } else {
+      const nextValues = [...values]
+      const [movedValue] = nextValues.splice(currentIndex, 1)
+      nextValues.splice(nextIndex, 0, movedValue)
+      onChange({ ...options, [activeGroup]: nextValues })
+    }
+  }
+
+  function moveSelectedRowToZone() {
+    if (activeGroup !== 'gardenRows' || !selectedValue || !selectedZone || !moveTargetZoneId) return
+
+    const targetZone = options.gardenZones.find((zone) => zone.id === moveTargetZoneId)
+    if (!targetZone || targetZone.id === selectedZone.id) return
+
+    if (targetZone.rows.some((row) => row.name.toLowerCase() === selectedValue.toLowerCase())) {
+      setMoveArmed(false)
+      setError(`${targetZone.name} already has a ${selectedValue} row/bed.`)
+      return
+    }
+
+    if (!moveArmed) {
+      setMoveArmed(true)
+      setError(`Moving this row/bed will also move planted records using ${selectedValue} from ${selectedZone.name} to ${targetZone.name}. Click Confirm Move to continue.`)
+      return
+    }
+
+    const movedRow = rowOptions.find((row) => row.name === selectedValue)
+    if (!movedRow) return
+
+    onChange(nextOptionsWithZones(options.gardenZones.map((zone) => {
+      if (zone.id === selectedZone.id) return { ...zone, rows: zone.rows.filter((row) => row.id !== movedRow.id) }
+      if (zone.id === targetZone.id) return { ...zone, rows: [...zone.rows, movedRow] }
+      return zone
+    })))
+    onMoveRow?.(selectedValue, selectedZone.name, targetZone.name)
+    clearForm()
   }
 
   function renderOptionUsage() {
-    const usageRecords = deleteAllValues ? allUsageRecords : selectedUsageRecords
+    const usageRecords = selectedUsageRecords
     if (!usageRecords.length) return null
 
     return (
-      <div className="error inlineError companyError companyDeleteConflict">
-        <div>{deleteAllValues ? 'These options are still in use by the following records.' : `${selectedValue} is still in use by the following records.`}</div>
-        <div className="companyDependencyTitle">Flower records</div>
-        <ul className="companyDependencyList">
+      <aside className="gardenOptionUsagePanel" aria-label="In-use records">
+        <div>
+          <div className="subTitle">In-use records</div>
+          <div className="modalSub gardenOptionUsageSummary">{selectedValue} is assigned to {usageRecords.length} flower {usageRecords.length === 1 ? 'record' : 'records'}.</div>
+        </div>
+        <ul className="companyDependencyList gardenOptionUsageList">
           {usageRecords.map((record) => (
             <li key={record.id}>
               <button className="labelLink" type="button" onClick={() => onOpenRecord?.({ id: record.id })}>
@@ -376,7 +488,7 @@ export function GardenOptionsModal({
             </li>
           ))}
         </ul>
-      </div>
+      </aside>
     )
   }
 
@@ -389,7 +501,7 @@ export function GardenOptionsModal({
         </div>
         <button className="btn ghost" onClick={onClose}>Close</button>
       </div>
-      <div className="modalBody companiesLayout gardenOptionsLayout">
+      <div className={`modalBody companiesLayout gardenOptionsLayout${selectedUsageRecords.length ? ' hasUsagePanel' : ''}`}>
         <div className="companyList">
           <div className="subTitle">Option Groups</div>
           {OPTION_GROUPS.map((group) => (
@@ -411,65 +523,101 @@ export function GardenOptionsModal({
               <div className="subTitle">{selectedGroup.title}</div>
               <div className="modalSub gardenOptionsDescription">{selectedGroup.description}</div>
             </div>
+            {activeGroup === 'gardenRows' ? (
+              <label className="field gardenOptionField">
+                <FieldLabel label="Zone" hint="Rows and beds belong to the selected zone." />
+                <select className="input" value={selectedZone?.id ?? ''} onChange={(event) => selectZone(event.target.value)}>
+                  {options.gardenZones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}
+                </select>
+              </label>
+            ) : null}
+          </div>
+          <div className="gardenOptionValueListArea">
+            <div className="gardenOptionValueList">
+              {values.length ? values.map((value) => (
+                <button
+                  key={value}
+                  className={`gardenOptionValue${selectedValue === value ? ' selected' : ''}`}
+                  type="button"
+                  onClick={() => editValue(value)}
+                >
+                  {value}
+                </button>
+              )) : <div className="muted">No values saved yet.</div>}
+            </div>
             {selectedValue ? (
-              <div className="rowActions gardenOptionMoveActions">
-                <button className="btn ghost" type="button" onClick={() => moveSelectedValue(-1)}>Move up</button>
-                <button className="btn ghost" type="button" onClick={() => moveSelectedValue(1)}>Move down</button>
+              <div className="gardenOptionMoveActions" aria-label="Move selected value">
+                <button className="btn ghost compact gardenOptionMoveButton" type="button" aria-label="Move up" onClick={() => moveSelectedValue(-1)}>↑</button>
+                <button className="btn ghost compact gardenOptionMoveButton" type="button" aria-label="Move down" onClick={() => moveSelectedValue(1)}>↓</button>
               </div>
             ) : null}
           </div>
-          <div className="gardenOptionValueList">
-            {values.length ? values.map((value) => (
-              <button
-                key={value}
-                className={`gardenOptionValue${selectedValue === value ? ' selected' : ''}`}
-                type="button"
-                onClick={() => editValue(value)}
-              >
-                {value}
-              </button>
-            )) : <div className="muted">No values saved yet.</div>}
-          </div>
+          {selectedValue ? (
+            activeGroup === 'gardenRows' && selectedZone ? (
+              <div className="gardenOptionDeleteControls">
+                <label className="gardenOptionDeleteAll">
+                  Move to Zone
+                  <select className="input" value={moveTargetZoneId} onChange={(event) => {
+                    setMoveTargetZoneId(event.target.value)
+                    setMoveArmed(false)
+                    setError(null)
+                  }}>
+                    <option value="">Select zone...</option>
+                    {options.gardenZones.filter((zone) => zone.id !== selectedZone.id).map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}
+                  </select>
+                </label>
+                <button className="btn ghost" type="button" disabled={!moveTargetZoneId} onClick={moveSelectedRowToZone}>
+                  {moveArmed ? 'Confirm Move' : 'Move Row/Bed'}
+                </button>
+              </div>
+            ) : null
+          ) : null}
           <label className="field gardenOptionField">
             <FieldLabel label={selectedValue ? 'Edit Value' : 'New Value'} hint={OPTION_VALUE_HINTS[activeGroup]} />
             <input className="input" value={formValue} onChange={(event) => {
               setFormValue(event.target.value)
               setRenameArmed(false)
               setError(null)
-            }} />
+            }} disabled={activeGroup === 'gardenRows' && !selectedZone} />
           </label>
           {error ? <div className="error inlineError companyError">{error}</div> : null}
-          {renderOptionUsage()}
-          <div className="rowActions companyActions">
-            {selectedValue ? <button className="btn ghost" type="button" onClick={cancelEdit}>Cancel Edit</button> : null}
-            <button className="btn" type="button" disabled={!canSave} onClick={saveValue}>
-              {renameArmed ? 'Confirm Rename' : selectedValue ? 'Update Value' : 'Save Value'}
-            </button>
-            {!values.length ? (
-              <button className="btn ghost gardenOptionRestoreDefaults" type="button" onClick={restoreDefaultValues}>
-                Use Default Values
+          <div className={`rowActions companyActions${selectedValue ? ' gardenOptionValueActions' : ''}`}>
+            <div className="gardenOptionPrimaryActions">
+              {selectedValue ? <button className="btn ghost" type="button" onClick={cancelEdit}>Cancel Edit</button> : null}
+              <button className="btn" type="button" disabled={!canSave} onClick={saveValue}>
+                {renameArmed ? 'Confirm Rename' : selectedValue ? 'Update Value' : 'Save Value'}
               </button>
-            ) : null}
+              {!values.length ? (
+                <button className="btn ghost gardenOptionRestoreDefaults" type="button" onClick={restoreDefaultValues}>
+                  Use Default Values
+                </button>
+              ) : null}
+            </div>
             {selectedValue ? (
               <div ref={deleteControlsRef} className="gardenOptionDeleteControls">
-                <label className="gardenOptionDeleteAll">
-                  <input
-                    type="checkbox"
-                    checked={deleteAllValues}
-                    onChange={(event) => {
-                      setDeleteAllValues(event.target.checked)
-                      setDeleteArmed(false)
-                    }}
-                  />
-                  Delete all values
-                </label>
                 <button className="btn danger" type="button" onClick={deleteSelectedValue}>
                   {deleteArmed ? 'Confirm Delete' : 'Delete Value'}
                 </button>
               </div>
             ) : null}
           </div>
+          {selectedValue ? (
+            <div className="gardenOptionDeleteAllRow">
+              <label className="gardenOptionDeleteAll">
+                <input
+                  type="checkbox"
+                  checked={deleteAllValues}
+                  onChange={(event) => {
+                    setDeleteAllValues(event.target.checked)
+                    setDeleteArmed(false)
+                  }}
+                />
+                Delete all values
+              </label>
+            </div>
+          ) : null}
         </div>
+        {renderOptionUsage()}
       </div>
     </Overlay>
   )

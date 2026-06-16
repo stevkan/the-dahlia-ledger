@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.17.0-beta.1 - 2026-06-15
+
+- Added zone-owned row/bed placement options with stable option IDs and dependent record placement selection.
+
 ## 0.16.1-beta.2 - 2026-06-15
 
 - Improved maintenance reminder modal layout and controls for more reliable related-record selection.

@@ -206,7 +206,7 @@ function gardenOptionsEqual(a: GardenOptions, b: GardenOptions) {
   return JSON.stringify(normalizeGardenOptions(a)) === JSON.stringify(normalizeGardenOptions(b))
 }
 
-function recordWithRenamedGardenOption(record: DahliaRecord, key: GardenOptionKey, previousValue: string, nextValue: string): DahliaRecordInput | null {
+function recordWithRenamedGardenOption(record: DahliaRecord, key: GardenOptionKey, previousValue: string, nextValue: string, zoneName?: string): DahliaRecordInput | null {
   const next: DahliaRecordInput = {
     ...record,
     core: { ...(record.core ?? {}) },
@@ -230,6 +230,7 @@ function recordWithRenamedGardenOption(record: DahliaRecord, key: GardenOptionKe
   }
 
   if (key === 'gardenRows') {
+    if (zoneName && (next.meta.gardenZone ?? next.meta.gardenArea) !== zoneName) return null
     if (next.meta.gardenRow === previousValue) {
       next.meta.gardenRow = nextValue
       changed = true
@@ -255,6 +256,26 @@ function recordWithRenamedGardenOption(record: DahliaRecord, key: GardenOptionKe
   }
 
   return changed ? next : null
+}
+
+function recordWithMovedGardenRow(record: DahliaRecord, rowValue: string, previousZoneName: string, nextZoneName: string): DahliaRecordInput | null {
+  const currentZone = record.meta?.gardenZone ?? record.meta?.gardenArea
+  const currentRow = record.meta?.rowOrBed ?? record.meta?.gardenRow
+  if (record.meta?.plantingState !== 'in_garden' || currentZone !== previousZoneName || currentRow !== rowValue) return null
+
+  return {
+    ...record,
+    core: { ...(record.core ?? {}) },
+    growth: { ...(record.growth ?? {}) },
+    care: { ...(record.care ?? {}) },
+    tuber: { ...(record.tuber ?? {}) },
+    health: { ...(record.health ?? {}) },
+    meta: {
+      ...(record.meta ?? {}),
+      gardenArea: nextZoneName,
+      gardenZone: nextZoneName,
+    },
+  }
 }
 
 function loadRecordsRefreshInterval() {
@@ -1135,9 +1156,20 @@ export default function App() {
     if (activeGardenId) void updateGarden(activeGardenId, { gardenOptions: normalized })
   }
 
-  async function renameGardenOptionReferences(key: GardenOptionKey, previousValue: string, nextValue: string) {
+  async function renameGardenOptionReferences(key: GardenOptionKey, previousValue: string, nextValue: string, zoneName?: string) {
     const updates = records
-      .map((record) => ({ record, input: recordWithRenamedGardenOption(record, key, previousValue, nextValue) }))
+      .map((record) => ({ record, input: recordWithRenamedGardenOption(record, key, previousValue, nextValue, zoneName) }))
+      .filter((update): update is { record: DahliaRecord; input: DahliaRecordInput } => update.input !== null)
+
+    if (!updates.length) return
+
+    await Promise.all(updates.map(({ record, input }) => onUpdate(record.id, input, { keepOpen: active?.id === record.id, skipRefresh: true })))
+    await refreshRecords()
+  }
+
+  async function moveGardenRowReferences(rowValue: string, previousZoneName: string, nextZoneName: string) {
+    const updates = records
+      .map((record) => ({ record, input: recordWithMovedGardenRow(record, rowValue, previousZoneName, nextZoneName) }))
       .filter((update): update is { record: DahliaRecord; input: DahliaRecordInput } => update.input !== null)
 
     if (!updates.length) return
@@ -1900,7 +1932,8 @@ export default function App() {
           initialGroup={gardenOptionsInitialGroup}
           onClose={() => setGardenOptionsOpen(false)}
           onChange={updateGardenOptions}
-          onRename={(key, previousValue, nextValue) => void renameGardenOptionReferences(key, previousValue, nextValue)}
+          onRename={(key, previousValue, nextValue, zoneName) => void renameGardenOptionReferences(key, previousValue, nextValue, zoneName)}
+          onMoveRow={(rowValue, previousZoneName, nextZoneName) => void moveGardenRowReferences(rowValue, previousZoneName, nextZoneName)}
           onOpenRecord={(record) => {
             const nextActive = records.find((candidate) => candidate.id === record.id)
             if (nextActive) setActive(nextActive)

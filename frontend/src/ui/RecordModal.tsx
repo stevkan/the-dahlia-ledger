@@ -507,6 +507,7 @@ function SelectField({
   onChange,
   labelAction,
   message,
+  disabled: disabledField = false,
 }: {
   label: string
   hint?: string
@@ -517,6 +518,7 @@ function SelectField({
   onChange: (v: string | undefined) => void
   labelAction?: React.ReactNode
   message?: string
+  disabled?: boolean
 }) {
   const disabled = new Set(disabledOptions ?? [])
   const hasSelectedOption = options.some((option) => (option.includes('|') ? option.split('|')[0] : option) === value)
@@ -534,6 +536,7 @@ function SelectField({
         })),
       ]}
       onChange={(nextValue) => onChange(nextValue || undefined)}
+      disabled={disabledField}
     />
   )
 
@@ -682,6 +685,8 @@ export function RecordModal({
   const gardenRow = form.meta.rowOrBed ?? form.meta.gardenRow ?? ''
   const positionValue = form.meta.position ?? form.meta.gardenPosition
   const gardenPosition = positionValue ? String(positionValue) : ''
+  const selectedGardenZoneOption = gardenOptions.gardenZones.find((zone) => zone.name === gardenArea)
+  const availableGardenRows = selectedGardenZoneOption?.rows.map((row) => row.name) ?? []
   const plantingState = form.meta.plantingState
   const notPlantedReason = form.meta.notPlantedReason ?? 'not_received'
   const notViableReason = form.meta.notViableReason ?? 'no_longer_present'
@@ -771,6 +776,10 @@ export function RecordModal({
         ...previous.meta,
         gardenArea: value,
         gardenZone: value,
+        gardenRow: undefined,
+        rowOrBed: undefined,
+        gardenPosition: undefined,
+        position: undefined,
       },
     }))
   }
@@ -783,6 +792,8 @@ export function RecordModal({
         ...previous.meta,
         gardenRow: value,
         rowOrBed: value,
+        gardenPosition: undefined,
+        position: undefined,
       },
     }))
   }
@@ -1250,7 +1261,8 @@ export function RecordModal({
                   hint="Row or bed labels available for planted records."
                   required
                   value={gardenRow}
-                  options={gardenOptions.gardenRows}
+                  options={availableGardenRows}
+                  disabled={!gardenArea}
                   onChange={setGardenRow}
                   labelAction={onOpenGardenOptions ? (
                     <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenRows')}>
@@ -1264,6 +1276,7 @@ export function RecordModal({
                   required
                   value={gardenPosition}
                   options={gardenOptions.gardenPositions}
+                  disabled={!gardenRow}
                   disabledOptions={gardenOptions.gardenPositions.filter((position) => isGardenOptionInUse(gardenRow, Number(position)))}
                   onChange={setGardenPosition}
                   labelAction={onOpenGardenOptions ? (

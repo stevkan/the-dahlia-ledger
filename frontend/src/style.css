@@ -1192,9 +1192,9 @@ th.sortable {
 }
 
 .radioRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
   padding: 10px 12px;
   border: 1px solid var(--border-soft);
   border-radius: 12px;
@@ -1205,6 +1205,7 @@ th.sortable {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  min-width: 0;
   color: var(--text);
   font-size: 13px;
 }
@@ -1918,9 +1919,10 @@ th.sortable {
 }
 
 .photoUploadTarget {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
+  width: 100%;
 }
 
 .photoActionButtons {
@@ -2597,6 +2599,20 @@ th.sortable {
   margin-top: 10px;
 }
 
+.gardenOptionValueActions {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: space-between;
+  align-items: start;
+}
+
+.gardenOptionPrimaryActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .companyDeleteButton {
   margin-left: auto;
 }
@@ -2638,9 +2654,57 @@ th.sortable {
   min-width: 0;
 }
 
+.gardenOptionsLayout.hasUsagePanel {
+  grid-template-columns: minmax(200px, 0.7fr) minmax(0, 1.05fr) minmax(240px, 0.75fr);
+}
+
+.gardenOptionUsagePanel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-subtle);
+}
+
+.gardenOptionUsageSummary {
+  margin-top: 6px;
+}
+
+.gardenOptionUsageList {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.gardenOptionUsageList li + li {
+  margin-top: 6px;
+}
+
 .gardenOptionMoveActions {
+  display: flex;
+  align-self: stretch;
+  justify-content: center;
   flex: 0 0 auto;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gardenOptionMoveButton {
+  min-width: 34px;
+  min-height: 34px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.gardenOptionValueListArea {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .gardenOptionDeleteControls {
@@ -2648,6 +2712,17 @@ th.sortable {
   align-items: center;
   gap: 10px;
   margin-left: auto;
+}
+
+.gardenOptionDeleteAllRow {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.gardenOptionDeleteAllRow .gardenOptionDeleteAll {
+  grid-column: 2;
 }
 
 .gardenOptionRestoreDefaults {
@@ -2665,6 +2740,7 @@ th.sortable {
 
 .gardenOptionValueList {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
   gap: 8px;
   max-height: 240px;
@@ -2702,6 +2778,10 @@ th.sortable {
   .companiesLayout {
     grid-template-columns: 1fr;
     overflow: auto;
+  }
+
+  .gardenOptionsLayout.hasUsagePanel {
+    grid-template-columns: 1fr;
   }
 
   .modalBody.companiesLayout {

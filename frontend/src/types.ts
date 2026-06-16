@@ -89,7 +89,23 @@ export type NotViableReason = 'no_longer_present' | 'removed' | 'unused'
 
 export type GardenOptionKey = 'gardenAreas' | 'gardenRows' | 'gardenPositions'
 
-export type GardenOptions = Record<GardenOptionKey, string[]>
+export type GardenRowOption = {
+  id: string
+  name: string
+}
+
+export type GardenZoneOption = {
+  id: string
+  name: string
+  rows: GardenRowOption[]
+}
+
+export type GardenOptions = {
+  gardenAreas: string[]
+  gardenRows: string[]
+  gardenPositions: string[]
+  gardenZones: GardenZoneOption[]
+}
 
 export type GardenRole = 'owner' | 'admin' | 'editor' | 'viewer'
 
