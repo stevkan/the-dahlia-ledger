@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.17.1-beta.1 - 2026-06-15
+
+- Fixed duplicated record drafts so planted placement values and non-planted reason fields are preserved without delaying modal opening.
+
 ## 0.17.0-beta.1 - 2026-06-15
 
 - Added zone-owned row/bed placement options with stable option IDs and dependent record placement selection.

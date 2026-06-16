@@ -1077,6 +1077,8 @@ export default function App() {
 
   async function duplicateRecord(record: DahliaRecord) {
     const plantingState = record.meta?.plantingState ?? 'purchased_container'
+    const gardenArea = record.meta?.gardenZone ?? record.meta?.gardenArea
+    const gardenRow = record.meta?.rowOrBed ?? record.meta?.gardenRow
     const draft: DahliaRecordInput = {
       flowerName: record.flowerName,
       gardenLocation: '',
@@ -1092,15 +1094,21 @@ export default function App() {
       health: {},
       meta: {
         plantingState,
-        gardenArea: plantingState === 'in_garden' ? 'Main Garden' : undefined,
-        gardenZone: plantingState === 'in_garden' ? 'Main Garden' : undefined,
+        gardenArea: plantingState === 'in_garden' ? gardenArea : undefined,
+        gardenZone: plantingState === 'in_garden' ? gardenArea : undefined,
+        gardenRow: plantingState === 'in_garden' ? gardenRow : undefined,
+        rowOrBed: plantingState === 'in_garden' ? gardenRow : undefined,
+        gardenPosition: undefined,
+        position: undefined,
+        notPlantedReason: plantingState === 'not_planted' ? record.meta?.notPlantedReason : undefined,
+        notViableReason: plantingState === 'not_viable' ? record.meta?.notViableReason : undefined,
       },
     }
 
     setActive(null)
     setCreateDraft(draft)
-    await prepareRecordModalRecords()
     setCreateOpen(true)
+    void prepareRecordModalRecords()
   }
 
   async function onCreateCompany(input: CompanyInput) {
@@ -1730,8 +1738,8 @@ export default function App() {
             <button className="btn compact" onClick={async () => {
               setReviewResult(null)
               setCorrectionResult(null)
-              await prepareRecordModalRecords()
               setCreateOpen(true)
+              void prepareRecordModalRecords()
             }}>
               New Record
             </button>
