@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.1-beta.2 - 2026-06-15
+
+- Improved maintenance reminder modal layout and controls for more reliable related-record selection.
+
 ## 0.16.1-beta.1 - 2026-06-15
 
 - Improved modal select controls with custom dropdowns and fixed reminder related-record selection with searchable current-season filtering.

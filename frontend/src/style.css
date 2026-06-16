@@ -984,6 +984,25 @@ th.sortable {
   justify-content: flex-start;
 }
 
+.collapsibleTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.collapsibleTitle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+}
+
 .inlineError {
   margin: 0;
 }
