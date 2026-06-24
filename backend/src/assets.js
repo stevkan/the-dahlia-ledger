@@ -116,6 +116,11 @@ export async function deleteAsset(id, context = {}) {
   return true
 }
 
+export async function countAssetFiles(assetId) {
+  const snap = await getDb().collection(ASSET_FILES).where('assetId', '==', assetId).count().get()
+  return snap.data().count
+}
+
 export async function addAssetFile(assetId, fileInput) {
   const timestamp = nowIso()
   const ref = await getDb()

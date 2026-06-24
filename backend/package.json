@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "0.17.1-beta.1",
+  "version": "0.18.0-beta.1",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
@@ -9,7 +9,11 @@
     "backfill:thumbnails": "node scripts/backfill-photo-thumbnails.js",
     "backfill:thumbnails:dry-run": "node scripts/backfill-photo-thumbnails.js --dry-run",
     "normalize:bloom-widths": "node scripts/normalize-record-bloom-widths.js",
-    "normalize:bloom-widths:dry-run": "node scripts/normalize-record-bloom-widths.js --dry-run"
+    "normalize:bloom-widths:dry-run": "node scripts/normalize-record-bloom-widths.js --dry-run",
+    "backfill:file-names": "node scripts/backfill-file-names.js",
+    "backfill:file-names:dry-run": "node scripts/backfill-file-names.js --dry-run",
+    "backfill:garden-ids": "node scripts/backfill-garden-ids.js",
+    "backfill:garden-ids:dry-run": "node scripts/backfill-garden-ids.js --dry-run"
   },
   "keywords": [],
   "author": "",

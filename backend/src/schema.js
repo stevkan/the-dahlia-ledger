@@ -109,6 +109,7 @@ export const OrderItemInputSchema = z.object({
   id: z.string().optional(),
   orderId: z.string().optional(),
   gardenId: z.string().optional().nullable(),
+  itemNo: z.string().optional().nullable(),
   flowerName: z.string().min(1),
   cultivarName: z.string().optional().nullable(),
   itemCost: z.number().nonnegative().optional().nullable(),

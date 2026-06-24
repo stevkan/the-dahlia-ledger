@@ -9,8 +9,8 @@ import { fileURLToPath } from 'node:url'
 import './env.js'
 import { AssetInputSchema, CompanyInputSchema, DahliaPhotoSchema, DahliaRecordInputSchema, OrderInputSchema } from './schema.js'
 import { listRecords, listRecordsPage, listRecordSummaries, listRecordSummariesPage, getRecord, createRecord, updateRecord, updateCultivarPhoto, updateCultivarPhotoDefault, updateRecordPhotoDefault, deleteCultivarPhoto, deleteRecord } from './records.js'
-import { addOrderFile, createCompany, createOrder, deleteCompany, deleteOrder, deleteOrderFile, ensureCompany, listCompaniesWithUsage, listOrders, normalizeCompanyKey, reassignCompanies, updateCompany, updateOrder } from './orders.js'
-import { addAssetFile, createAsset, deleteAsset, deleteAssetFile, listAssets, updateAsset } from './assets.js'
+import { addOrderFile, countOrderFiles, createCompany, createOrder, deleteCompany, deleteOrder, deleteOrderFile, ensureCompany, listCompaniesWithUsage, listOrders, normalizeCompanyKey, reassignCompanies, updateCompany, updateOrder } from './orders.js'
+import { addAssetFile, countAssetFiles, createAsset, deleteAsset, deleteAssetFile, listAssets, updateAsset } from './assets.js'
 import { ingestText, reviewRecordMapping, proposeMissedIssueCorrection, runMetricRequest, runMetricDrilldown } from './agent.js'
 import { getBucket, verifyFirebaseAppCheckToken, verifyFirebaseIdToken } from './firebase.js'
 import { uploadPhotoBuffer } from './photos.js'
@@ -22,6 +22,7 @@ import { importExcelLocations } from './excelImport.js'
 import { createExcelImportHistory, getLatestActiveExcelImportHistory, markExcelImportHistoryReverted } from './excelImportHistory.js'
 import { toTitleCase } from './textFormat.js'
 import { deleteKnownUser, getKnownUser, isGlobalAdmin, listKnownUsers, upsertKnownUser } from './users.js'
+import { listFlowerNames, renameFlowerName } from './flowerNames.js'
 
 const app = express()
 const __filename = fileURLToPath(import.meta.url)
@@ -612,6 +613,26 @@ app.delete('/api/orders/:id', async (req, res) => {
   res.json({ ok: true })
 })
 
+app.get('/api/flower-names', async (req, res) => {
+  const gardenId = await resolveGardenId(req.user, req.query.gardenId)
+  await requireGardenAccess(req.user, gardenId)
+  const includeLegacyUnassigned = await isFallbackGarden(req.user, gardenId)
+  res.json({ flowerNames: await listFlowerNames(gardenId, { includeLegacyUnassigned }) })
+})
+
+app.put('/api/flower-names/:name', async (req, res) => {
+  const gardenId = await resolveGardenId(req.user, req.query.gardenId)
+  await requireGardenWriteAccess(req.user, gardenId)
+  const includeLegacyUnassigned = await isFallbackGarden(req.user, gardenId)
+  const oldName = decodeURIComponent(req.params.name)
+  const { newName } = req.body
+  if (!newName || typeof newName !== 'string' || !newName.trim()) {
+    return res.status(400).json({ error: 'bad_request', message: 'newName is required.' })
+  }
+  const result = await renameFlowerName(oldName, newName.trim(), gardenId, { includeLegacyUnassigned })
+  res.json(result)
+})
+
 app.get('/api/assets', async (req, res) => {
   const assets = await listAssets({ userId: req.user.uid })
   res.json({ assets })
@@ -771,8 +792,9 @@ app.post('/api/orders/:id/files', upload.single('file'), async (req, res) => {
   })
   await file.makePublic()
 
+  const existingCount = await countOrderFiles(req.params.id)
   const orderFile = await addOrderFile(req.params.id, {
-    originalFileName: req.file.originalname || 'invoice.pdf',
+    originalFileName: `Doc ${existingCount + 1}`,
     storedFileName: path.basename(objectName),
     mimeType: req.file.mimetype,
     fileSize: req.file.size,
@@ -808,8 +830,9 @@ app.post('/api/assets/:id/files', upload.single('file'), async (req, res) => {
   })
   await file.makePublic()
 
+  const existingAssetCount = await countAssetFiles(req.params.id)
   const assetFile = await addAssetFile(req.params.id, {
-    originalFileName: req.file.originalname || 'invoice.pdf',
+    originalFileName: `Doc ${existingAssetCount + 1}`,
     storedFileName: path.basename(objectName),
     mimeType: req.file.mimetype,
     fileSize: req.file.size,

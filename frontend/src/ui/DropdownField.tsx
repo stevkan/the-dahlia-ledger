@@ -35,6 +35,11 @@ export function DropdownField({ label, value, options, onChange, onOpenChange, d
     <div className="dropdownField" onBlur={(event) => {
       if (!event.currentTarget.contains(event.relatedTarget)) setDropdownOpen(false)
     }}>
+      <div className="dropdownSizer" aria-hidden="true">
+        {options.map((option) => (
+          <div className="dropdownSizerOption" key={option.value}>{option.label}</div>
+        ))}
+      </div>
       <button
         className="dropdownButton select"
         type="button"

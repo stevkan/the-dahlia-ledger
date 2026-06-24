@@ -132,6 +132,11 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function formatUploadDate(iso?: string) {
+  if (!iso) return 'Unknown date'
+  return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+}
+
 function formatMoney(value?: number) {
   return value === undefined ? '' : `$${value.toFixed(2)}`
 }
@@ -381,13 +386,13 @@ export function AssetsModal({
         {confirmAction?.type === 'deleteFile' ? <div className="callout warn invoiceConfirmMessage">Click the highlighted action again to confirm.</div> : null}
         {row.files.length ? (
           <div className="fileList" aria-label="Uploaded asset invoice files">
-            {row.files.map((file) => (
+            {[...row.files].sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? ''))).map((file) => (
               <div className="fileCard" key={file.id}>
                 <a className="fileCardLink" href={file.fileUrl} target="_blank" rel="noreferrer">
                   <span className="fileBadge">PDF</span>
                   <span className="fileCardBody">
                     <span className="fileCardName">{file.originalFileName}</span>
-                    <span className="fileCardMeta">{file.sourceType === 'image_converted_to_pdf' ? 'Photo converted to PDF' : 'Uploaded PDF'} · {formatFileSize(file.fileSize)}</span>
+                    <span className="fileCardMeta">{formatUploadDate(file.createdAt)} · {formatFileSize(file.fileSize)}</span>
                   </span>
                 </a>
                 <FileDeleteButton armed={confirmAction?.type === 'deleteFile' && confirmAction.fileId === file.id} disabled={saving} onDelete={() => void deleteInvoiceFile(file)} />

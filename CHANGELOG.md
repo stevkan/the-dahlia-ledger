@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.18.0-beta.1 - 2026-06-24
+
+- Added flower name management with a dedicated modal for listing and renaming flower names across records and orders.
+- Added flower name autocomplete to the record and order item forms.
+- Added item number field to order line items.
+- Changed uploaded order and asset file names to sequential Doc numbering instead of the browser-provided filename.
+- Simplified order modal navigation by removing the intermediate year grouping step.
+- Added body scroll lock when any modal is open.
+
 ## 0.17.1-beta.1 - 2026-06-15
 
 - Fixed duplicated record drafts so planted placement values and non-planted reason fields are preserved without delaying modal opening.

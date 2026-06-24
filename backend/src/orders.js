@@ -453,6 +453,11 @@ export async function deleteOrder(id, context = {}) {
   return true
 }
 
+export async function countOrderFiles(orderId) {
+  const snap = await getDb().collection(ORDER_FILES).where('orderId', '==', orderId).count().get()
+  return snap.data().count
+}
+
 export async function addOrderFile(orderId, fileInput) {
   const timestamp = nowIso()
   const ref = await getDb()

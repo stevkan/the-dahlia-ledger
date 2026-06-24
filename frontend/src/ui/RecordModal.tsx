@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_GARDEN_OPTIONS } from '../gardenOptions'
 import type { AgentCorrectionResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, GardenOptionKey, GardenOptions, NotPlantedReason, NotViableReason, Order, PlantingState } from '../types'
 import { DropdownField } from './DropdownField'
+import { FlowerNameField } from './FlowerNameField'
 
 type SectionKey = 'core' | 'growth' | 'care' | 'tuber' | 'storage' | 'health' | 'varieties' | 'meta' | 'photos'
 type ConfirmAction = 'review' | 'delete' | 'duplicate' | null
@@ -615,9 +616,11 @@ export function RecordModal({
   onCreateCompany,
   onOpenCompanies,
   onOpenGardenOptions,
+  onOpenFlowerNames,
   gardenOptions = DEFAULT_GARDEN_OPTIONS,
   companies = [],
   orders = [],
+  flowerNames = [],
 }: {
   mode: 'view' | 'create'
   initial: DahliaRecord | null
@@ -644,9 +647,11 @@ export function RecordModal({
   onCreateCompany?: (input: CompanyInput) => Promise<Company>
   onOpenCompanies?: () => void
   onOpenGardenOptions?: (group: GardenOptionKey) => void
+  onOpenFlowerNames?: () => void
   gardenOptions?: GardenOptions
   companies?: Company[]
   orders?: Order[]
+  flowerNames?: string[]
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const confirmAreaRef = useRef<HTMLDivElement | null>(null)
@@ -707,6 +712,12 @@ export function RecordModal({
     return keys
   }, [form.seasonYearStart, initial?.id, recordSummaries, records])
   const gardenLocationInUse = Boolean(selectedGardenKey && usedGardenKeys.has(selectedGardenKey))
+
+  const knownFlowerNames = useMemo(() => {
+    const fromRecords = (records ?? []).map((r) => r.flowerName)
+    const merged = new Set([...flowerNames, ...fromRecords].filter(Boolean))
+    return [...merged].sort((a, b) => a.localeCompare(b))
+  }, [flowerNames, records])
 
   const canSave = useMemo(() => {
     const hasPlantingState = plantingState !== undefined
@@ -1200,7 +1211,20 @@ export function RecordModal({
             readOnly
           />
           <Field label="Season" hint="The growing season year for this record." required type="number" value={String(form.seasonYearStart)} onChange={setSeasonYearStart} />
-          <Field label="Flower Name" hint="The primary display name for this dahlia record." required value={form.flowerName} onChange={(v) => setForm((p) => ({ ...p, flowerName: v }))} placeholder="e.g. Cafe au Lait" />
+          <FlowerNameField
+            label="Flower Name"
+            hint="The primary display name for this dahlia record."
+            required
+            value={form.flowerName}
+            knownFlowerNames={knownFlowerNames}
+            onChange={(v) => setForm((p) => ({ ...p, flowerName: v }))}
+            placeholder="e.g. Cafe au Lait"
+            labelAction={onOpenFlowerNames ? (
+              <button className="labelLink" type="button" onClick={onOpenFlowerNames}>
+                Flower Name
+              </button>
+            ) : undefined}
+          />
           <SelectField label="Planting State" hint="Where this specific tuber or plant is currently being tracked." required value={plantingState} options={plantingStateOptions()} onChange={setPlantingState} />
           {plantingState === 'not_planted' ? (
             <div className="field gridSpanFull">

@@ -20,6 +20,7 @@ import { CompaniesModal } from './CompaniesModal'
 import { GardenOptionsModal } from './GardenOptionsModal'
 import { MaintenanceRemindersModal } from './MaintenanceRemindersModal'
 import { GardenManagementModal } from './GardenManagementModal'
+import { FlowerNamesModal } from './FlowerNamesModal'
 
 const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? ''
 const THEME_STORAGE_KEY = 'dahlia-tracker-theme'
@@ -34,6 +35,9 @@ const companiesQueryKey = ['companies'] as const
 const ordersQueryKey = ['orders'] as const
 const assetsQueryKey = ['assets'] as const
 const settingsQueryKey = ['settings'] as const
+function flowerNamesQueryKey(gardenId?: string) {
+  return ['flower-names', gardenId ?? 'default'] as const
+}
 
 function LandscapeOnlyOverlay() {
   return (
@@ -388,6 +392,7 @@ export default function App() {
   const [companiesOpen, setCompaniesOpen] = useState(false)
   const [companiesUsageRefreshing, setCompaniesUsageRefreshing] = useState(false)
   const [gardenOptionsOpen, setGardenOptionsOpen] = useState(false)
+  const [flowerNamesOpen, setFlowerNamesOpen] = useState(false)
   const [gardenManagementOpen, setGardenManagementOpen] = useState(false)
   const [gardenOptionsInitialGroup, setGardenOptionsInitialGroup] = useState<GardenOptionKey>('gardenAreas')
   const [gardenOptionsDraft, setGardenOptionsDraft] = useState<GardenOptions | null>(null)
@@ -478,6 +483,12 @@ export default function App() {
     enabled: Boolean(user),
     staleTime: 5 * 60_000,
   })
+  const flowerNamesQuery = useQuery({
+    queryKey: flowerNamesQueryKey(activeGardenId),
+    queryFn: async () => (await api<{ flowerNames: string[] }>(`/api/flower-names${gardenQuery}`)).flowerNames,
+    enabled: Boolean(user) && Boolean(activeGardenId),
+    staleTime: 5 * 60_000,
+  })
   const settingsQuery = useQuery({
     queryKey: settingsQueryKey,
     queryFn: async () => (await api<{ settings: AppSettings }>('/api/settings')).settings,
@@ -509,6 +520,7 @@ export default function App() {
   const companies = companiesQuery.data ?? []
   const orders = ordersQuery.data ?? []
   const assets = assetsQuery.data ?? []
+  const flowerNames = flowerNamesQuery.data ?? []
   const settings = settingsQuery.data ?? { agentDebugReviewEnabled: false }
   const maintenanceReminders = maintenanceRemindersQuery.data ?? []
   const gardenMembers = gardenMembersQuery.data ?? []
@@ -545,6 +557,17 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(RECORDS_REFRESH_INTERVAL_STORAGE_KEY, String(recordsRefreshIntervalMs))
   }, [recordsRefreshIntervalMs])
+
+  const anyModalOpen = Boolean(
+    active || createOpen || agentHelperOpen || analyticsOpen ||
+    maintenanceRemindersOpen || gardenManagementOpen || companiesOpen ||
+    ordersOpen || assetsOpen || gardenOptionsOpen
+  )
+
+  useEffect(() => {
+    document.body.style.overflow = anyModalOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [anyModalOpen])
 
   useEffect(() => {
     if (!gardens.length) return
@@ -1156,6 +1179,19 @@ export default function App() {
   function openGardenOptions(group: GardenOptionKey) {
     setGardenOptionsInitialGroup(group)
     setGardenOptionsOpen(true)
+  }
+
+  async function renameFlowerName(oldName: string, newName: string) {
+    await api(`/api/flower-names/${encodeURIComponent(oldName)}${gardenQuery}`, {
+      method: 'PUT',
+      body: JSON.stringify({ newName }),
+    })
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: flowerNamesQueryKey(activeGardenId) }),
+      queryClient.invalidateQueries({ queryKey: ordersQueryKey }),
+      queryClient.invalidateQueries({ queryKey: recordsQueryKey(activeGardenId) }),
+      queryClient.invalidateQueries({ queryKey: recordSummariesQueryKey(activeGardenId) }),
+    ])
   }
 
   function updateGardenOptions(nextOptions: GardenOptions) {
@@ -1867,9 +1903,11 @@ export default function App() {
           onCreateCompany={onCreateCompany}
           onOpenCompanies={() => setCompaniesOpen(true)}
           onOpenGardenOptions={openGardenOptions}
+          onOpenFlowerNames={() => setFlowerNamesOpen(true)}
           gardenOptions={gardenOptions}
           companies={companies}
           orders={orders}
+          flowerNames={flowerNames}
         />
       ) : null}
 
@@ -1914,6 +1952,8 @@ export default function App() {
           onDeleteOrder={onDeleteOrder}
           onUploadInvoice={uploadInvoice}
           onDeleteInvoiceFile={deleteInvoiceFile}
+          onOpenFlowerNames={() => setFlowerNamesOpen(true)}
+          flowerNames={flowerNames}
         />
       ) : null}
 
@@ -1983,9 +2023,19 @@ export default function App() {
           onCreateCompany={onCreateCompany}
           onOpenCompanies={() => setCompaniesOpen(true)}
           onOpenGardenOptions={openGardenOptions}
+          onOpenFlowerNames={() => setFlowerNamesOpen(true)}
           gardenOptions={gardenOptions}
           companies={companies}
           orders={orders}
+          flowerNames={flowerNames}
+        />
+      ) : null}
+
+      {flowerNamesOpen ? (
+        <FlowerNamesModal
+          flowerNames={flowerNames}
+          onClose={() => setFlowerNamesOpen(false)}
+          onRenameFlowerName={renameFlowerName}
         />
       ) : null}
       </div>

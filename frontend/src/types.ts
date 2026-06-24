@@ -276,6 +276,7 @@ export type OrderItem = {
   id: string
   orderId: string
   gardenId?: string
+  itemNo?: string
   flowerName: string
   cultivarName?: string
   itemCost?: number

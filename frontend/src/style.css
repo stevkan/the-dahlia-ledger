@@ -922,6 +922,10 @@ th.sortable {
   flex-direction: column;
 }
 
+.modalNarrow {
+  width: min(480px, 100%);
+}
+
 .modalHeader {
   display: flex;
   justify-content: space-between;
@@ -944,6 +948,7 @@ th.sortable {
 .modalBody {
   padding: 14px;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .metricsQueryModal {
@@ -1182,6 +1187,14 @@ th.sortable {
   grid-column: 1 / -1;
 }
 
+.orderItemRow {
+  display: grid;
+  grid-template-columns: 3fr 3fr 2fr 2fr 2fr;
+  column-gap: 10px;
+  row-gap: 12px;
+  align-items: start;
+}
+
 .stateSummary {
   padding: 10px 12px;
   border: 1px solid var(--border-soft);
@@ -1215,7 +1228,25 @@ th.sortable {
   min-height: 42px;
 }
 
-.dropdownField,
+.dropdownField {
+  position: relative;
+  display: grid;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.dropdownSizer {
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.dropdownSizerOption {
+  padding: 0 34px 0 10px;
+  white-space: nowrap;
+}
+
 .reminderDropdown {
   position: relative;
 }
@@ -1428,6 +1459,10 @@ th.sortable {
   .gardenLocationFields {
     grid-template-columns: 1fr;
     row-gap: 12px;
+  }
+
+  .orderItemRow {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
@@ -2264,6 +2299,46 @@ th.sortable {
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface-subtle);
+}
+
+.invoiceSearchWrap {
+  margin-bottom: 10px;
+}
+
+.invoiceSearchWrap .input,
+.invoiceSearchWrap .select {
+  width: 100%;
+  max-width: 320px;
+}
+
+.invoiceYearPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.invoiceYearPill {
+  padding: 5px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.invoiceYearPill:hover {
+  border-color: var(--accent-border);
+  color: var(--text);
+}
+
+.invoiceYearPill.active {
+  border-color: var(--accent-border);
+  background: var(--accent-control);
+  color: var(--text-strong);
 }
 
 .invoiceBrowseTable .clickableRow {
@@ -3228,3 +3303,63 @@ th.sortable {
   border-color: rgba(255, 90, 90, 0.35);
   background: rgba(255, 90, 90, 0.08);
 }
+
+.flowerNamesModalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.flowerNamesList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.flowerNameRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  min-height: 40px;
+}
+
+.flowerNameRow:has(.flowerNameEditInput) {
+  border-color: var(--border);
+  background: var(--surface-raised);
+}
+
+.flowerNameText {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-strong);
+}
+
+.flowerNameEditInput {
+  flex: 1;
+}
+
+.flowerNameEditArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flowerNameEditRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.flowerNameMergeWarning {
+  font-size: 13px;
+  color: var(--text-strong);
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 204, 102, 0.42);
+  border-radius: 8px;
+  background: rgba(255, 204, 102, 0.1);
+}
+
