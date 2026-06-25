@@ -509,6 +509,7 @@ function SelectField({
   labelAction,
   message,
   disabled: disabledField = false,
+  portal = false,
 }: {
   label: string
   hint?: string
@@ -520,6 +521,7 @@ function SelectField({
   labelAction?: React.ReactNode
   message?: string
   disabled?: boolean
+  portal?: boolean
 }) {
   const disabled = new Set(disabledOptions ?? [])
   const hasSelectedOption = options.some((option) => (option.includes('|') ? option.split('|')[0] : option) === value)
@@ -538,6 +540,7 @@ function SelectField({
       ]}
       onChange={(nextValue) => onChange(nextValue || undefined)}
       disabled={disabledField}
+      portal={portal}
     />
   )
 
@@ -621,6 +624,7 @@ export function RecordModal({
   companies = [],
   orders = [],
   flowerNames = [],
+  gardenId,
 }: {
   mode: 'view' | 'create'
   initial: DahliaRecord | null
@@ -652,6 +656,7 @@ export function RecordModal({
   companies?: Company[]
   orders?: Order[]
   flowerNames?: string[]
+  gardenId?: string
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const confirmAreaRef = useRef<HTMLDivElement | null>(null)
@@ -1463,7 +1468,7 @@ export function RecordModal({
                   {k === 'growth' ? (
                     <div className="grid2">
                       <Field label="Height (in feet)" hint="Expected or observed plant height in feet." value={form.growth.height ?? ''} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, height: v } }))} />
-                      <SelectField label="Bloom Width" hint="Expected or observed bloom diameter category." value={form.core.size} options={BLOOM_WIDTH_OPTIONS} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, size: v } }))} />
+                      <SelectField label="Bloom Width" hint="Expected or observed bloom diameter category." value={form.core.size} options={BLOOM_WIDTH_OPTIONS} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, size: v } }))} portal />
                       <Field label="Bloom Time" hint="When this dahlia typically blooms, such as early, mid, late, or a month range." value={form.growth.bloomTime ?? ''} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, bloomTime: v } }))} />
                       <Field label="Habit" hint="Growth habit or plant shape, such as upright, compact, bushy, or spreading." value={form.growth.habit ?? ''} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, habit: v } }))} />
                     </div>
@@ -1488,7 +1493,9 @@ export function RecordModal({
                           value=""
                           options={[
                             { value: '', label: 'Select...' },
-                            ...orders.flatMap((order) => order.items.map((item) => ({
+                            ...orders.flatMap((order) => order.items
+                              .filter((item) => !item.gardenId || !gardenId || item.gardenId === gardenId)
+                              .map((item) => ({
                               value: item.id,
                               label: `${order.company?.name ?? 'Company'} ${order.invoiceNumber ? `- ${order.invoiceNumber}` : ''} - ${item.flowerName}`,
                             }))),
@@ -1514,7 +1521,7 @@ export function RecordModal({
                                 <th>Company</th>
                                 <th>Item</th>
                                 <th>Cost</th>
-                                <th>Files</th>
+                                <th>View File(s)</th>
                                 <th />
                               </tr>
                             </thead>
@@ -1525,7 +1532,22 @@ export function RecordModal({
                                   <td>{order.company?.name ?? ''}</td>
                                   <td>{item.flowerName}</td>
                                   <td>{item.itemCost === undefined ? '' : `$${item.itemCost.toFixed(2)}`}</td>
-                                  <td>{order.files.map((file) => <a key={file.id} href={file.fileUrl} target="_blank" rel="noreferrer">View</a>)}</td>
+                                  <td>
+                                    {order.files.length > 0 ? (
+                                      <DropdownField
+                                        label="View file"
+                                        value=""
+                                        portal
+                                        options={[
+                                          { value: '', label: 'Select...' },
+                                          ...[...order.files]
+                                            .sort((a, b) => a.originalFileName.localeCompare(b.originalFileName))
+                                            .map((file, i) => ({ value: file.fileUrl, label: `Doc ${i + 1}` })),
+                                        ]}
+                                        onChange={(url) => { if (url) window.open(url, '_blank', 'noreferrer') }}
+                                      />
+                                    ) : null}
+                                  </td>
                                   <td>
                                     <button
                                       className="btn ghost compact"
@@ -1556,6 +1578,7 @@ export function RecordModal({
                               value={selectedSourceCompany}
                               options={companies.map((company) => company.name)}
                               onChange={setSourceCompany}
+                              portal
                               labelAction={onOpenCompanies ? (
                                 <button className="labelLink" type="button" onClick={onOpenCompanies}>
                                   Company

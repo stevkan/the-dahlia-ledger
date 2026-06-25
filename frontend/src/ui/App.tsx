@@ -13,7 +13,8 @@ import { DEFAULT_GARDEN_OPTIONS, GARDEN_OPTIONS_STORAGE_KEY, normalizeGardenOpti
 import { apiHeaders, auth, authHeaders, hasFirebaseConfig, initializeAuthPersistence } from '../firebase'
 import { RecordsTable } from './RecordsTable'
 import { RecordModal } from './RecordModal'
-import { AgentPanel, AnalyticsPanel } from './AgentPanel'
+import { AgentPanel } from './AgentPanel'
+import { AnalyticsModal } from './AnalyticsModal'
 import { OrderModal } from './OrderModal'
 import { AssetsModal } from './AssetsModal'
 import { CompaniesModal } from './CompaniesModal'
@@ -1811,30 +1812,16 @@ export default function App() {
       ) : null}
 
       {analyticsOpen ? (
-        <div className="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="analytics-title" onMouseDown={() => setAnalyticsOpen(false)}>
-          <div className="modal metricsQueryModal" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="modalHeader">
-              <div>
-                <div className="modalTitle" id="analytics-title">Analytics</div>
-                <div className="modalSub">Generate supported charts and graphs from saved records.</div>
-              </div>
-              <button className="btn ghost compact" type="button" onClick={() => setAnalyticsOpen(false)}>
-                Close
-              </button>
-            </div>
-            <div className="modalBody">
-              <AnalyticsPanel
-                records={records}
-                companies={companies}
-                onOpenRecord={(record) => setActive(records.find((candidate) => candidate.id === record.id) ?? record)}
-                onOpenOrder={(orderId) => {
-                  setInitialOrderId(orderId)
-                  setOrdersOpen(true)
-                }}
-              />
-            </div>
-          </div>
-        </div>
+        <AnalyticsModal
+          records={records}
+          companies={companies}
+          onClose={() => setAnalyticsOpen(false)}
+          onOpenRecord={(record) => setActive(records.find((candidate) => candidate.id === record.id) ?? record)}
+          onOpenOrder={(orderId) => {
+            setInitialOrderId(orderId)
+            setOrdersOpen(true)
+          }}
+        />
       ) : null}
 
       {maintenanceRemindersOpen ? (
@@ -1908,6 +1895,7 @@ export default function App() {
           companies={companies}
           orders={orders}
           flowerNames={flowerNames}
+          gardenId={activeGardenId || undefined}
         />
       ) : null}
 
@@ -2028,6 +2016,7 @@ export default function App() {
           companies={companies}
           orders={orders}
           flowerNames={flowerNames}
+          gardenId={activeGardenId || undefined}
         />
       ) : null}
 

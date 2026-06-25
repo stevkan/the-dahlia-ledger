@@ -1,5 +1,4 @@
 import { getDb } from './firebase.js'
-import { toTitleCase } from './textFormat.js'
 import { getGardenAccess, listGardens, resolveGardenId, requireGardenAccess } from './gardens.js'
 
 const COMPANIES = 'companies'
@@ -306,13 +305,13 @@ export async function reassignCompanies(companyIds, ownerUserId) {
 }
 
 export async function listOrders(context = {}) {
-  const [companies, ordersSnap, itemsSnap, filesSnap] = await Promise.all([
-    listCompanies(context),
+  const [companiesSnap, ordersSnap, itemsSnap, filesSnap] = await Promise.all([
+    getDb().collection(COMPANIES).get(),
     getDb().collection(ORDERS).get(),
     getDb().collection(ORDER_ITEMS).get(),
     getDb().collection(ORDER_FILES).get(),
   ])
-  const companyById = new Map(companies.map((company) => [company.id, company]))
+  const companyById = new Map(companiesSnap.docs.map((doc) => [doc.id, { id: doc.id, ...doc.data() }]))
   const itemsByOrder = new Map()
   const filesByOrder = new Map()
 
@@ -368,8 +367,8 @@ export async function createOrder(input, context = {}) {
       .add(
         withoutUndefined({
           ...item,
-          flowerName: toTitleCase(item.flowerName),
-          cultivarName: item.cultivarName ? toTitleCase(item.cultivarName) : undefined,
+          flowerName: String(item.flowerName ?? '').trim(),
+          cultivarName: item.cultivarName ? String(item.cultivarName).trim() : undefined,
           gardenId: item.gardenId || undefined,
           itemCost: item.itemCost ?? undefined,
           quantity: item.quantity ?? undefined,
@@ -417,8 +416,8 @@ export async function updateOrder(id, input, context = {}) {
       withoutUndefined({
         ...item,
         id: undefined,
-        flowerName: toTitleCase(item.flowerName),
-        cultivarName: item.cultivarName ? toTitleCase(item.cultivarName) : undefined,
+        flowerName: String(item.flowerName ?? '').trim(),
+        cultivarName: item.cultivarName ? String(item.cultivarName).trim() : undefined,
         gardenId: item.gardenId || undefined,
         itemCost: item.itemCost ?? undefined,
         quantity: item.quantity ?? undefined,

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.18.0-beta.3 - 2026-06-25
+
+- Extracted Analytics panel into a standalone AnalyticsModal component.
+- Added five new analytics metrics: average item cost by season, order count by company, flower count by bloom size, flower count by height, and flower count by source.
+- Expanded Agent Helper capabilities to include record lookup, season and garden planning, cultivar research, arrangement and design advice, and problem diagnosis.
+- Added slim record, order, and company helpers to reduce agent context payload size.
+- Added portal rendering and separator support to DropdownField for improved overlay positioning.
+- Passed garden ID to RecordModal and OrderModal for garden-scoped operations.
+
 ## 0.18.0-beta.2 - 2026-06-24
 
 - Merged garden creation and management into a single dropdown flow with a "Create new garden..." option.

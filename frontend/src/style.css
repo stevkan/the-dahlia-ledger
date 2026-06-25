@@ -1309,6 +1309,12 @@ th.sortable {
   border-bottom-right-radius: 12px;
 }
 
+.dropdownSeparator {
+  border: none;
+  border-top: 1px solid var(--accent-border);
+  margin: 4px 0;
+}
+
 .dropdownOption:disabled {
   color: var(--text-soft);
   cursor: not-allowed;
@@ -2991,6 +2997,37 @@ th.sortable {
 .agent {
   padding: 12px 14px;
 }
+
+.agentCapabilities {
+  margin-top: 10px;
+}
+
+.agentCapabilitiesSummary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  user-select: none;
+}
+
+.agentCapabilitiesSummary::-webkit-details-marker {
+  display: none;
+}
+
+.agentCapabilitiesSummary::before {
+  content: '▸';
+  display: inline-block;
+  font-size: 11px;
+  transition: transform 0.15s;
+}
+
+.agentCapabilities[open] > .agentCapabilitiesSummary::before {
+  transform: rotate(90deg);
+}
+
 
 .agentInput {
   margin-top: 10px;

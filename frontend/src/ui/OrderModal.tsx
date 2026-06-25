@@ -411,7 +411,7 @@ export function OrderModal({
         orderDate: orderDate || undefined,
         totalCost: toNumber(totalCost.replace(/[$,]/g, '')),
         notes: notes || undefined,
-        items: items.filter((item) => item.flowerName.trim()).map((item) => ({ ...item, itemNo: item.itemNo?.trim() || undefined, gardenId: item.gardenId || undefined, flowerName: toTitleCase(item.flowerName), cultivarName: toTitleCase(item.cultivarName || item.flowerName), itemCost: item.itemCost === undefined ? undefined : toNumber(item.itemCost.replace(/[$,]/g, '')), quantity: item.quantity ?? undefined })),
+        items: items.filter((item) => item.flowerName.trim()).map((item) => ({ ...item, itemNo: item.itemNo?.trim() || undefined, gardenId: item.gardenId || undefined, flowerName: item.flowerName.trim(), cultivarName: (item.cultivarName || item.flowerName).trim(), itemCost: item.itemCost === undefined ? undefined : toNumber(item.itemCost.replace(/[$,]/g, '')), quantity: item.quantity ?? undefined })),
       }
       const order = formOrder ? await onUpdateOrder(formOrder.id, input) : await onCreateOrder(input)
       resetForm()
@@ -639,7 +639,14 @@ export function OrderModal({
           <table className="table">
             <thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Cost</th><th>Garden</th></tr></thead>
             <tbody>
-              {selectedOrder.items.length ? selectedOrder.items.map((item) => (
+              {selectedOrder.items.length ? [...selectedOrder.items].sort((a, b) => {
+                const aNo = a.itemNo?.trim()
+                const bNo = b.itemNo?.trim()
+                if (aNo && bNo) return aNo.localeCompare(bNo, undefined, { numeric: true })
+                if (aNo) return -1
+                if (bNo) return 1
+                return a.flowerName.localeCompare(b.flowerName)
+              }).map((item) => (
                 <tr key={item.id}>
                   <td>{item.itemNo ?? ''}</td>
                   <td>{item.flowerName}</td>

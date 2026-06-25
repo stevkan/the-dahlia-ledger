@@ -84,6 +84,11 @@ const MetricSpecSchema = z.discriminatedUnion('status', [
       'garden_fill_by_area',
       'not_viable_reason_summary',
       'not_planted_reason_summary',
+      'average_item_cost_by_season',
+      'order_count_by_company',
+      'flower_count_by_bloom_size',
+      'flower_count_by_height',
+      'flower_count_by_source',
     ]),
     seasonYearStart: z.number().int().min(1900).max(3000).optional(),
     seasonYearStarts: z.array(z.number().int().min(1900).max(3000)).optional().default([]),
@@ -195,6 +200,81 @@ const CorrectionResultSchema = z.object({
 
 async function readPrompt(filePath) {
   return await readFile(filePath, 'utf8')
+}
+
+function slimRecord(record) {
+  return {
+    id: record.id,
+    recordNumber: record.recordNumber,
+    flowerName: record.flowerName,
+    seasonYearStart: record.seasonYearStart,
+    core: record.core
+      ? {
+          cultivar: record.core.cultivar,
+          plantedDate: record.core.plantedDate,
+          color: record.core.color,
+          form: record.core.form,
+          size: record.core.size,
+          notes: record.core.notes,
+        }
+      : undefined,
+    growth: record.growth,
+    care: record.care,
+    tuber: record.tuber
+      ? {
+          source: record.tuber.source,
+          acquiredYear: record.tuber.acquiredYear,
+          storageNotes: record.tuber.storageNotes,
+          overwintered: record.tuber.overwintered,
+          containerType: record.tuber.containerType,
+          containerFillType: record.tuber.containerFillType,
+          linkedOrderItemIds: record.tuber.linkedOrderItemIds,
+        }
+      : undefined,
+    health: record.health,
+    meta: record.meta
+      ? {
+          gardenArea: record.meta.gardenArea,
+          gardenRow: record.meta.gardenRow,
+          gardenPosition: record.meta.gardenPosition,
+          gardenZone: record.meta.gardenZone,
+          plantingState: record.meta.plantingState,
+          notPlantedReason: record.meta.notPlantedReason,
+          notViableReason: record.meta.notViableReason,
+        }
+      : undefined,
+  }
+}
+
+function slimOrder(order) {
+  return {
+    id: order.id,
+    company: order.company ? { name: order.company.name } : undefined,
+    companyName: order.companyName,
+    invoiceNumber: order.invoiceNumber,
+    orderDate: order.orderDate,
+    totalCost: order.totalCost,
+    notes: order.notes,
+    items: (order.items ?? []).map((item) => ({
+      id: item.id,
+      flowerName: item.flowerName,
+      cultivarName: item.cultivarName,
+      itemCost: item.itemCost,
+      quantity: item.quantity,
+      notes: item.notes,
+    })),
+  }
+}
+
+function slimCompany(company) {
+  return {
+    id: company.id,
+    name: company.name,
+    website: company.website,
+    email: company.email,
+    phone: company.phone,
+    notes: company.notes,
+  }
 }
 
 async function parseJsonResponse(resp) {
@@ -1080,6 +1160,135 @@ function computeReasonSummary({ spec, records, plantingState, reasonKey, label, 
   })
 }
 
+function computeAverageItemCostBySeason({ spec, orders }) {
+  const stats = new Map()
+  let itemsConsidered = 0
+  let missingCostItems = 0
+
+  for (const order of orders) {
+    const season = order.orderDate ? String(order.orderDate).slice(0, 4) : 'No Date'
+    const stat = stats.get(season) ?? { season, itemCostTotal: 0, pricedItemCount: 0 }
+
+    for (const item of order.items ?? []) {
+      itemsConsidered += 1
+      const cost = Number(item.itemCost)
+      if (!Number.isFinite(cost)) {
+        missingCostItems += 1
+        continue
+      }
+      const quantity = Number.isFinite(Number(item.quantity)) && Number(item.quantity) > 0 ? Number(item.quantity) : 1
+      stat.itemCostTotal += cost * quantity
+      stat.pricedItemCount += quantity
+    }
+
+    stats.set(season, stat)
+  }
+
+  const data = sortMetricRows(
+    Array.from(stats.values())
+      .filter((stat) => stat.pricedItemCount > 0)
+      .map((stat) => ({
+        season: stat.season,
+        averageItemCost: Number((stat.itemCostTotal / stat.pricedItemCount).toFixed(2)),
+        pricedItemCount: stat.pricedItemCount,
+      })),
+    spec.sortBy,
+    'season',
+    'averageItemCost',
+  )
+
+  return AgentResultSchema.parse({
+    status: 'answer',
+    message: `Computed average item cost by season from ${itemsConsidered} invoice item${itemsConsidered === 1 ? '' : 's'}. ${missingCostItems} item${missingCostItems === 1 ? '' : 's'} had no itemCost.`,
+    visualization: {
+      type: spec.visualization?.type ?? 'line',
+      title: spec.visualization?.title ?? 'Average Item Cost by Season',
+      description: 'Compares the average cost per item across seasons, helping track price trends over time.',
+      data,
+      xKey: 'season',
+      yKey: 'averageItemCost',
+      valueKey: 'averageItemCost',
+      labelKey: 'season',
+      unit: 'dollars',
+      renderer: spec.visualization?.renderer ?? 'd3',
+      xLabelAngle: spec.visualization?.xLabelAngle,
+    },
+    caveats: missingCostItems > 0 ? [`${missingCostItems} invoice item${missingCostItems === 1 ? '' : 's'} were excluded because itemCost was missing.`] : [],
+    sourcesUsed: ['orders'],
+  })
+}
+
+function computeOrderCountByCompany({ spec, orders }) {
+  const counts = new Map()
+  let missingCompanyOrders = 0
+
+  for (const order of orders) {
+    const orderYear = order.orderDate ? Number(String(order.orderDate).slice(0, 4)) : undefined
+    if (!matchesSeason(orderYear, spec)) continue
+    const company = String(order.company?.name ?? '').trim() || 'Unmatched'
+    if (company === 'Unmatched') missingCompanyOrders += 1
+    counts.set(company, (counts.get(company) ?? 0) + 1)
+  }
+
+  const data = sortMetricRows(Array.from(counts, ([company, orderCount]) => ({ company, orderCount })), spec.sortBy, 'company', 'orderCount')
+
+  return AgentResultSchema.parse({
+    status: 'answer',
+    message: `Computed order counts by company${textForSeason(spec)} from ${orders.length} invoice${orders.length === 1 ? '' : 's'}.`,
+    visualization: {
+      type: spec.visualization?.type ?? 'bar',
+      title: spec.visualization?.title ?? `Order Count by Company${titleSuffixForSeason(spec)}`,
+      description: 'Compares how many separate orders were placed with each company, showing purchase frequency rather than total spend.',
+      data,
+      xKey: 'company',
+      yKey: 'orderCount',
+      valueKey: 'orderCount',
+      labelKey: 'company',
+      unit: 'orders',
+      renderer: spec.visualization?.renderer ?? 'd3',
+      xLabelAngle: spec.visualization?.xLabelAngle,
+    },
+    caveats: missingCompanyOrders > 0 ? [`${missingCompanyOrders} order${missingCompanyOrders === 1 ? '' : 's'} had no matched company and are grouped as Unmatched.`] : [],
+    sourcesUsed: ['orders', 'companies'],
+  })
+}
+
+function computeFlowerCountByBloomSize({ spec, records }) {
+  return computeFlowerCountByField({
+    spec,
+    records,
+    labelKey: 'bloomSize',
+    valueLabel: 'bloom size',
+    title: 'Number of Flowers by Bloom Size',
+    description: 'Shows the distribution of bloom sizes across your saved records, helping identify the most common size categories and records with missing size data.',
+    readValue: (record) => record.core?.size,
+  })
+}
+
+function computeFlowerCountByHeight({ spec, records }) {
+  return computeFlowerCountByField({
+    spec,
+    records,
+    labelKey: 'height',
+    valueLabel: 'height',
+    title: 'Number of Flowers by Height',
+    description: 'Shows the distribution of plant heights across your saved records, helping compare height variety and identify records with missing height data.',
+    readValue: (record) => record.growth?.height,
+  })
+}
+
+function computeFlowerCountBySource({ spec, records }) {
+  return computeFlowerCountByField({
+    spec,
+    records,
+    labelKey: 'source',
+    valueLabel: 'source',
+    title: 'Number of Flowers by Source',
+    description: 'Breaks down records by the tuber source field, showing how many flowers came from each listed source or supplier name.',
+    readValue: (record) => record.tuber?.source,
+  })
+}
+
 function computeMetric(spec, context) {
   context = applyAnalyticsFilters(context, spec)
 
@@ -1136,6 +1345,21 @@ function computeMetric(spec, context) {
   }
   if (spec.metric === 'not_planted_reason_summary') {
     return computeReasonSummary({ spec, ...context, plantingState: 'not_planted', reasonKey: 'notPlantedReason', label: 'not planted reason summary', title: 'Not Planted Reason Summary' })
+  }
+  if (spec.metric === 'average_item_cost_by_season') {
+    return computeAverageItemCostBySeason({ spec, ...context })
+  }
+  if (spec.metric === 'order_count_by_company') {
+    return computeOrderCountByCompany({ spec, ...context })
+  }
+  if (spec.metric === 'flower_count_by_bloom_size') {
+    return computeFlowerCountByBloomSize({ spec, ...context })
+  }
+  if (spec.metric === 'flower_count_by_height') {
+    return computeFlowerCountByHeight({ spec, ...context })
+  }
+  if (spec.metric === 'flower_count_by_source') {
+    return computeFlowerCountBySource({ spec, ...context })
   }
 
   return AgentResultSchema.parse({
@@ -1257,6 +1481,29 @@ export async function runMetricDrilldown(input) {
   } else if (input.metric === 'not_planted_reason_summary') {
     title = `Not Planted Records with Reason: ${input.bucket}${titleSuffixForSeason(input)}`
     filtered = recordsForSeason.filter((record) => record.meta?.plantingState === 'not_planted' && (enumReasonLabel(record.meta?.notPlantedReason) || 'Unspecified') === input.bucket)
+  } else if (input.metric === 'average_item_cost_by_season') {
+    const orderRows = orders
+      .filter((order) => (order.orderDate ? String(order.orderDate).slice(0, 4) : 'No Date') === String(input.bucket ?? ''))
+      .map(drilldownOrder)
+    return { type: 'orders', title: `Invoices in Season: ${input.bucket}`, orders: orderRows }
+  } else if (input.metric === 'order_count_by_company') {
+    const orderRows = orders
+      .filter((order) => {
+        const orderYear = order.orderDate ? Number(String(order.orderDate).slice(0, 4)) : undefined
+        if (!matchesSeason(orderYear, input)) return false
+        return (String(order.company?.name ?? '').trim() || 'Unmatched') === input.bucket
+      })
+      .map(drilldownOrder)
+    return { type: 'orders', title: `Invoices for Company: ${input.bucket}${titleSuffixForSeason(input)}`, orders: orderRows }
+  } else if (input.metric === 'flower_count_by_bloom_size') {
+    title = `Records with Bloom Size: ${input.bucket}${titleSuffixForSeason(input)}`
+    filtered = recordsForSeason.filter((record) => (String(record.core?.size ?? '').trim() || 'Unspecified') === input.bucket)
+  } else if (input.metric === 'flower_count_by_height') {
+    title = `Records with Height: ${input.bucket}${titleSuffixForSeason(input)}`
+    filtered = recordsForSeason.filter((record) => (String(record.growth?.height ?? '').trim() || 'Unspecified') === input.bucket)
+  } else if (input.metric === 'flower_count_by_source') {
+    title = `Records with Source: ${input.bucket}${titleSuffixForSeason(input)}`
+    filtered = recordsForSeason.filter((record) => (String(record.tuber?.source ?? '').trim() || 'Unspecified') === input.bucket)
   } else {
     return { title: 'Unsupported drilldown', records: [] }
   }
@@ -1294,10 +1541,9 @@ export async function ingestText(text) {
         content: JSON.stringify({
           question: text,
           generatedAt: new Date().toISOString(),
-          records,
-          orders,
-          companies,
-          promptPath: 'backend/prompts/agent-helper.md',
+          records: records.map(slimRecord),
+          orders: orders.map(slimOrder),
+          companies: companies.map(slimCompany),
         }),
       },
     ],
