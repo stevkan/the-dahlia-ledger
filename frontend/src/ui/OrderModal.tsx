@@ -94,11 +94,11 @@ function FieldLabel({ label, hint }: { label: string; hint?: string }) {
   )
 }
 
-function Field({ label, hint, value, onChange, type, onBlur }: { label: string; hint?: string; value: string; onChange: (v: string) => void; type?: 'text' | 'number' | 'date'; onBlur?: () => void }) {
+function Field({ label, hint, value, onChange, type, onBlur, disabled }: { label: string; hint?: string; value: string; onChange: (v: string) => void; type?: 'text' | 'number' | 'date'; onBlur?: () => void; disabled?: boolean }) {
   return (
     <label className="field">
       <FieldLabel label={label} hint={hint} />
-      <input className="input" value={value} type={type ?? 'text'} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} />
+      <input className="input" value={value} type={type ?? 'text'} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} disabled={disabled} />
     </label>
   )
 }
@@ -250,7 +250,7 @@ export function OrderModal({
   }, [flowerNames, orders])
   const selectedOrder = view.mode === 'detail' ? orderById.get(view.orderId) ?? null : null
   const formOrder = view.mode === 'form' && view.orderId ? orderById.get(view.orderId) ?? null : null
-  const canSave = companyId || newCompanyName.trim()
+  const canSave = (companyId || newCompanyName.trim()) && invoiceNumber.trim() && totalCost.trim() && orderDate.trim()
 
   const companySummaries = useMemo(() => {
     return companies
@@ -660,15 +660,16 @@ export function OrderModal({
   function renderForm() {
     return (
       <div className="sectionBody orderForm">
-        <div className="subTitle">{formOrder ? 'Edit Invoice Record' : 'New Invoice Record'}</div>
         <div className="grid2">
           <label className="field">
             <FieldLabel label="Company" hint={ORDER_FIELD_HINTS.company} />
-            <DropdownField label="Company" value={companyId} options={[{ value: '', label: 'Select...' }, ...companies.map((company) => ({ value: company.id, label: company.name }))]} onChange={setCompanyId} />
+            <DropdownField label="Company" value={companyId} options={[{ value: '', label: 'Use new company...' }, ...companies.map((company) => ({ value: company.id, label: company.name }))]} onChange={(value) => { setCompanyId(value); if (value) setNewCompanyName('') }} />
           </label>
-          <Field label="New Company" hint={ORDER_FIELD_HINTS.newCompany} value={newCompanyName} onChange={setNewCompanyName} />
-          <Field label="Invoice Number" hint={ORDER_FIELD_HINTS.invoiceNumber} value={invoiceNumber} onChange={setInvoiceNumber} />
-          <Field label="Order Date" hint={ORDER_FIELD_HINTS.orderDate} type="date" value={orderDate} onChange={setOrderDate} />
+        </div>
+        <div className="subTitle">{formOrder ? 'Edit Invoice Record' : 'Invoice Details'}</div>
+        <div className="grid2">
+          <Field label="New Company" hint={ORDER_FIELD_HINTS.newCompany} value={newCompanyName} onChange={setNewCompanyName} disabled={Boolean(companyId)} />
+          <Field label="Invoice No." hint={ORDER_FIELD_HINTS.invoiceNumber} value={invoiceNumber} onChange={setInvoiceNumber} />
           <Field
             label="Total Cost"
             hint={ORDER_FIELD_HINTS.totalCost}
@@ -679,6 +680,7 @@ export function OrderModal({
             }}
             onBlur={() => setTotalCost((current) => current.trim() ? formatMoneyInput(current) : '')}
           />
+          <Field label="Order Date" hint={ORDER_FIELD_HINTS.orderDate} type="date" value={orderDate} onChange={setOrderDate} />
         </div>
         <TextArea label="Order Notes" hint={ORDER_FIELD_HINTS.orderNotes} value={notes} onChange={setNotes} />
         <div className="subTitle orderItemsTitle">Order Items</div>

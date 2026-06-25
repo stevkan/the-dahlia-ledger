@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.18.0-beta.2 - 2026-06-24
+
+- Merged garden creation and management into a single dropdown flow with a "Create new garden..." option.
+- Disabled the new company name field in the order form when an existing company is selected.
+- Required invoice number, total cost, and order date before enabling order save.
+- Reorganized order form layout and updated field labels for clarity.
+
 ## 0.18.0-beta.1 - 2026-06-24
 
 - Added flower name management with a dedicated modal for listing and renaming flower names across records and orders.

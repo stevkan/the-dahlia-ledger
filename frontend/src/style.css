@@ -1235,6 +1235,10 @@ th.sortable {
   max-width: 100%;
 }
 
+.field > .dropdownField {
+  width: 100%;
+}
+
 .dropdownSizer {
   height: 0;
   overflow: hidden;

@@ -26,8 +26,7 @@ type Props = {
 const GARDEN_ROLES: GardenRole[] = ['owner', 'admin', 'editor', 'viewer']
 
 const GARDEN_FIELD_HINTS = {
-  selectedGarden: 'Choose the garden whose details, members, and invites you want to manage.',
-  newGardenName: 'Enter the name for a new garden workspace.',
+  selectedGarden: 'Choose an existing garden to manage its details, members, and invites, or select New Garden to create a new one.',
   name: 'The display name for this garden throughout the app.',
   organizationName: 'Optional organization, business, farm, or group name associated with this garden.',
   locationName: 'Optional short location label, such as Home Garden, Greenhouse, or North Field.',
@@ -93,12 +92,11 @@ function inviteUrl(token: string) {
   return `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(token)}`
 }
 
-export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, globalAdminUserId, currentGardenId, onClose, onCreateGarden, onUpdateGarden, onDeleteGarden, onListGardenMembers, onSaveGardenMember, onDeleteGardenMember, onDeleteKnownUser, onListInvites, onCreateInvite, onResendInvite, onDeleteInvite, onOpenPlacementOptions }: Props) {
-  const [selectedGardenId, setSelectedGardenId] = useState(currentGardenId || fallbackGarden(gardens)?.id || '')
+export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, globalAdminUserId, onClose, onCreateGarden, onUpdateGarden, onDeleteGarden, onListGardenMembers, onSaveGardenMember, onDeleteGardenMember, onDeleteKnownUser, onListInvites, onCreateInvite, onResendInvite, onDeleteInvite, onOpenPlacementOptions }: Props) {
+  const [selectedGardenId, setSelectedGardenId] = useState<string>('__new__')
   const [gardenMembers, setGardenMembers] = useState<GardenMember[]>([])
   const [selectedGardenMemberIds, setSelectedGardenMemberIds] = useState<string[]>([])
   const [gardenInvites, setGardenInvites] = useState<Invite[]>([])
-  const [newGardenName, setNewGardenName] = useState('')
   const [gardenName, setGardenName] = useState('')
   const [gardenOrganizationName, setGardenOrganizationName] = useState('')
   const [gardenLocationName, setGardenLocationName] = useState('')
@@ -114,6 +112,7 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const isNewGarden = selectedGardenId === '__new__'
   const selectedGarden = gardens.find((garden) => garden.id === selectedGardenId) ?? null
   const selectedGardenKnownUser = knownUsers.find((knownUser) => knownUser.userId === gardenKnownUserId) ?? null
   const availableGardenUsers = knownUsers.filter((knownUser) => !gardenMembers.some((member) => member.userId === knownUser.userId))
@@ -127,7 +126,11 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
   ))
 
   useEffect(() => {
-    if (!selectedGardenId) return
+    if (!selectedGardenId || selectedGardenId === '__new__') {
+      setGardenMembers([])
+      setGardenInvites([])
+      return
+    }
     void refreshGarden(selectedGardenId)
   }, [selectedGardenId])
 
@@ -153,26 +156,32 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
     }
   }
 
-  async function createGarden() {
-    if (!newGardenName.trim()) return
-    await run(async () => {
-      const garden = await onCreateGarden({ name: newGardenName.trim() })
-      setNewGardenName('')
-      setSelectedGardenId(garden.id)
-    })
-  }
-
   async function saveGardenDetails() {
-    if (!selectedGardenId || !gardenName.trim()) return
-    await run(async () => {
-      await onUpdateGarden(selectedGardenId, {
-        name: gardenName.trim(),
-        organizationName: gardenOrganizationName.trim() || undefined,
-        locationName: gardenLocationName.trim() || undefined,
-        address: gardenAddress.trim() || undefined,
-        notes: gardenNotes.trim() || undefined,
+    if (!gardenName.trim()) return
+    if (isNewGarden) {
+      await run(async () => {
+        const garden = await onCreateGarden({ name: gardenName.trim(), organizationName: gardenOrganizationName.trim() || undefined })
+        if (gardenLocationName.trim() || gardenAddress.trim() || gardenNotes.trim()) {
+          await onUpdateGarden(garden.id, {
+            locationName: gardenLocationName.trim() || undefined,
+            address: gardenAddress.trim() || undefined,
+            notes: gardenNotes.trim() || undefined,
+          })
+        }
+        setSelectedGardenId(garden.id)
       })
-    })
+    } else {
+      if (!selectedGardenId) return
+      await run(async () => {
+        await onUpdateGarden(selectedGardenId, {
+          name: gardenName.trim(),
+          organizationName: gardenOrganizationName.trim() || undefined,
+          locationName: gardenLocationName.trim() || undefined,
+          address: gardenAddress.trim() || undefined,
+          notes: gardenNotes.trim() || undefined,
+        })
+      })
+    }
   }
 
   async function deleteSelectedGarden() {
@@ -320,42 +329,31 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
 
           <section className="reminderComposer">
             <div className="subTitle">Gardens</div>
-            <div className="grid2">
-              <label className="field">
-                <FieldLabel label="Selected garden" hint={GARDEN_FIELD_HINTS.selectedGarden} />
-                <DropdownField label="Selected garden" value={selectedGardenId} options={gardens.map((garden) => ({ value: garden.id, label: garden.name }))} onChange={setSelectedGardenId} />
-              </label>
-              <label className="field">
-                <FieldLabel label="New garden name" hint={GARDEN_FIELD_HINTS.newGardenName} />
-                <input className="input" value={newGardenName} onChange={(event) => setNewGardenName(event.target.value)} />
-              </label>
-            </div>
-            <div className="rowActions reminderComposerActions">
-              <button className="btn ghost compact" type="button" disabled={busy || !newGardenName.trim()} onClick={() => void createGarden()}>Create Garden</button>
-            </div>
-            {selectedGarden ? (
-              <div className="reminderSectionGroup">
-                <div className="reminderSectionHeader"><div className="subTitle">Garden Details</div></div>
-                <div className="grid2">
-                  <label className="field"><FieldLabel label="Name" hint={GARDEN_FIELD_HINTS.name} /><input className="input" value={gardenName} onChange={(event) => setGardenName(event.target.value)} /></label>
-                  <label className="field"><FieldLabel label="Organization Name" hint={GARDEN_FIELD_HINTS.organizationName} /><input className="input" value={gardenOrganizationName} onChange={(event) => setGardenOrganizationName(event.target.value)} /></label>
-                  <label className="field"><FieldLabel label="Location name" hint={GARDEN_FIELD_HINTS.locationName} /><input className="input" value={gardenLocationName} onChange={(event) => setGardenLocationName(event.target.value)} /></label>
-                  <label className="field gridSpanFull"><FieldLabel label="Address" hint={GARDEN_FIELD_HINTS.address} /><input className="input" value={gardenAddress} onChange={(event) => setGardenAddress(event.target.value)} /></label>
-                  <label className="field gridSpanFull"><FieldLabel label="Notes" hint={GARDEN_FIELD_HINTS.notes} /><textarea className="textarea" value={gardenNotes} rows={3} onChange={(event) => setGardenNotes(event.target.value)} /></label>
-                </div>
-                <div className="gardenDetailsActionRow">
-                  <div className="rowActions reminderComposerActions">
-                    <button className="btn ghost compact" type="button" onClick={onOpenPlacementOptions}>Options</button>
-                    <button className="btn ghost compact" type="button" disabled={busy || !gardenName.trim() || !gardenDetailsChanged} onClick={() => void saveGardenDetails()}>Save Details</button>
-                  </div>
-                  <button className="btn danger compact" type="button" disabled={busy} onClick={() => void deleteSelectedGarden()}>{deleteGardenArmed ? 'Confirm Delete Garden' : 'Delete Garden'}</button>
-                </div>
-                {deleteGardenArmed ? <div className="callout warn invoiceConfirmMessage">Click Confirm Delete Garden to permanently delete this garden. Deletion is blocked if this is your last garden or if it has records, reminders, or assigned order items.</div> : null}
+            <label className="field">
+              <FieldLabel label="Garden" hint={GARDEN_FIELD_HINTS.selectedGarden} />
+              <DropdownField label="Garden" value={selectedGardenId} options={[{ value: '__new__', label: 'Create new garden...' }, ...gardens.map((garden) => ({ value: garden.id, label: garden.name }))]} onChange={setSelectedGardenId} />
+            </label>
+            <div className="reminderSectionGroup">
+              <div className="reminderSectionHeader"><div className="subTitle">Garden Details</div></div>
+              <div className="grid2">
+                <label className="field"><FieldLabel label="Name" hint={GARDEN_FIELD_HINTS.name} /><input className="input" value={gardenName} onChange={(event) => setGardenName(event.target.value)} /></label>
+                <label className="field"><FieldLabel label="Organization Name" hint={GARDEN_FIELD_HINTS.organizationName} /><input className="input" value={gardenOrganizationName} onChange={(event) => setGardenOrganizationName(event.target.value)} /></label>
+                <label className="field"><FieldLabel label="Location Name" hint={GARDEN_FIELD_HINTS.locationName} /><input className="input" value={gardenLocationName} onChange={(event) => setGardenLocationName(event.target.value)} /></label>
+                <label className="field gridSpanFull"><FieldLabel label="Address" hint={GARDEN_FIELD_HINTS.address} /><input className="input" value={gardenAddress} onChange={(event) => setGardenAddress(event.target.value)} /></label>
+                <label className="field gridSpanFull"><FieldLabel label="Notes" hint={GARDEN_FIELD_HINTS.notes} /><textarea className="textarea" value={gardenNotes} rows={3} onChange={(event) => setGardenNotes(event.target.value)} /></label>
               </div>
-            ) : null}
-            {renderGardenMembers()}
-            {renderInviteComposer()}
-            {renderInvites(gardenInvites)}
+              <div className="gardenDetailsActionRow">
+                <div className="rowActions reminderComposerActions">
+                  {selectedGarden ? <button className="btn ghost compact" type="button" onClick={onOpenPlacementOptions}>Options</button> : null}
+                  <button className="btn ghost compact" type="button" disabled={busy || !gardenName.trim() || (!isNewGarden && !gardenDetailsChanged)} onClick={() => void saveGardenDetails()}>{isNewGarden ? 'Create Garden' : 'Save Details'}</button>
+                </div>
+                {selectedGarden ? <button className="btn danger compact" type="button" disabled={busy} onClick={() => void deleteSelectedGarden()}>{deleteGardenArmed ? 'Confirm Delete Garden' : 'Delete Garden'}</button> : null}
+              </div>
+              {deleteGardenArmed ? <div className="callout warn invoiceConfirmMessage">Click Confirm Delete Garden to permanently delete this garden. Deletion is blocked if this is your last garden or if it has records, reminders, or assigned order items.</div> : null}
+            </div>
+            {selectedGarden ? renderGardenMembers() : null}
+            {selectedGarden ? renderInviteComposer() : null}
+            {selectedGarden ? renderInvites(gardenInvites) : null}
           </section>
 
           {isGlobalAdmin ? renderKnownUsers() : null}
