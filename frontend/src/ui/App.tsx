@@ -22,6 +22,7 @@ import { GardenOptionsModal } from './GardenOptionsModal'
 import { MaintenanceRemindersModal } from './MaintenanceRemindersModal'
 import { GardenManagementModal } from './GardenManagementModal'
 import { FlowerNamesModal } from './FlowerNamesModal'
+import { ColorsModal } from './ColorsModal'
 
 const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? ''
 const THEME_STORAGE_KEY = 'dahlia-tracker-theme'
@@ -38,6 +39,10 @@ const assetsQueryKey = ['assets'] as const
 const settingsQueryKey = ['settings'] as const
 function flowerNamesQueryKey(gardenId?: string) {
   return ['flower-names', gardenId ?? 'default'] as const
+}
+
+function colorsQueryKey(gardenId?: string) {
+  return ['colors', gardenId ?? 'default'] as const
 }
 
 function LandscapeOnlyOverlay() {
@@ -301,6 +306,12 @@ function excelImportSummary(result: ExcelImportResult) {
   return `Updated ${counts.updatedCount} of ${counts.extractedCount} Excel location${counts.extractedCount === 1 ? '' : 's'}. ${followUpCount} need review.`
 }
 
+function refreshIntervalLabel(intervalMs: number) {
+  if (intervalMs === 0) return 'Off'
+  if (intervalMs < 60_000) return `${intervalMs / 1000} sec`
+  return `${intervalMs / 60_000} min`
+}
+
 function canUserViewReminder(reminder: MaintenanceReminder, currentUserId?: string) {
   const visibility = reminder.visibility ?? 'garden'
   if (visibility === 'garden') return true
@@ -394,6 +405,7 @@ export default function App() {
   const [companiesUsageRefreshing, setCompaniesUsageRefreshing] = useState(false)
   const [gardenOptionsOpen, setGardenOptionsOpen] = useState(false)
   const [flowerNamesOpen, setFlowerNamesOpen] = useState(false)
+  const [colorsOpen, setColorsOpen] = useState(false)
   const [gardenManagementOpen, setGardenManagementOpen] = useState(false)
   const [gardenOptionsInitialGroup, setGardenOptionsInitialGroup] = useState<GardenOptionKey>('gardenAreas')
   const [gardenOptionsDraft, setGardenOptionsDraft] = useState<GardenOptions | null>(null)
@@ -407,6 +419,7 @@ export default function App() {
   const [insightsMenuOpen, setInsightsMenuOpen] = useState(false)
   const [maintenanceRemindersOpen, setMaintenanceRemindersOpen] = useState(false)
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
+  const [hamburgerMenuOpen, setHamburgerMenuOpen] = useState(false)
   const recordsManagementRef = useRef<HTMLDivElement>(null)
   const gardenMenuRef = useRef<HTMLDivElement>(null)
   const insightsMenuRef = useRef<HTMLDivElement>(null)
@@ -490,6 +503,12 @@ export default function App() {
     enabled: Boolean(user) && Boolean(activeGardenId),
     staleTime: 5 * 60_000,
   })
+  const colorsQuery = useQuery({
+    queryKey: colorsQueryKey(activeGardenId),
+    queryFn: async () => (await api<{ colors: string[] }>(`/api/colors${gardenQuery}`)).colors,
+    enabled: Boolean(user) && Boolean(activeGardenId),
+    staleTime: 5 * 60_000,
+  })
   const settingsQuery = useQuery({
     queryKey: settingsQueryKey,
     queryFn: async () => (await api<{ settings: AppSettings }>('/api/settings')).settings,
@@ -522,6 +541,7 @@ export default function App() {
   const orders = ordersQuery.data ?? []
   const assets = assetsQuery.data ?? []
   const flowerNames = flowerNamesQuery.data ?? []
+  const colors = colorsQuery.data ?? []
   const settings = settingsQuery.data ?? { agentDebugReviewEnabled: false }
   const maintenanceReminders = maintenanceRemindersQuery.data ?? []
   const gardenMembers = gardenMembersQuery.data ?? []
@@ -1195,6 +1215,18 @@ export default function App() {
     ])
   }
 
+  async function renameColor(oldColor: string, newColor: string) {
+    await api(`/api/colors/${encodeURIComponent(oldColor)}${gardenQuery}`, {
+      method: 'PUT',
+      body: JSON.stringify({ newName: newColor }),
+    })
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: colorsQueryKey(activeGardenId) }),
+      queryClient.invalidateQueries({ queryKey: recordsQueryKey(activeGardenId) }),
+      queryClient.invalidateQueries({ queryKey: recordSummariesQueryKey(activeGardenId) }),
+    ])
+  }
+
   function updateGardenOptions(nextOptions: GardenOptions) {
     const normalized = normalizeGardenOptions(nextOptions)
     setGardenOptionsDraft(normalized)
@@ -1486,7 +1518,6 @@ export default function App() {
           <div className="brandTitle">The Dahlia Ledger</div>
           <div className="brandSub">Records, images, seasons, and notes</div>
         </div>
-        {highPriorityIncompleteReminderCount ? <div className="topPriorityMessage" role="status">{highPriorityReminderMessage(highPriorityIncompleteReminderCount)}</div> : null}
         <div className="topActions">
           <div className="actionAccordion" ref={gardenMenuRef}>
             <button
@@ -1526,102 +1557,6 @@ export default function App() {
               </div>
             ) : null}
           </div>
-          <div className="actionAccordion" ref={recordsManagementRef}>
-            <button
-              className="btn ghost accordionToggle"
-              aria-expanded={recordsManagementOpen}
-              aria-controls="records-management-actions"
-              onClick={() => setRecordsManagementOpen((open) => !open)}
-            >
-              <span>Manage</span>
-              <span className="accordionIcon" aria-hidden="true">
-                {recordsManagementOpen ? '−' : '+'}
-              </span>
-            </button>
-            {recordsManagementOpen ? (
-              <div className="accordionPanel" id="records-management-actions">
-                <button
-                  className="btn ghost"
-                  onClick={() => {
-                    setGardenManagementOpen(true)
-                    setRecordsManagementOpen(false)
-                  }}
-                >
-                  Gardens & Access
-                </button>
-                <button
-                  className="btn ghost"
-                  onClick={() => {
-                    setAssetsOpen(true)
-                    setRecordsManagementOpen(false)
-                  }}
-                >
-                  Assets
-                </button>
-                <button
-                  className="btn ghost"
-                  onClick={() => {
-                    setCompaniesOpen(true)
-                    setRecordsManagementOpen(false)
-                  }}
-                >
-                  Companies
-                </button>
-                <button
-                  className="btn ghost"
-                  onClick={() => {
-                    setInitialOrderId(null)
-                    setOrdersOpen(true)
-                    setRecordsManagementOpen(false)
-                  }}
-                >
-                  Invoices
-                </button>
-              </div>
-            ) : null}
-          </div>
-          <div className="actionAccordion" ref={insightsMenuRef}>
-            <button
-              className="btn ghost accordionToggle"
-              type="button"
-              aria-expanded={insightsMenuOpen}
-              aria-controls="insights-actions"
-              onClick={() => {
-                setInsightsMenuOpen((open) => !open)
-                setRecordsManagementOpen(false)
-                setSettingsMenuOpen(false)
-              }}
-            >
-              <span>Insights</span>
-              <span className="accordionIcon" aria-hidden="true">
-                {insightsMenuOpen ? '−' : '+'}
-              </span>
-            </button>
-            {insightsMenuOpen ? (
-              <div className="accordionPanel" id="insights-actions">
-                <button
-                  className="btn ghost"
-                  type="button"
-                  onClick={() => {
-                    setAgentHelperOpen(true)
-                    setInsightsMenuOpen(false)
-                  }}
-                >
-                  Agent Helper
-                </button>
-                <button
-                  className="btn ghost"
-                  type="button"
-                  onClick={() => {
-                    setAnalyticsOpen(true)
-                    setInsightsMenuOpen(false)
-                  }}
-                >
-                  Analytics
-                </button>
-              </div>
-            ) : null}
-          </div>
           <button
             className="btn ghost"
             type="button"
@@ -1630,20 +1565,136 @@ export default function App() {
               setRecordsManagementOpen(false)
               setInsightsMenuOpen(false)
               setSettingsMenuOpen(false)
+              setHamburgerMenuOpen(false)
             }}
           >
             Reminders{visibleReminderCount ? ` (${visibleReminderCount})` : ''}
           </button>
+          <div className="hamburgerGroup">
+            <button
+              className="btn ghost accordionToggle hamburgerToggle"
+              type="button"
+              aria-expanded={hamburgerMenuOpen}
+              aria-label="Open more menu"
+              onClick={() => {
+                setHamburgerMenuOpen((open) => !open)
+                setRecordsManagementOpen(false)
+                setInsightsMenuOpen(false)
+                setSettingsMenuOpen(false)
+              }}
+            >
+              <span>More</span>
+              <span className="accordionIcon" aria-hidden="true">☰</span>
+            </button>
+            <div className={`hamburgerPanel${hamburgerMenuOpen ? ' open' : ''}`}>
+              <div className="actionAccordion" ref={recordsManagementRef}>
+                <button
+                  className="btn ghost accordionToggle"
+                  aria-expanded={recordsManagementOpen}
+                  aria-controls="records-management-actions"
+                  onClick={() => setRecordsManagementOpen((open) => !open)}
+                >
+                  <span>Manage</span>
+                  <span className="accordionIcon" aria-hidden="true">
+                    {recordsManagementOpen ? '−' : '+'}
+                  </span>
+                </button>
+                {recordsManagementOpen ? (
+                  <div className="accordionPanel" id="records-management-actions">
+                    <button
+                      className="btn ghost"
+                      onClick={() => {
+                        setGardenManagementOpen(true)
+                        setRecordsManagementOpen(false)
+                      }}
+                    >
+                      Gardens & Access
+                    </button>
+                    <button
+                      className="btn ghost"
+                      onClick={() => {
+                        setAssetsOpen(true)
+                        setRecordsManagementOpen(false)
+                      }}
+                    >
+                      Assets
+                    </button>
+                    <button
+                      className="btn ghost"
+                      onClick={() => {
+                        setCompaniesOpen(true)
+                        setRecordsManagementOpen(false)
+                      }}
+                    >
+                      Companies
+                    </button>
+                    <button
+                      className="btn ghost"
+                      onClick={() => {
+                        setInitialOrderId(null)
+                        setOrdersOpen(true)
+                        setRecordsManagementOpen(false)
+                      }}
+                    >
+                      Invoices
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              <div className="actionAccordion" ref={insightsMenuRef}>
+                <button
+                  className="btn ghost accordionToggle"
+                  type="button"
+                  aria-expanded={insightsMenuOpen}
+                  aria-controls="insights-actions"
+                  onClick={() => {
+                    setInsightsMenuOpen((open) => !open)
+                    setRecordsManagementOpen(false)
+                    setSettingsMenuOpen(false)
+                  }}
+                >
+                  <span>Insights</span>
+                  <span className="accordionIcon" aria-hidden="true">
+                    {insightsMenuOpen ? '−' : '+'}
+                  </span>
+                </button>
+                {insightsMenuOpen ? (
+                  <div className="accordionPanel" id="insights-actions">
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      onClick={() => {
+                        setAgentHelperOpen(true)
+                        setInsightsMenuOpen(false)
+                      }}
+                    >
+                      Agent Helper
+                    </button>
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      onClick={() => {
+                        setAnalyticsOpen(true)
+                        setInsightsMenuOpen(false)
+                      }}
+                    >
+                      Analytics
+                    </button>
+                  </div>
+                ) : null}
+              </div>
           <div className="actionAccordion" ref={settingsMenuRef}>
             <button
-              className="btn ghost gearButton"
+              className="btn ghost accordionToggle"
               type="button"
               aria-expanded={settingsMenuOpen}
               aria-controls="settings-actions"
-              aria-label="Open settings menu"
               onClick={() => setSettingsMenuOpen((open) => !open)}
             >
-              ⚙
+              <span>Settings</span>
+              <span className="accordionIcon" aria-hidden="true">
+                {settingsMenuOpen ? '−' : '+'}
+              </span>
             </button>
             {settingsMenuOpen ? (
               <div className="accordionPanel settingsPanel" id="settings-actions">
@@ -1765,25 +1816,38 @@ export default function App() {
               </div>
             ) : null}
           </div>
+            </div>
+          </div>
         </div>
+        {highPriorityIncompleteReminderCount ? <div className="topPriorityMessage" role="status">{highPriorityReminderMessage(highPriorityIncompleteReminderCount)}</div> : null}
       </header>
 
       <main className="mainGrid">
         <section className="panel recordsPanel">
           <div className="panelTitle panelTitleRow">
             <span>Records</span>
-            <button className="btn compact" onClick={async () => {
-              setReviewResult(null)
-              setCorrectionResult(null)
-              setCreateOpen(true)
-              void prepareRecordModalRecords()
-            }}>
-              New Record
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button className="btn compact" onClick={async () => {
+                setReviewResult(null)
+                setCorrectionResult(null)
+                setCreateOpen(true)
+                void prepareRecordModalRecords()
+              }}>
+                New Record
+              </button>
+              <label className="pageSizeControl">
+                <span className="pageSizeLabel">Refresh</span>
+                <select className="select" value={recordsRefreshIntervalMs} onChange={(event) => setRecordsRefreshIntervalMs(Number(event.target.value))}>
+                  {RECORDS_REFRESH_INTERVAL_OPTIONS.map((intervalMs) => (
+                    <option key={intervalMs} value={intervalMs}>{refreshIntervalLabel(intervalMs)}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
           {error ? <div className="error">{error}</div> : null}
           {recordSummariesQuery.error ? <div className="error">{recordSummariesQuery.error instanceof Error ? recordSummariesQuery.error.message : String(recordSummariesQuery.error)}</div> : null}
-          <RecordsTable rows={tableRows} orders={orders} loading={loading} loadingMore={recordSummariesQuery.isFetchingNextPage} hasMore={Boolean(recordSummariesQuery.hasNextPage)} refreshIntervalMs={recordsRefreshIntervalMs} refreshIntervalOptions={RECORDS_REFRESH_INTERVAL_OPTIONS} onRefreshIntervalChange={setRecordsRefreshIntervalMs} onLoadMore={() => void recordSummariesQuery.fetchNextPage()} onOpen={(r) => {
+          <RecordsTable rows={tableRows} orders={orders} loading={loading} loadingMore={recordSummariesQuery.isFetchingNextPage} hasMore={Boolean(recordSummariesQuery.hasNextPage)} onLoadMore={() => void recordSummariesQuery.fetchNextPage()} onOpen={(r) => {
             setReviewResult(null)
             setCorrectionResult(null)
             void openRecordFromSummary(r)
@@ -1891,10 +1955,12 @@ export default function App() {
           onOpenCompanies={() => setCompaniesOpen(true)}
           onOpenGardenOptions={openGardenOptions}
           onOpenFlowerNames={() => setFlowerNamesOpen(true)}
+          onOpenColors={() => setColorsOpen(true)}
           gardenOptions={gardenOptions}
           companies={companies}
           orders={orders}
           flowerNames={flowerNames}
+          colors={colors}
           gardenId={activeGardenId || undefined}
         />
       ) : null}
@@ -2012,10 +2078,12 @@ export default function App() {
           onOpenCompanies={() => setCompaniesOpen(true)}
           onOpenGardenOptions={openGardenOptions}
           onOpenFlowerNames={() => setFlowerNamesOpen(true)}
+          onOpenColors={() => setColorsOpen(true)}
           gardenOptions={gardenOptions}
           companies={companies}
           orders={orders}
           flowerNames={flowerNames}
+          colors={colors}
           gardenId={activeGardenId || undefined}
         />
       ) : null}
@@ -2025,6 +2093,14 @@ export default function App() {
           flowerNames={flowerNames}
           onClose={() => setFlowerNamesOpen(false)}
           onRenameFlowerName={renameFlowerName}
+        />
+      ) : null}
+
+      {colorsOpen ? (
+        <ColorsModal
+          colors={colors}
+          onClose={() => setColorsOpen(false)}
+          onRenameColor={renameColor}
         />
       ) : null}
       </div>

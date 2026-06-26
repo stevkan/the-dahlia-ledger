@@ -82,21 +82,12 @@ function normalizeSearchValues(values: unknown[]) {
   return values.map((value) => String(value ?? '').toLowerCase()).join(' ')
 }
 
-function refreshIntervalLabel(intervalMs: number) {
-  if (intervalMs === 0) return 'Off'
-  if (intervalMs < 60_000) return `${intervalMs / 1000} sec`
-  return `${intervalMs / 60_000} min`
-}
-
 export function RecordsTable({
   rows,
   orders = [],
   loading = false,
   loadingMore = false,
   hasMore = false,
-  refreshIntervalMs,
-  refreshIntervalOptions,
-  onRefreshIntervalChange,
   onLoadMore,
   onOpen,
 }: {
@@ -105,9 +96,6 @@ export function RecordsTable({
   loading?: boolean
   loadingMore?: boolean
   hasMore?: boolean
-  refreshIntervalMs: number
-  refreshIntervalOptions: number[]
-  onRefreshIntervalChange: (intervalMs: number) => void
   onLoadMore: () => void
   onOpen: (r: DahliaRecordSummary) => void
 }) {
@@ -458,14 +446,6 @@ export function RecordsTable({
             </details>
           </div>
 
-          <label className="pageSizeControl">
-            <span className="pageSizeLabel">Refresh</span>
-            <select className="select" value={refreshIntervalMs} onChange={(event) => onRefreshIntervalChange(Number(event.target.value))}>
-              {refreshIntervalOptions.map((intervalMs) => (
-                <option key={intervalMs} value={intervalMs}>{refreshIntervalLabel(intervalMs)}</option>
-              ))}
-            </select>
-          </label>
         </div>
       </div>
 

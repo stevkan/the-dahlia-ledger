@@ -23,6 +23,7 @@ import { createExcelImportHistory, getLatestActiveExcelImportHistory, markExcelI
 import { toTitleCase } from './textFormat.js'
 import { deleteKnownUser, getKnownUser, isGlobalAdmin, listKnownUsers, upsertKnownUser } from './users.js'
 import { listFlowerNames, renameFlowerName } from './flowerNames.js'
+import { listColors, renameColor } from './colors.js'
 
 const app = express()
 const __filename = fileURLToPath(import.meta.url)
@@ -630,6 +631,26 @@ app.put('/api/flower-names/:name', async (req, res) => {
     return res.status(400).json({ error: 'bad_request', message: 'newName is required.' })
   }
   const result = await renameFlowerName(oldName, newName.trim(), gardenId, { includeLegacyUnassigned })
+  res.json(result)
+})
+
+app.get('/api/colors', async (req, res) => {
+  const gardenId = await resolveGardenId(req.user, req.query.gardenId)
+  await requireGardenAccess(req.user, gardenId)
+  const includeLegacyUnassigned = await isFallbackGarden(req.user, gardenId)
+  res.json({ colors: await listColors(gardenId, { includeLegacyUnassigned }) })
+})
+
+app.put('/api/colors/:name', async (req, res) => {
+  const gardenId = await resolveGardenId(req.user, req.query.gardenId)
+  await requireGardenWriteAccess(req.user, gardenId)
+  const includeLegacyUnassigned = await isFallbackGarden(req.user, gardenId)
+  const oldName = decodeURIComponent(req.params.name)
+  const { newName } = req.body
+  if (!newName || typeof newName !== 'string' || !newName.trim()) {
+    return res.status(400).json({ error: 'bad_request', message: 'newName is required.' })
+  }
+  const result = await renameColor(oldName, newName.trim(), gardenId, { includeLegacyUnassigned })
   res.json(result)
 })
 

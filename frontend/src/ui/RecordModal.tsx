@@ -3,6 +3,7 @@ import { DEFAULT_GARDEN_OPTIONS } from '../gardenOptions'
 import type { AgentCorrectionResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, GardenOptionKey, GardenOptions, NotPlantedReason, NotViableReason, Order, PlantingState } from '../types'
 import { DropdownField } from './DropdownField'
 import { FlowerNameField } from './FlowerNameField'
+import { ColorField } from './ColorField'
 
 type SectionKey = 'core' | 'growth' | 'care' | 'tuber' | 'storage' | 'health' | 'varieties' | 'meta' | 'photos'
 type ConfirmAction = 'review' | 'delete' | 'duplicate' | null
@@ -404,6 +405,7 @@ function Field({
   step,
   inputClassName,
   tabIndex,
+  labelAction,
 }: {
   label: string
   hint?: string
@@ -417,21 +419,35 @@ function Field({
   step?: string
   inputClassName?: string
   tabIndex?: number
+  labelAction?: React.ReactNode
 }) {
+  const input = (
+    <input
+      className={`input${inputClassName ? ` ${inputClassName}` : ''}`}
+      value={value}
+      placeholder={placeholder}
+      type={type ?? 'text'}
+      step={step}
+      readOnly={readOnly}
+      disabled={disabled}
+      tabIndex={tabIndex}
+      onChange={(e) => onChange?.(e.target.value)}
+    />
+  )
+
+  if (labelAction) {
+    return (
+      <div className="field">
+        <FieldLabel label={label} hint={hint} required={required} action={labelAction} />
+        {input}
+      </div>
+    )
+  }
+
   return (
     <label className="field">
       <FieldLabel label={label} hint={hint} required={required} />
-      <input
-        className={`input${inputClassName ? ` ${inputClassName}` : ''}`}
-        value={value}
-        placeholder={placeholder}
-        type={type ?? 'text'}
-        step={step}
-        readOnly={readOnly}
-        disabled={disabled}
-        tabIndex={tabIndex}
-        onChange={(e) => onChange?.(e.target.value)}
-      />
+      {input}
     </label>
   )
 }
@@ -620,10 +636,12 @@ export function RecordModal({
   onOpenCompanies,
   onOpenGardenOptions,
   onOpenFlowerNames,
+  onOpenColors,
   gardenOptions = DEFAULT_GARDEN_OPTIONS,
   companies = [],
   orders = [],
   flowerNames = [],
+  colors = [],
   gardenId,
 }: {
   mode: 'view' | 'create'
@@ -652,10 +670,12 @@ export function RecordModal({
   onOpenCompanies?: () => void
   onOpenGardenOptions?: (group: GardenOptionKey) => void
   onOpenFlowerNames?: () => void
+  onOpenColors?: () => void
   gardenOptions?: GardenOptions
   companies?: Company[]
   orders?: Order[]
   flowerNames?: string[]
+  colors?: string[]
   gardenId?: string
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -723,6 +743,12 @@ export function RecordModal({
     const merged = new Set([...flowerNames, ...fromRecords].filter(Boolean))
     return [...merged].sort((a, b) => a.localeCompare(b))
   }, [flowerNames, records])
+
+  const knownColors = useMemo(() => {
+    const fromRecords = (records ?? []).map((r) => r.core?.color).filter((c): c is string => Boolean(c))
+    const merged = new Set([...colors, ...fromRecords].filter(Boolean))
+    return [...merged].sort((a, b) => a.localeCompare(b))
+  }, [colors, records])
 
   const canSave = useMemo(() => {
     const hasPlantingState = plantingState !== undefined
@@ -1458,7 +1484,18 @@ export function RecordModal({
                       <div className="grid2">
                         <Field label="Cultivar" hint="The cultivar name. If blank, Flower Name is used when saving." value={form.core.cultivar ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, cultivar: v } }))} />
                         <Field label="Planted Date" hint="Date planted. This may be earlier than the current season year for overwintered or moved plants." type="date" value={form.core.plantedDate ?? plantedDateForYear(form.seasonYearStart)} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, plantedDate: v } }))} />
-                        <Field label="Color" hint="Main bloom color or color description." value={form.core.color ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, color: v } }))} />
+                        <ColorField
+                          label="Color"
+                          hint="Main bloom color or color description."
+                          value={form.core.color ?? ''}
+                          knownColors={knownColors}
+                          onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, color: v } }))}
+                          labelAction={onOpenColors ? (
+                            <button className="labelLink" type="button" onClick={onOpenColors}>
+                              Color
+                            </button>
+                          ) : undefined}
+                        />
                         <SelectField label="Form" hint="Bloom form, such as decorative, ball, cactus, or anemone." value={form.core.form} options={DAHLIA_FORM_OPTIONS} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, form: v } }))} />
                       </div>
                       <TextArea label="Notes" hint="General notes about the dahlia, bloom, or record." value={form.core.notes ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, notes: v } }))} />

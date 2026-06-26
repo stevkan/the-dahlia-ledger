@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.18.0-beta.4 - 2026-06-26
+
+- Added color management with a dedicated modal for listing and renaming colors across records.
+- Added color autocomplete to the record form with a link to the colors management modal.
+- Upgraded Firebase App Check from ReCaptcha v3 to ReCaptcha Enterprise provider.
+- Added a hamburger menu for mobile layout and moved the refresh interval control into it.
+
 ## 0.18.0-beta.3 - 2026-06-25
 
 - Extracted Analytics panel into a standalone AnalyticsModal component.
