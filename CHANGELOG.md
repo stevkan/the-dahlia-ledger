@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.0-beta.7 - 2026-06-28
+
+- Added `cultivar` to record summaries so it is available in the records table without a full record fetch.
+- Added cultivar as searchable text in the records table.
+- Added a backfill script (`backfill-summary-cultivar.js`) to populate cultivar on existing record summaries.
+
 ## 0.18.0-beta.6 - 2026-06-28
 
 - Added exact phrase search in the records table by wrapping a query in double quotes.

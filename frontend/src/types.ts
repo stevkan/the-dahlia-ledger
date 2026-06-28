@@ -188,7 +188,7 @@ export type DahliaRecordSummary = Pick<
   | 'cultivarImageUrl'
   | 'defaultPhotoScope'
 > & {
-  core: Pick<DahliaRecord['core'], 'color' | 'size'>
+  core: Pick<DahliaRecord['core'], 'color' | 'size' | 'cultivar'>
   growth: Pick<DahliaRecord['growth'], 'height'>
   tuber: Pick<DahliaRecord['tuber'], 'source' | 'linkedOrderItemIds'>
   meta: Pick<DahliaRecord['meta'], 'gardenArea' | 'gardenRow' | 'gardenPosition' | 'gardenZone' | 'rowOrBed' | 'position' | 'plantingState'>

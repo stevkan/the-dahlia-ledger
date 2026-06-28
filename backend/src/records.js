@@ -155,6 +155,7 @@ export function toRecordSummary(record) {
     core: {
       color: record.core?.color,
       size: record.core?.size,
+      cultivar: record.core?.cultivar,
     },
     growth: {
       height: record.growth?.height,

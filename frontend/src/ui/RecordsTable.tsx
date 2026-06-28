@@ -206,6 +206,7 @@ export function RecordsTable({
       searchableText: normalizeSearchValues([
         record.recordNumber,
         record.flowerName,
+        record.core?.cultivar,
         record.core.color,
         record.core.size,
         record.growth.height,
