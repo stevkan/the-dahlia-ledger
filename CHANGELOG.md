@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.18.0-beta.6 - 2026-06-28
+
+- Added exact phrase search in the records table by wrapping a query in double quotes.
+
 ## 0.18.0-beta.5 - 2026-06-28
 
 - Added `flower_count_by_photo_type` analytics metric with photo type filter (any, record-level, cultivar-level, or no photos).

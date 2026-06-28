@@ -218,14 +218,21 @@ export function RecordsTable({
   }, [rows, linkedOrderSearchValuesByItemId])
 
   const filteredRows = useMemo(() => {
-    const query = deferredSearch.trim().toLowerCase()
+    const rawQuery = deferredSearch.trim()
+    const isExactPhrase = rawQuery.length > 2 && rawQuery.startsWith('"') && rawQuery.endsWith('"')
+    const query = isExactPhrase ? rawQuery.slice(1, -1).toLowerCase() : rawQuery.toLowerCase()
+    const exactPhraseRegex = isExactPhrase && query
+      ? new RegExp(`\\b${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`)
+      : null
     const selectedSeasonYearSet = new Set(selectedSeasonYears)
     const selectedGardenRowSet = new Set(selectedGardenRows)
 
     return searchableRows.filter(({ record, searchableText }) => {
       if (selectedSeasonYearSet.size > 0 && !selectedSeasonYearSet.has(record.seasonYearStart)) return false
       if (selectedGardenRowSet.size > 0 && !selectedGardenRowSet.has(getInGardenRow(record))) return false
-      if (query && !searchableText.includes(query)) return false
+      if (query) {
+        if (exactPhraseRegex ? !exactPhraseRegex.test(searchableText) : !searchableText.includes(query)) return false
+      }
       return true
     }).map(({ record }) => record)
   }, [searchableRows, deferredSearch, selectedSeasonYears, selectedGardenRows])
