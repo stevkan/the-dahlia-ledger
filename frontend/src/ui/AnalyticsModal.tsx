@@ -127,6 +127,7 @@ type AnalyticsMetric =
   | 'flower_count_by_bloom_size'
   | 'flower_count_by_height'
   | 'flower_count_by_source'
+  | 'flower_count_by_photo_type'
 type AnalyticsSort = 'company' | 'value_desc' | 'value_asc'
 type AnalyticsChartType = 'bar' | 'line' | 'pie' | 'scatter' | 'table'
 type AnalyticsFilters = {
@@ -195,6 +196,7 @@ export function AnalyticsModal({
   const [filters, setFilters] = useState<AnalyticsFilters>({ companies: [], gardenAreas: [], plantingStates: [], colors: [], forms: [] })
   const [sortBy, setSortBy] = useState<AnalyticsSort>('company')
   const [chartType, setChartType] = useState<AnalyticsChartType>('bar')
+  const [photoTypes, setPhotoTypes] = useState<Array<'any' | 'record' | 'cultivar' | 'none'>>(['any', 'none'])
   const [busy, setBusy] = useState(false)
   const [expandedDropdownOptions, setExpandedDropdownOptions] = useState(0)
   const [result, setResult] = useState<string | null>(null)
@@ -241,7 +243,8 @@ export function AnalyticsModal({
     forms: sortedUnique(records.map((record) => record.core?.form), 'Unspecified'),
   }), [companies, records])
 
-  const activeOptionCount = Object.values(filters).reduce((sum, values) => sum + values.length, 0)
+  const photoTypesModified = !(photoTypes.length === 2 && photoTypes.includes('any') && photoTypes.includes('none'))
+  const activeOptionCount = Object.values(filters).reduce((sum, values) => sum + values.length, 0) + (photoTypesModified ? 1 : 0)
 
   function filterSummary(key: keyof AnalyticsFilters, allLabel: string) {
     const values = filters[key]
@@ -434,6 +437,7 @@ export function AnalyticsModal({
   function defaultChartTypeForMetric(nextMetric: AnalyticsMetric): AnalyticsChartType {
     if (nextMetric === 'height_vs_bloom_size') return 'scatter'
     if (nextMetric === 'linked_vs_unlinked_purchase_records') return 'pie'
+    if (nextMetric === 'flower_count_by_photo_type') return 'table'
     if (['missing_data_summary', 'garden_area_by_planting_state', 'flower_count_by_company_and_season', 'garden_fill_by_area'].includes(nextMetric)) return 'table'
     if (nextMetric === 'invoice_total_by_season' || nextMetric === 'average_item_cost_by_season') return 'line'
     return 'bar'
@@ -472,6 +476,7 @@ export function AnalyticsModal({
       'flower_count_by_bloom_size',
       'flower_count_by_height',
       'flower_count_by_source',
+      'flower_count_by_photo_type',
     ].includes(nextMetric)
   }
 
@@ -496,6 +501,7 @@ export function AnalyticsModal({
     if (metric === 'flower_count_by_bloom_size') return typeof row.bloomSize === 'string' ? row.bloomSize : ''
     if (metric === 'flower_count_by_height') return typeof row.height === 'string' ? row.height : ''
     if (metric === 'flower_count_by_source') return typeof row.source === 'string' ? row.source : ''
+    if (metric === 'flower_count_by_photo_type') return typeof row['Photo Type'] === 'string' ? row['Photo Type'] : ''
     return ''
   }
 
@@ -516,6 +522,7 @@ export function AnalyticsModal({
           metric,
           seasonYearStarts: selectedSeasonYears.length ? selectedSeasonYears : undefined,
           filters: analyticsFilterPayload(),
+          photoTypes,
           sortBy,
           visualization: {
             type: chartType,
@@ -555,6 +562,7 @@ export function AnalyticsModal({
           bucket: metric === 'missing_data_summary' ? undefined : bucket,
           seasonYearStarts: selectedSeasonYears.length ? selectedSeasonYears : undefined,
           filters: analyticsFilterPayload(),
+          photoTypes,
         }),
       })
       setDrilldown(out)
@@ -598,6 +606,7 @@ export function AnalyticsModal({
                     { value: 'flower_count_by_height', label: 'Flowers by Height' },
                     { value: 'flower_count_by_planting_state', label: 'Flowers by Planting State' },
                     { value: 'flower_count_by_season', label: 'Flowers by Season' },
+                    { value: 'flower_count_by_photo_type', label: 'Flowers by Photo Type' },
                     { value: 'flower_count_by_source', label: 'Flowers by Source' },
                     { value: 'flower_purchase_count_by_company', label: 'Flowers Purchased by Company' },
                     { value: 'not_planted_reason_summary', label: 'Not Planted Reason Summary' },
@@ -712,8 +721,36 @@ export function AnalyticsModal({
                         </div>
                       </fieldset>
                     ))}
+                    <fieldset className="analyticsOptionGroup">
+                      <legend>Photos</legend>
+                      <label className="seasonFilterOption">
+                        <input type="checkbox" checked={photoTypes.length === 4} onChange={() => setPhotoTypes(['any', 'record', 'cultivar', 'none'])} />
+                        All types
+                      </label>
+                      <div className="analyticsOptionList">
+                        {([
+                          ['any', 'Records with any photos'],
+                          ['record', 'Record-level photos'],
+                          ['cultivar', 'Cultivar-level photos'],
+                          ['none', 'Records with no photos'],
+                        ] as Array<['any' | 'record' | 'cultivar' | 'none', string]>).map(([key, label]) => (
+                          <label key={key} className="seasonFilterOption">
+                            <input
+                              type="checkbox"
+                              checked={photoTypes.includes(key)}
+                              onChange={(event) => setPhotoTypes((prev) =>
+                                event.target.checked
+                                  ? Array.from(new Set([...prev, key]))
+                                  : prev.filter((t) => t !== key),
+                              )}
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
                     <div className="agentInputFooter analyticsActions">
-                      <button className="btn ghost compact" type="button" onClick={() => setFilters({ companies: [], gardenAreas: [], plantingStates: [], colors: [], forms: [] })}>Clear Options</button>
+                      <button className="btn ghost compact" type="button" onClick={() => { setFilters({ companies: [], gardenAreas: [], plantingStates: [], colors: [], forms: [] }); setPhotoTypes(['any', 'none']) }}>Clear Options</button>
                       <button className="btn compact" type="button" onClick={() => setOptionsOpen(false)}>Apply Options</button>
                     </div>
                   </div>

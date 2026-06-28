@@ -89,10 +89,12 @@ const MetricSpecSchema = z.discriminatedUnion('status', [
       'flower_count_by_bloom_size',
       'flower_count_by_height',
       'flower_count_by_source',
+      'flower_count_by_photo_type',
     ]),
     seasonYearStart: z.number().int().min(1900).max(3000).optional(),
     seasonYearStarts: z.array(z.number().int().min(1900).max(3000)).optional().default([]),
     filters: AnalyticsFiltersSchema,
+    photoTypes: z.array(z.enum(['any', 'record', 'cultivar', 'none'])).optional(),
     sortBy: z.enum(['company', 'value_desc', 'value_asc']).optional().default('company'),
     visualization: VisualizationSchema.omit({ data: true }).optional().default({}),
   }),
@@ -401,6 +403,20 @@ function recordMatchesAnalyticsFilters(record, spec, context) {
 
   const forms = normalizedSet(filters.forms)
   if (forms.size > 0 && !forms.has(String(record.core?.form ?? '').trim() || 'Unspecified')) return false
+
+  const photoTypes = spec.photoTypes
+  if (photoTypes?.length) {
+    const hasRecord = hasRecordPhoto(record)
+    const hasCultivar = hasCultivarPhoto(record)
+    const passes = photoTypes.some((type) => {
+      if (type === 'any') return hasRecord || hasCultivar
+      if (type === 'record') return hasRecord
+      if (type === 'cultivar') return hasCultivar
+      if (type === 'none') return !hasRecord && !hasCultivar
+      return false
+    })
+    if (!passes) return false
+  }
 
   return true
 }
@@ -1289,6 +1305,47 @@ function computeFlowerCountBySource({ spec, records }) {
   })
 }
 
+function hasRecordPhoto(record) {
+  return (record.recordPhotos?.length ?? 0) > 0 || !!record.imageUrl || !!record.thumbnailUrl
+}
+
+function hasCultivarPhoto(record) {
+  return (record.cultivarPhotos?.length ?? 0) > 0 || !!record.cultivarImageUrl || !!record.cultivarThumbnailUrl
+}
+
+function computeFlowerCountByPhotoType({ spec, records }) {
+  const requestedTypes = spec.photoTypes?.length ? spec.photoTypes : ['any', 'record', 'cultivar', 'none']
+  const categories = [
+    { key: 'any', label: 'Any photos', test: (r) => hasRecordPhoto(r) || hasCultivarPhoto(r) },
+    { key: 'record', label: 'Record photos', test: hasRecordPhoto },
+    { key: 'cultivar', label: 'Cultivar photos', test: hasCultivarPhoto },
+    { key: 'none', label: 'No photos', test: (r) => !hasRecordPhoto(r) && !hasCultivarPhoto(r) },
+  ].filter((cat) => requestedTypes.includes(cat.key))
+
+  const recordsForSeason = records.filter((record) => matchesSeason(record.seasonYearStart, spec))
+  const total = recordsForSeason.length
+
+  const data = categories.map(({ label, test }) => ({
+    'Photo Type': label,
+    Count: recordsForSeason.filter(test).length,
+  }))
+
+  return AgentResultSchema.parse({
+    status: 'answer',
+    message: `Photo coverage across ${total} record${total === 1 ? '' : 's'}${textForSeason(spec)}.`,
+    visualization: {
+      type: 'table',
+      renderer: 'table',
+      title: `Flowers by Photo Type${titleSuffixForSeason(spec)}`,
+      description: 'Shows how many records have record-level photos, cultivar-level photos, both types, or no photos at all. Records can appear in multiple rows.',
+      data,
+      labelKey: 'Photo Type',
+      valueKey: 'Count',
+    },
+    sourcesUsed: ['records'],
+  })
+}
+
 function computeMetric(spec, context) {
   context = applyAnalyticsFilters(context, spec)
 
@@ -1360,6 +1417,9 @@ function computeMetric(spec, context) {
   }
   if (spec.metric === 'flower_count_by_source') {
     return computeFlowerCountBySource({ spec, ...context })
+  }
+  if (spec.metric === 'flower_count_by_photo_type') {
+    return computeFlowerCountByPhotoType({ spec, ...context })
   }
 
   return AgentResultSchema.parse({
@@ -1504,6 +1564,18 @@ export async function runMetricDrilldown(input) {
   } else if (input.metric === 'flower_count_by_source') {
     title = `Records with Source: ${input.bucket}${titleSuffixForSeason(input)}`
     filtered = recordsForSeason.filter((record) => (String(record.tuber?.source ?? '').trim() || 'Unspecified') === input.bucket)
+  } else if (input.metric === 'flower_count_by_photo_type') {
+    const labelToKey = { 'Any photos': 'any', 'Record photos': 'record', 'Cultivar photos': 'cultivar', 'No photos': 'none' }
+    const key = labelToKey[input.bucket]
+    if (!key) return { title: 'Unsupported photo type drilldown', records: [] }
+    title = `Records with ${input.bucket}${titleSuffixForSeason(input)}`
+    filtered = recordsForSeason.filter((record) => {
+      if (key === 'any') return hasRecordPhoto(record) || hasCultivarPhoto(record)
+      if (key === 'record') return hasRecordPhoto(record)
+      if (key === 'cultivar') return hasCultivarPhoto(record)
+      if (key === 'none') return !hasRecordPhoto(record) && !hasCultivarPhoto(record)
+      return false
+    })
   } else {
     return { title: 'Unsupported drilldown', records: [] }
   }

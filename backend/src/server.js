@@ -914,6 +914,12 @@ app.post('/api/agent/metrics', async (req, res) => {
       'garden_fill_by_area',
       'not_viable_reason_summary',
       'not_planted_reason_summary',
+      'average_item_cost_by_season',
+      'order_count_by_company',
+      'flower_count_by_bloom_size',
+      'flower_count_by_height',
+      'flower_count_by_source',
+      'flower_count_by_photo_type',
     ]),
     seasonYearStart: z.number().int().min(1900).max(3000).optional(),
     seasonYearStarts: z.array(z.number().int().min(1900).max(3000)).optional(),
@@ -924,6 +930,7 @@ app.post('/api/agent/metrics', async (req, res) => {
       colors: z.array(z.string()).optional(),
       forms: z.array(z.string()).optional(),
     }).optional(),
+    photoTypes: z.array(z.enum(['any', 'record', 'cultivar', 'none'])).optional(),
     sortBy: z.enum(['company', 'value_desc', 'value_asc']).optional(),
     visualization: z.object({
       type: z.enum(['bar', 'line', 'pie', 'scatter', 'table']).optional(),
@@ -963,6 +970,12 @@ app.post('/api/agent/metrics/drilldown', async (req, res) => {
       'garden_fill_by_area',
       'not_viable_reason_summary',
       'not_planted_reason_summary',
+      'average_item_cost_by_season',
+      'order_count_by_company',
+      'flower_count_by_bloom_size',
+      'flower_count_by_height',
+      'flower_count_by_source',
+      'flower_count_by_photo_type',
     ]),
     field: z.enum(['Color', 'Form', 'Height', 'Bloom size', 'Source', 'Linked invoice item', 'Garden area', 'Garden row', 'Garden position']).optional(),
     bucket: z.string().optional(),
@@ -975,6 +988,7 @@ app.post('/api/agent/metrics/drilldown', async (req, res) => {
       colors: z.array(z.string()).optional(),
       forms: z.array(z.string()).optional(),
     }).optional(),
+    photoTypes: z.array(z.enum(['any', 'record', 'cultivar', 'none'])).optional(),
   }).refine((value) => value.metric === 'missing_data_summary' ? Boolean(value.field) : Boolean(value.bucket), 'field is required for missing_data_summary; bucket is required for other drilldowns')
   const parsed = Body.safeParse(req.body)
   if (!parsed.success) return res.status(400).send(parsed.error.toString())

@@ -210,6 +210,7 @@ export function OrderModal({
   onUploadInvoice,
   onDeleteInvoiceFile,
   onOpenFlowerNames,
+  flowerNameRename,
 }: {
   companies: Company[]
   gardens?: Garden[]
@@ -224,6 +225,7 @@ export function OrderModal({
   onUploadInvoice: (orderId: string, file: File, sourceType: 'uploaded_pdf' | 'image_converted_to_pdf') => Promise<void>
   onDeleteInvoiceFile: (orderId: string, fileId: string) => Promise<void>
   onOpenFlowerNames?: () => void
+  flowerNameRename?: { oldName: string; newName: string } | null
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const cameraInputRef = useRef<HTMLInputElement | null>(null)
@@ -297,6 +299,19 @@ export function OrderModal({
   useEffect(() => {
     if (initialOrderId && orderById.has(initialOrderId)) setView({ mode: 'detail', orderId: initialOrderId })
   }, [initialOrderId, orderById])
+
+  useEffect(() => {
+    if (!flowerNameRename) return
+    const { oldName, newName } = flowerNameRename
+    setItems((prev) => prev.map((item) => {
+      if (item.flowerName !== oldName) return item
+      return {
+        ...item,
+        flowerName: newName,
+        cultivarName: item.cultivarName === oldName ? newName : item.cultivarName,
+      }
+    }))
+  }, [flowerNameRename])
 
   function cancelConfirm() {
     setConfirmAction(null)

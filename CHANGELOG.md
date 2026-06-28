@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.18.0-beta.5 - 2026-06-28
+
+- Added `flower_count_by_photo_type` analytics metric with photo type filter (any, record-level, cultivar-level, or no photos).
+- Fixed color and flower name rename to also update `dahliaRecordSummaries` so the table reflects the new values without a full refresh.
+- Added optimistic cache updates for color and flower name renames so the record list and active record update immediately.
+- Order modal items now update in memory when a flower name is renamed.
+- Extracted `DahliaFormField` component with a dedicated modal picker for dahlia form selection.
+- Refreshed record form layout to a four-column grid with updated field ordering.
+- Added HEIC/HEIF photo support in the record modal with automatic conversion to JPEG.
+- Reverted Firebase App Check from ReCaptcha Enterprise back to ReCaptcha V3 and added debug token support for local development.
+
 ## 0.18.0-beta.4 - 2026-06-26
 
 - Added color management with a dedicated modal for listing and renaming colors across records.

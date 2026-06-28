@@ -43,24 +43,28 @@ function itemUpdate(data, oldName, newName) {
 
 export async function renameFlowerName(oldName, newName, gardenId, { includeLegacyUnassigned = false } = {}) {
   const db = getDb()
-  const [recordsSnap, itemsSnap] = await Promise.all([
+  const [recordsSnap, itemsSnap, summariesSnap] = await Promise.all([
     db.collection('dahliaRecords').where('gardenId', '==', gardenId).where('flowerName', '==', oldName).get(),
     db.collection('orderItems').where('gardenId', '==', gardenId).where('flowerName', '==', oldName).get(),
+    db.collection('dahliaRecordSummaries').where('gardenId', '==', gardenId).where('flowerName', '==', oldName).get(),
   ])
 
   const updates = [
     ...recordsSnap.docs.map((doc) => ({ ref: doc.ref, update: recordUpdate(doc.data(), oldName, newName) })),
     ...itemsSnap.docs.map((doc) => ({ ref: doc.ref, update: itemUpdate(doc.data(), oldName, newName) })),
+    ...summariesSnap.docs.map((doc) => ({ ref: doc.ref, update: { flowerName: newName } })),
   ]
 
   if (includeLegacyUnassigned) {
-    const [legacyRecords, legacyItems] = await Promise.all([
+    const [legacyRecords, legacyItems, legacySummaries] = await Promise.all([
       db.collection('dahliaRecords').where('flowerName', '==', oldName).get(),
       db.collection('orderItems').where('flowerName', '==', oldName).get(),
+      db.collection('dahliaRecordSummaries').where('flowerName', '==', oldName).get(),
     ])
     updates.push(
       ...legacyRecords.docs.filter((doc) => !doc.data().gardenId).map((doc) => ({ ref: doc.ref, update: recordUpdate(doc.data(), oldName, newName) })),
       ...legacyItems.docs.filter((doc) => !doc.data().gardenId).map((doc) => ({ ref: doc.ref, update: itemUpdate(doc.data(), oldName, newName) })),
+      ...legacySummaries.docs.filter((doc) => !doc.data().gardenId).map((doc) => ({ ref: doc.ref, update: { flowerName: newName } })),
     )
   }
 

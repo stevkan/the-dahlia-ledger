@@ -405,6 +405,7 @@ export default function App() {
   const [companiesUsageRefreshing, setCompaniesUsageRefreshing] = useState(false)
   const [gardenOptionsOpen, setGardenOptionsOpen] = useState(false)
   const [flowerNamesOpen, setFlowerNamesOpen] = useState(false)
+  const [lastFlowerNameRename, setLastFlowerNameRename] = useState<{ oldName: string; newName: string } | null>(null)
   const [colorsOpen, setColorsOpen] = useState(false)
   const [gardenManagementOpen, setGardenManagementOpen] = useState(false)
   const [gardenOptionsInitialGroup, setGardenOptionsInitialGroup] = useState<GardenOptionKey>('gardenAreas')
@@ -1211,8 +1212,40 @@ export default function App() {
       queryClient.invalidateQueries({ queryKey: flowerNamesQueryKey(activeGardenId) }),
       queryClient.invalidateQueries({ queryKey: ordersQueryKey }),
       queryClient.invalidateQueries({ queryKey: recordsQueryKey(activeGardenId) }),
-      queryClient.invalidateQueries({ queryKey: recordSummariesQueryKey(activeGardenId) }),
     ])
+    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (prev) => prev?.map((record) => {
+      if (record.flowerName !== oldName) return record
+      return {
+        ...record,
+        flowerName: newName,
+        core: { ...record.core, cultivar: record.core?.cultivar === oldName ? newName : record.core?.cultivar },
+      }
+    }))
+    queryClient.setQueryData<InfiniteRecordsData<DahliaRecordSummary>>(
+      recordSummariesQueryKey(activeGardenId),
+      (data) => {
+        if (!data) return data
+        return {
+          ...data,
+          pages: data.pages.map((page) => ({
+            ...page,
+            records: page.records.map((summary) =>
+              summary.flowerName !== oldName ? summary : { ...summary, flowerName: newName }
+            ),
+          })),
+        }
+      },
+    )
+    await refreshRecordSummaries()
+    setActive((prev) => {
+      if (!prev || prev.flowerName !== oldName) return prev
+      return {
+        ...prev,
+        flowerName: newName,
+        core: { ...prev.core, cultivar: prev.core?.cultivar === oldName ? newName : prev.core?.cultivar },
+      }
+    })
+    setLastFlowerNameRename({ oldName, newName })
   }
 
   async function renameColor(oldColor: string, newColor: string) {
@@ -1223,8 +1256,31 @@ export default function App() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: colorsQueryKey(activeGardenId) }),
       queryClient.invalidateQueries({ queryKey: recordsQueryKey(activeGardenId) }),
-      queryClient.invalidateQueries({ queryKey: recordSummariesQueryKey(activeGardenId) }),
     ])
+    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (prev) => prev?.map((record) => {
+      if (record.core?.color !== oldColor) return record
+      return { ...record, core: { ...record.core, color: newColor } }
+    }))
+    queryClient.setQueryData<InfiniteRecordsData<DahliaRecordSummary>>(
+      recordSummariesQueryKey(activeGardenId),
+      (data) => {
+        if (!data) return data
+        return {
+          ...data,
+          pages: data.pages.map((page) => ({
+            ...page,
+            records: page.records.map((summary) =>
+              summary.core?.color !== oldColor ? summary : { ...summary, core: { ...summary.core, color: newColor } }
+            ),
+          })),
+        }
+      },
+    )
+    await refreshRecordSummaries()
+    setActive((prev) => {
+      if (!prev || prev.core?.color !== oldColor) return prev
+      return { ...prev, core: { ...prev.core, color: newColor } }
+    })
   }
 
   function updateGardenOptions(nextOptions: GardenOptions) {
@@ -2008,6 +2064,7 @@ export default function App() {
           onDeleteInvoiceFile={deleteInvoiceFile}
           onOpenFlowerNames={() => setFlowerNamesOpen(true)}
           flowerNames={flowerNames}
+          flowerNameRename={lastFlowerNameRename}
         />
       ) : null}
 

@@ -314,6 +314,7 @@ export function RecordsTable({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    autoResetPageIndex: false,
   })
 
   const pageRows = table.getRowModel().rows

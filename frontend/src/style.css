@@ -1210,6 +1210,17 @@ th.sortable {
   row-gap: 12px;
 }
 
+.grid4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  column-gap: 10px;
+  row-gap: 12px;
+}
+
+.gridSpan2 {
+  grid-column: span 2;
+}
+
 .healthGrid {
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr);
@@ -1501,6 +1512,10 @@ th.sortable {
 @media (max-width: 720px) {
   .grid2 {
     grid-template-columns: 1fr;
+  }
+
+  .grid4 {
+    grid-template-columns: 1fr 1fr;
   }
 
   .healthGrid {
@@ -3443,5 +3458,98 @@ th.sortable {
   border: 1px solid rgba(255, 204, 102, 0.42);
   border-radius: 8px;
   background: rgba(255, 204, 102, 0.1);
+}
+
+/* DahliaFormField */
+.dahliaFormTrigger {
+  display: block;
+  text-align: left;
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: inherit;
+  line-height: 1.35;
+}
+
+.dahliaFormTrigger:hover {
+  background: var(--surface-hover);
+}
+
+.dahliaFormPlaceholder {
+  color: var(--text);
+}
+
+.dahliaFormOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.dahliaFormPicker {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  box-shadow: var(--shadow-modal);
+  width: min(640px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.dahliaFormPickerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dahliaFormPickerTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  color: var(--text-strong);
+}
+
+.dahliaFormPickerGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 20px 24px;
+}
+
+.dahliaFormOption {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.dahliaFormOption:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.dahliaFormOption.selected {
+  border-color: var(--accent-border);
+  background: var(--accent-control);
+  color: var(--text-strong);
+}
+
+.dahliaFormPickerFooter {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 24px 20px;
 }
 

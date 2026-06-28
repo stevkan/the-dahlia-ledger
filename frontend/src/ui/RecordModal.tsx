@@ -4,6 +4,7 @@ import type { AgentCorrectionResult, AgentReviewResult, Company, CompanyInput, D
 import { DropdownField } from './DropdownField'
 import { FlowerNameField } from './FlowerNameField'
 import { ColorField } from './ColorField'
+import { DahliaFormField } from './DahliaFormField'
 
 type SectionKey = 'core' | 'growth' | 'care' | 'tuber' | 'storage' | 'health' | 'varieties' | 'meta' | 'photos'
 type ConfirmAction = 'review' | 'delete' | 'duplicate' | null
@@ -23,24 +24,6 @@ const NOT_VIABLE_REASONS: { value: NotViableReason; label: string }[] = [
   { value: 'no_longer_present', label: 'No Longer Present' },
   { value: 'removed', label: 'Removed' },
   { value: 'unused', label: 'Unused' },
-]
-const DAHLIA_FORM_OPTIONS = [
-  'Anemone',
-  'Ball',
-  'Cactus',
-  'Collarette',
-  'Formal Decorative',
-  'Incurved Cactus',
-  'Informal Decorative',
-  'Mignon Single',
-  'Orchid',
-  'Peony',
-  'Pom Pon',
-  'Semi Cactus',
-  'Semi-Double',
-  'Single',
-  'Stellar',
-  'Waterlily',
 ]
 const BLOOM_WIDTH_OPTIONS = [
   'AA - over 10"',
@@ -697,6 +680,7 @@ export function RecordModal({
   })
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [photoConverting, setPhotoConverting] = useState(false)
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false)
   const [viewerPhotoUrl, setViewerPhotoUrl] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
@@ -795,14 +779,37 @@ export function RecordModal({
     onClose()
   }
 
-  function selectPhoto(file: File | undefined) {
+  async function selectPhoto(file: File | undefined) {
     if (!file) return
-    if (!file.type.startsWith('image/')) {
+    const isHeic = file.type === 'image/heic' || file.type === 'image/heif' || /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name)
+    if (!file.type.startsWith('image/') && !isHeic) {
       setPhotoError('Please select an image file.')
       return
     }
 
     setPhotoError(null)
+
+    if (isHeic) {
+      setPhotoConverting(true)
+      try {
+        const heic2any = (await import('heic2any')).default
+        const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 })
+        const jpeg = Array.isArray(converted) ? converted[0] : converted
+        const convertedName = file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg')
+        const convertedFile = new File([jpeg], convertedName, { type: 'image/jpeg' })
+        setPhotoFile(convertedFile)
+        setPhotoPreview((previous) => {
+          if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous)
+          return URL.createObjectURL(jpeg)
+        })
+      } catch {
+        setPhotoError('Could not convert HEIC file. Please try a different photo format.')
+      } finally {
+        setPhotoConverting(false)
+      }
+      return
+    }
+
     setPhotoFile(file)
     setPhotoPreview((previous) => {
       if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous)
@@ -1233,29 +1240,26 @@ export function RecordModal({
       </div>
 
       <div className="modalBody">
-        <div className="grid2">
-          <Field
-            label="Record Number"
-            value={form.recordNumber === undefined ? 'DRAFT' : String(form.recordNumber)}
-            inputClassName={`recordNumberInput${form.recordNumber === undefined ? ' draftRecordNumber' : ''}`}
-            tabIndex={-1}
-            readOnly
-          />
-          <Field label="Season" hint="The growing season year for this record." required type="number" value={String(form.seasonYearStart)} onChange={setSeasonYearStart} />
-          <FlowerNameField
-            label="Flower Name"
-            hint="The primary display name for this dahlia record."
-            required
-            value={form.flowerName}
-            knownFlowerNames={knownFlowerNames}
-            onChange={(v) => setForm((p) => ({ ...p, flowerName: v }))}
-            placeholder="e.g. Cafe au Lait"
-            labelAction={onOpenFlowerNames ? (
-              <button className="labelLink" type="button" onClick={onOpenFlowerNames}>
-                Flower Name
-              </button>
-            ) : undefined}
-          />
+        <div className="grid4">
+          <div className="gridSpan2">
+            <FlowerNameField
+              label="Flower Name"
+              hint="The primary display name for this dahlia record."
+              required
+              value={form.flowerName}
+              knownFlowerNames={knownFlowerNames}
+              onChange={(v) => setForm((p) => ({ ...p, flowerName: v }))}
+              placeholder="e.g. Cafe au Lait"
+              labelAction={onOpenFlowerNames ? (
+                <button className="labelLink" type="button" onClick={onOpenFlowerNames}>
+                  Flower Name
+                </button>
+              ) : undefined}
+            />
+          </div>
+          <div className="gridSpan2">
+            <Field label="Season" hint="The growing season year for this record." required type="number" value={String(form.seasonYearStart)} onChange={setSeasonYearStart} />
+          </div>
           <SelectField label="Planting State" hint="Where this specific tuber or plant is currently being tracked." required value={plantingState} options={plantingStateOptions()} onChange={setPlantingState} />
           {plantingState === 'not_planted' ? (
             <div className="field gridSpanFull">
@@ -1297,50 +1301,48 @@ export function RecordModal({
           ) : null}
           {plantingState === 'in_garden' ? (
             <>
-              <div className="gardenLocationFields gridSpanFull">
-                <SelectField
-                  label="Zone"
-                  hint="The zone or section where this dahlia is planted."
-                  required
-                  value={gardenArea}
-                  options={gardenOptions.gardenAreas}
-                  onChange={setGardenArea}
-                  labelAction={onOpenGardenOptions ? (
-                    <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenAreas')}>
-                      Zone
-                    </button>
-                  ) : undefined}
-                />
-                <SelectField
-                  label="Row/Bed"
-                  hint="Row or bed labels available for planted records."
-                  required
-                  value={gardenRow}
-                  options={availableGardenRows}
-                  disabled={!gardenArea}
-                  onChange={setGardenRow}
-                  labelAction={onOpenGardenOptions ? (
-                    <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenRows')}>
-                      Row/Bed
-                    </button>
-                  ) : undefined}
-                />
-                <SelectField
-                  label="Position"
-                  hint="Position labels available inside each row or bed."
-                  required
-                  value={gardenPosition}
-                  options={gardenOptions.gardenPositions}
-                  disabled={!gardenRow}
-                  disabledOptions={gardenOptions.gardenPositions.filter((position) => isGardenOptionInUse(gardenRow, Number(position)))}
-                  onChange={setGardenPosition}
-                  labelAction={onOpenGardenOptions ? (
-                    <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenPositions')}>
-                      Position
-                    </button>
-                  ) : undefined}
-                />
-              </div>
+              <SelectField
+                label="Zone"
+                hint="The zone or section where this dahlia is planted."
+                required
+                value={gardenArea}
+                options={gardenOptions.gardenAreas}
+                onChange={setGardenArea}
+                labelAction={onOpenGardenOptions ? (
+                  <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenAreas')}>
+                    Zone
+                  </button>
+                ) : undefined}
+              />
+              <SelectField
+                label="Row/Bed"
+                hint="Row or bed labels available for planted records."
+                required
+                value={gardenRow}
+                options={availableGardenRows}
+                disabled={!gardenArea}
+                onChange={setGardenRow}
+                labelAction={onOpenGardenOptions ? (
+                  <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenRows')}>
+                    Row/Bed
+                  </button>
+                ) : undefined}
+              />
+              <SelectField
+                label="Position"
+                hint="Position labels available inside each row or bed."
+                required
+                value={gardenPosition}
+                options={gardenOptions.gardenPositions}
+                disabled={!gardenRow}
+                disabledOptions={gardenOptions.gardenPositions.filter((position) => isGardenOptionInUse(gardenRow, Number(position)))}
+                onChange={setGardenPosition}
+                labelAction={onOpenGardenOptions ? (
+                  <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenPositions')}>
+                    Position
+                  </button>
+                ) : undefined}
+              />
               {gardenLocationInUse ? <div className="error inlineError gridSpanFull">That garden location is already assigned to another record.</div> : null}
             </>
           ) : null}
@@ -1369,7 +1371,7 @@ export function RecordModal({
             }}
             onDrop={(e) => {
               e.preventDefault()
-              selectPhoto(e.dataTransfer.files[0])
+              void selectPhoto(e.dataTransfer.files[0])
             }}
           >
             {currentPhoto && !photoLoadError ? (
@@ -1396,18 +1398,18 @@ export function RecordModal({
                 <button
                   className={photoFile ? 'btn' : 'btn ghost'}
                   type="button"
-                  disabled={photoFile ? !canSave || saving : false}
+                  disabled={photoFile ? !canSave || saving || photoConverting : photoConverting}
                   onClick={() => photoFile ? void handleSave({ keepOpen: true }) : fileInputRef.current?.click()}
                 >
-                  {photoFile ? saving ? 'Saving...' : 'Save Photo' : 'Add Photo'}
+                  {photoConverting ? 'Converting...' : photoFile ? saving ? 'Saving...' : 'Save Photo' : 'Add Photo'}
                 </button>
               </div>
               <input
                 ref={fileInputRef}
                 className="fileInput"
                 type="file"
-                accept="image/*"
-                onChange={(e) => selectPhoto(e.target.files?.[0])}
+                accept="image/*,.heic,.heif"
+                onChange={(e) => void selectPhoto(e.target.files?.[0])}
               />
             </div>
           </div>
@@ -1496,7 +1498,7 @@ export function RecordModal({
                             </button>
                           ) : undefined}
                         />
-                        <SelectField label="Form" hint="Bloom form, such as decorative, ball, cactus, or anemone." value={form.core.form} options={DAHLIA_FORM_OPTIONS} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, form: v } }))} />
+                        <DahliaFormField label="Form" hint="Bloom form, such as decorative, ball, cactus, or anemone." value={form.core.form} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, form: v } }))} />
                       </div>
                       <TextArea label="Notes" hint="General notes about the dahlia, bloom, or record." value={form.core.notes ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, notes: v } }))} />
                     </>
@@ -1747,6 +1749,13 @@ export function RecordModal({
 
                   {k === 'meta' ? (
                     <div className="grid2">
+                      <Field
+                        label="Record Number"
+                        value={form.recordNumber === undefined ? 'DRAFT' : String(form.recordNumber)}
+                        inputClassName={`recordNumberInput${form.recordNumber === undefined ? ' draftRecordNumber' : ''}`}
+                        tabIndex={-1}
+                        readOnly
+                      />
                       <Field label="Created At" value={form.meta.createdAt ?? 'Auto-generated on save'} readOnly />
                       <Field label="Updated At" value={form.meta.updatedAt ?? 'Auto-generated on save'} readOnly />
                     </div>
