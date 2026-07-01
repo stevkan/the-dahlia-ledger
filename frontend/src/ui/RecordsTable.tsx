@@ -121,7 +121,7 @@ export function RecordsTable({
         accessorKey: 'recordNumber',
       },
       {
-        header: 'Thumbnail',
+        header: 'Photo',
         id: 'thumb',
         cell: ({ row }) => {
           const url = resolveRecordPhoto(row.original)

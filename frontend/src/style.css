@@ -853,7 +853,6 @@ body {
 
 .table {
   width: 100%;
-  min-width: 1000px;
   border-collapse: collapse;
   table-layout: fixed;
 }

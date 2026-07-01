@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.18.0-beta.9 - 2026-06-30
+
+- Removed minimum width constraint from the records table so it scales down on narrow viewports.
+- Renamed the "Thumbnail" column header to "Photo" in the records table.
+
 ## 0.18.0-beta.8 - 2026-06-30
 
 - Fixed inherited cultivar photos to exclude the current record's own photos so they do not appear twice in the cultivar photo list.
