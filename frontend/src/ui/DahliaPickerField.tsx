@@ -1,24 +1,19 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-const DAHLIA_FORM_OPTIONS = [
-  'Anemone',
-  'Ball',
-  'Cactus',
-  'Collarette',
-  'Formal Decorative',
-  'Incurved Cactus',
-  'Informal Decorative',
-  'Mignon Single',
-  'Orchid',
-  'Peony',
-  'Pom Pon',
-  'Semi Cactus',
-  'Semi-Double',
-  'Single',
-  'Stellar',
-  'Waterlily',
-]
+type PickerOption = string | { value: string; label: string; disabled?: boolean }
+
+function optionValue(opt: PickerOption): string {
+  return typeof opt === 'string' ? opt : opt.value
+}
+
+function optionLabel(opt: PickerOption): string {
+  return typeof opt === 'string' ? opt : opt.label
+}
+
+function optionDisabled(opt: PickerOption): boolean {
+  return typeof opt === 'string' ? false : (opt.disabled ?? false)
+}
 
 function FieldHintLabel({ label, hint, action }: { label: string; hint?: string; action?: React.ReactNode }) {
   const [visible, setVisible] = useState(false)
@@ -56,21 +51,36 @@ function FieldHintLabel({ label, hint, action }: { label: string; hint?: string;
   )
 }
 
-export function DahliaFormField({
-  label = 'Form',
+export function DahliaPickerField({
+  label,
   hint,
+  title,
+  options,
   value,
+  placeholder,
   onChange,
+  layout = 'grid',
+  clearable = true,
+  labelAction,
 }: {
-  label?: string
+  label: string
   hint?: string
+  title?: string
+  options: PickerOption[]
   value: string | undefined
+  placeholder?: string
   onChange: (v: string | undefined) => void
+  layout?: 'grid' | 'list'
+  clearable?: boolean
+  labelAction?: React.ReactNode
 }) {
   const [open, setOpen] = useState(false)
 
-  function select(form: string) {
-    onChange(form)
+  const matched = value !== undefined ? options.find((opt) => optionValue(opt) === value) : undefined
+  const displayValue = value !== undefined ? (matched ? optionLabel(matched) : value) : undefined
+
+  function select(v: string) {
+    onChange(v)
     setOpen(false)
   }
 
@@ -83,27 +93,35 @@ export function DahliaFormField({
     <div className="dahliaFormOverlay">
       <div className="dahliaFormPicker">
         <div className="dahliaFormPickerHeader">
-          <span className="dahliaFormPickerTitle">Bloom Form</span>
+          <span className="dahliaFormPickerTitle">{title ?? label}</span>
           <button className="btn ghost compact" type="button" onClick={() => setOpen(false)}>Close</button>
         </div>
-        <div className="dahliaFormPickerGrid">
-          <button
-            className={`dahliaFormOption dahliaFormOptionNone${!value ? ' selected' : ''}`}
-            type="button"
-            onClick={clear}
-          >
-            None
-          </button>
-          {DAHLIA_FORM_OPTIONS.map((form) => (
+        <div className={layout === 'list' ? 'dahliaFormPickerList' : 'dahliaFormPickerGrid'}>
+          {clearable ? (
             <button
-              key={form}
-              className={`dahliaFormOption${value === form ? ' selected' : ''}`}
+              className={`dahliaFormOption dahliaFormOptionNone${!value ? ' selected' : ''}`}
               type="button"
-              onClick={() => select(form)}
+              onClick={clear}
             >
-              {form}
+              None
             </button>
-          ))}
+          ) : null}
+          {options.map((opt) => {
+            const v = optionValue(opt)
+            const l = optionLabel(opt)
+            const disabled = optionDisabled(opt)
+            return (
+              <button
+                key={v}
+                className={`dahliaFormOption${value === v ? ' selected' : ''}`}
+                type="button"
+                disabled={disabled}
+                onClick={() => select(v)}
+              >
+                {l}
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>
@@ -111,13 +129,13 @@ export function DahliaFormField({
 
   return (
     <div className="field">
-      <FieldHintLabel label={label} hint={hint} />
+      <FieldHintLabel label={label} hint={hint} action={labelAction} />
       <button
         className="input dahliaFormTrigger"
         type="button"
         onClick={() => setOpen(true)}
       >
-        {value ? value : <span className="dahliaFormPlaceholder">Select...</span>}
+        {displayValue ?? <span className="dahliaFormPlaceholder">{placeholder ?? 'Select...'}</span>}
       </button>
       {open ? createPortal(picker, document.body) : null}
     </div>

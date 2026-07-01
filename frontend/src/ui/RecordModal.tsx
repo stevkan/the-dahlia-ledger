@@ -4,7 +4,7 @@ import type { AgentCorrectionResult, AgentReviewResult, Company, CompanyInput, D
 import { DropdownField } from './DropdownField'
 import { FlowerNameField } from './FlowerNameField'
 import { ColorField } from './ColorField'
-import { DahliaFormField } from './DahliaFormField'
+import { DahliaPickerField } from './DahliaPickerField'
 
 type SectionKey = 'core' | 'growth' | 'care' | 'tuber' | 'storage' | 'health' | 'varieties' | 'meta' | 'photos'
 type ConfirmAction = 'review' | 'delete' | 'duplicate' | null
@@ -25,6 +25,25 @@ const NOT_VIABLE_REASONS: { value: NotViableReason; label: string }[] = [
   { value: 'removed', label: 'Removed' },
   { value: 'unused', label: 'Unused' },
 ]
+const DAHLIA_FORM_OPTIONS = [
+  'Anemone',
+  'Ball',
+  'Cactus',
+  'Collarette',
+  'Formal Decorative',
+  'Incurved Cactus',
+  'Informal Decorative',
+  'Mignon Single',
+  'Orchid',
+  'Peony',
+  'Pom Pon',
+  'Semi Cactus',
+  'Semi-Double',
+  'Single',
+  'Stellar',
+  'Waterlily',
+]
+const DAHLIA_HABIT_OPTIONS = ['Upright', 'Forward', 'Down']
 const BLOOM_WIDTH_OPTIONS = [
   'AA - over 10"',
   'A - 8" to 10"',
@@ -108,6 +127,7 @@ function findCompanyNameMatch(companies: Company[], value?: string) {
 
 function normalizeInputForComparison(input: DahliaRecordInput) {
   const normalized = inputWithGardenLocation(input)
+  const tuber = normalized.tuber ?? {}
 
   return JSON.stringify({
     id: normalized.id,
@@ -127,7 +147,7 @@ function normalizeInputForComparison(input: DahliaRecordInput) {
     core: normalized.core ?? {},
     growth: normalized.growth ?? {},
     care: normalized.care ?? {},
-    tuber: normalized.tuber ?? {},
+    tuber: { ...tuber, linkedOrderItemIds: tuber.linkedOrderItemIds ?? [] },
     health: normalized.health ?? {},
     meta: normalized.meta ?? {},
   })
@@ -1520,7 +1540,7 @@ export function RecordModal({
                             </button>
                           ) : undefined}
                         />
-                        <DahliaFormField label="Form" hint="Bloom form, such as decorative, ball, cactus, or anemone." value={form.core.form} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, form: v } }))} />
+                        <DahliaPickerField label="Form" title="Bloom Form" hint="Bloom form, such as decorative, ball, cactus, or anemone." options={DAHLIA_FORM_OPTIONS} value={form.core.form} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, form: v } }))} />
                       </div>
                       <TextArea label="Notes" hint="General notes about the dahlia, bloom, or record." value={form.core.notes ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, notes: v } }))} />
                     </>
@@ -1529,9 +1549,9 @@ export function RecordModal({
                   {k === 'growth' ? (
                     <div className="grid2">
                       <Field label="Height (in feet)" hint="Expected or observed plant height in feet." value={form.growth.height ?? ''} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, height: v } }))} />
-                      <SelectField label="Bloom Width" hint="Expected or observed bloom diameter category." value={form.core.size} options={BLOOM_WIDTH_OPTIONS} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, size: v } }))} portal />
+                      <DahliaPickerField label="Bloom Width" hint="Expected or observed bloom diameter category." options={BLOOM_WIDTH_OPTIONS} value={form.core.size} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, size: v } }))} />
                       <Field label="Bloom Time" hint="When this dahlia typically blooms, such as early, mid, late, or a month range." value={form.growth.bloomTime ?? ''} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, bloomTime: v } }))} />
-                      <Field label="Habit" hint="Growth habit or plant shape, such as upright, compact, bushy, or spreading." value={form.growth.habit ?? ''} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, habit: v } }))} />
+                      <DahliaPickerField label="Habit" hint="Growth habit or plant shape." options={DAHLIA_HABIT_OPTIONS} value={form.growth.habit || undefined} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, habit: v } }))} />
                     </div>
                   ) : null}
 
@@ -1547,32 +1567,32 @@ export function RecordModal({
 
                   {k === 'tuber' ? (
                     <>
-                      <label className="field linkedOrderSelect">
-                        <FieldLabel label="Invoice Items" hint="Associate one or more saved invoice order items with this dahlia record." />
-                        <DropdownField
-                          label="Invoice Items"
-                          value=""
-                          options={[
-                            { value: '', label: 'Select...' },
-                            ...orders.flatMap((order) => order.items
-                              .filter((item) => !item.gardenId || !gardenId || item.gardenId === gardenId)
-                              .map((item) => ({
-                              value: item.id,
-                              label: `${order.company?.name ?? 'Company'} ${order.invoiceNumber ? `- ${order.invoiceNumber}` : ''} - ${item.flowerName}`,
-                            }))),
-                          ]}
-                          onChange={(value) => {
-                            if (!value) return
-                            setForm((p) => ({
-                              ...p,
-                              tuber: {
-                                ...p.tuber,
-                                linkedOrderItemIds: Array.from(new Set([...(p.tuber.linkedOrderItemIds ?? []), value])),
-                              },
-                            }))
-                          }}
-                        />
-                      </label>
+                      <DahliaPickerField
+                        label="Invoice Items"
+                        hint="Associate one or more saved invoice order items with this dahlia record."
+                        layout="list"
+                        clearable={false}
+                        placeholder="Select Invoice Item..."
+                        options={orders.flatMap((order) => order.items
+                          .filter((item) => !item.gardenId || !gardenId || item.gardenId === gardenId)
+                          .map((item) => ({
+                            value: item.id,
+                            label: `${order.company?.name ?? 'Company'}${order.invoiceNumber ? ` - ${order.invoiceNumber}` : ''} - ${item.flowerName}`,
+                            disabled: linkedOrderItemIds.includes(item.id),
+                          }))
+                        )}
+                        value={undefined}
+                        onChange={(value) => {
+                          if (!value) return
+                          setForm((p) => ({
+                            ...p,
+                            tuber: {
+                              ...p.tuber,
+                              linkedOrderItemIds: Array.from(new Set([...(p.tuber.linkedOrderItemIds ?? []), value])),
+                            },
+                          }))
+                        }}
+                      />
                       {linkedOrderRows.length ? (
                         <div className="tableWrap miniTable">
                           <table className="table">
@@ -1633,13 +1653,13 @@ export function RecordModal({
                         <FieldLabel label="Custom Entry" hint="Optional manual source details for gifts, trades, historical records, or sources without an invoice record." />
                         <div className="customEntryBox">
                           <div className="grid2">
-                            <SelectField
+                            <DahliaPickerField
                               label="Company"
                               hint="Manual company or source name when no invoice record is linked. Add new companies from the Companies modal."
-                              value={selectedSourceCompany}
+                              layout="list"
                               options={companies.map((company) => company.name)}
+                              value={selectedSourceCompany || undefined}
                               onChange={setSourceCompany}
-                              portal
                               labelAction={onOpenCompanies ? (
                                 <button className="labelLink" type="button" onClick={onOpenCompanies}>
                                   Company
@@ -1662,18 +1682,18 @@ export function RecordModal({
                   {k === 'storage' ? (
                     <>
                       <div className="grid2">
-                        <SelectField
+                        <DahliaPickerField
                           label="Container Type"
                           hint="The container used to store the tuber."
-                          value={form.tuber.containerType}
                           options={['Cardboard Box', 'Mesh Bag', 'Paper Bag', 'Plastic Bin', 'Ventilated Plastic Bin', 'Wooden Crate']}
+                          value={form.tuber.containerType}
                           onChange={(v) => setForm((p) => ({ ...p, tuber: { ...p.tuber, containerType: v } }))}
                         />
-                        <SelectField
+                        <DahliaPickerField
                           label="Container Fill Type"
                           hint="The material packed around the stored tuber."
-                          value={form.tuber.containerFillType}
                           options={['Peat Moss', 'Sawdust', 'Vermiculite', 'Wood Shavings']}
+                          value={form.tuber.containerFillType}
                           onChange={(v) => setForm((p) => ({ ...p, tuber: { ...p.tuber, containerFillType: v } }))}
                         />
                       </div>

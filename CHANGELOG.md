@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.19.0 - 2026-07-01
+
+- Replaced `DahliaFormField` with a new generic `DahliaPickerField` component that supports configurable options, grid and list layouts, disabled entries, and an optional clear action.
+- Switched the Form, Bloom Width, and Habit fields in the record form to use `DahliaPickerField` with predefined option lists.
+- Fixed record change detection to normalize `linkedOrderItemIds` to an empty array when absent, preventing spurious unsaved-changes warnings.
+
 ## 0.18.1 - 2026-07-01
 
 - Updated record modal title to display the flower name alongside the record number for easier identification.

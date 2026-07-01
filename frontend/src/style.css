@@ -3495,8 +3495,10 @@ th.sortable {
   border-radius: 28px;
   box-shadow: var(--shadow-modal);
   width: min(640px, 100%);
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .dahliaFormPickerHeader {
@@ -3505,6 +3507,7 @@ th.sortable {
   justify-content: space-between;
   padding: 20px 24px 16px;
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .dahliaFormPickerTitle {
@@ -3519,6 +3522,22 @@ th.sortable {
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.dahliaFormPickerList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dahliaFormPickerList .dahliaFormOption {
+  white-space: normal;
+  word-break: break-word;
+  text-align: left;
 }
 
 .dahliaFormOption {
@@ -3538,6 +3557,14 @@ th.sortable {
 .dahliaFormOption:hover {
   background: var(--surface-hover);
   border-color: var(--border-strong);
+}
+
+.dahliaFormOption:disabled,
+.dahliaFormOption:disabled:hover {
+  opacity: 0.4;
+  cursor: default;
+  background: var(--surface-raised);
+  border-color: var(--border);
 }
 
 .dahliaFormOption.selected {
