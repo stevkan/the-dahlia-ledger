@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.18.1 - 2026-07-01
+
+- Updated record modal title to display the flower name alongside the record number for easier identification.
+
 ## 0.18.0-beta.11 - 2026-07-01
 
 - Fixed cultivar photos and default photo scope to sync when a record's flower name or cultivar changes, inheriting photos from another matching record or clearing stale cultivar data.

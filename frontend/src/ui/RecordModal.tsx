@@ -694,7 +694,7 @@ export function RecordModal({
   const [deletedInheritedCultivarUrls, setDeletedInheritedCultivarUrls] = useState<string[]>([])
   const [initialSnapshot, setInitialSnapshot] = useState(() => normalizeInputForComparison(inputFromInitialRecord(initial, draft)))
 
-  const title = mode === 'create' ? 'New Record' : `Record #${initial?.recordNumber ?? ''}`
+  const title = mode === 'create' ? 'New Record' : `${form.flowerName || initial?.flowerName || 'Record'} [#${initial?.recordNumber ?? ''}]`
   const gardenArea = form.meta.gardenZone ?? form.meta.gardenArea ?? ''
   const gardenRow = form.meta.rowOrBed ?? form.meta.gardenRow ?? ''
   const positionValue = form.meta.position ?? form.meta.gardenPosition
