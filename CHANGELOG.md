@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.18.0-beta.10 - 2026-06-30
+
+- Fixed record form to auto-update the cultivar when the flower name changes and the cultivar previously matched the old flower name.
+
 ## 0.18.0-beta.9 - 2026-06-30
 
 - Removed minimum width constraint from the records table so it scales down on narrow viewports.

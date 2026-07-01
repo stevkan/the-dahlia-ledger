@@ -1248,7 +1248,14 @@ export function RecordModal({
               required
               value={form.flowerName}
               knownFlowerNames={knownFlowerNames}
-              onChange={(v) => setForm((p) => ({ ...p, flowerName: v }))}
+              onChange={(v) => setForm((p) => ({
+                ...p,
+                flowerName: v,
+                core: {
+                  ...p.core,
+                  cultivar: p.core.cultivar === p.flowerName ? v : p.core.cultivar,
+                },
+              }))}
               placeholder="e.g. Cafe au Lait"
               labelAction={onOpenFlowerNames ? (
                 <button className="labelLink" type="button" onClick={onOpenFlowerNames}>
