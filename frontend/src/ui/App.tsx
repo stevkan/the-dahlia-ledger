@@ -909,7 +909,7 @@ export default function App() {
     if (options?.keepOpen) setActive(data.record)
     else setActive(null)
     if (!options?.skipRefresh) {
-      const [refreshedRecords] = await Promise.all([refreshRecords(), refreshRecordSummaries(), refreshCompanies()])
+      const [refreshedRecords] = await Promise.all([refreshRecords(), queryClient.invalidateQueries({ queryKey: recordSummariesQueryKey(activeGardenId) }), refreshCompanies()])
       if (options?.keepOpen) setActive(refreshedRecords.find((record) => record.id === id) ?? data.record)
     }
   }

@@ -1190,9 +1190,9 @@ export function RecordModal({
     const matchingRecord = (records ?? []).find((record) => varietyKey(record) === key && (record.cultivarThumbnailUrl || record.cultivarImageUrl) && !deletedInheritedCultivarUrls.includes(record.cultivarImageUrl ?? ''))
     return matchingRecord?.cultivarThumbnailUrl ?? matchingRecord?.cultivarImageUrl ?? ''
   }, [deletedInheritedCultivarUrls, form, records])
-  const inheritedCultivarPhotos = ((records ?? []).find((record) => varietyKey(record) === varietyKey(form) && record.cultivarPhotos?.length)?.cultivarPhotos ?? []).filter((photo) => !deletedInheritedCultivarUrls.includes(photo.imageUrl))
+  const inheritedCultivarPhotos = ((records ?? []).find((record) => record.id !== initial?.id && varietyKey(record) === varietyKey(form) && record.cultivarPhotos?.length)?.cultivarPhotos ?? []).filter((photo) => !deletedInheritedCultivarUrls.includes(photo.imageUrl))
   const recordPhotos = photosWithLegacy(form, 'record')
-  const cultivarPhotos = photosWithLegacy({ ...form, cultivarPhotos: form.cultivarPhotos?.length ? form.cultivarPhotos : inheritedCultivarPhotos }, 'cultivar')
+  const cultivarPhotos = photosWithLegacy({ ...form, cultivarPhotos: uniquePhotos([...(form.cultivarPhotos ?? []), ...inheritedCultivarPhotos]) }, 'cultivar')
   const resolvedRecordDefaultPhotoId = resolvedDefaultPhotoId(recordPhotos, form.defaultRecordPhotoId, form.imageUrl)
   const resolvedCultivarDefaultPhotoId = resolvedDefaultPhotoId(cultivarPhotos, form.defaultCultivarPhotoId, form.cultivarImageUrl)
   const currentResolvedPhoto = resolvedScopedCurrentPhoto(recordPhotos, cultivarPhotos, resolvedRecordDefaultPhotoId, resolvedCultivarDefaultPhotoId, form.defaultPhotoScope)

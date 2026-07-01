@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.0-beta.8 - 2026-06-30
+
+- Fixed inherited cultivar photos to exclude the current record's own photos so they do not appear twice in the cultivar photo list.
+- Fixed cultivar photos to always merge form photos with inherited photos using deduplication, rather than falling back to inherited only when form photos are absent.
+- Fixed record summaries refresh after save to use query cache invalidation instead of a full refetch.
+
 ## 0.18.0-beta.7 - 2026-06-28
 
 - Added `cultivar` to record summaries so it is available in the records table without a full record fetch.
