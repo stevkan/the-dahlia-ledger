@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.18.0-beta.11 - 2026-07-01
+
+- Fixed cultivar photos and default photo scope to sync when a record's flower name or cultivar changes, inheriting photos from another matching record or clearing stale cultivar data.
+- Fixed default photo scope fallback to recover gracefully when the scoped default photo no longer exists, selecting the oldest available photo instead.
+
 ## 0.18.0-beta.10 - 2026-06-30
 
 - Fixed record form to auto-update the cultivar when the flower name changes and the cultivar previously matched the old flower name.

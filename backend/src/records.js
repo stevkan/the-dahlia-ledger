@@ -90,7 +90,9 @@ function withPhotoDefaults(record) {
     cultivarPhotos,
     defaultRecordPhotoId: recordDefault?.id,
     defaultCultivarPhotoId: cultivarDefault?.id,
-    defaultPhotoScope: record.defaultPhotoScope || (recordDefault ? 'record' : cultivarDefault ? 'cultivar' : undefined),
+    defaultPhotoScope: record.defaultPhotoScope === 'cultivar'
+      ? (cultivarDefault ? 'cultivar' : recordDefault ? 'record' : undefined)
+      : (recordDefault ? 'record' : cultivarDefault ? 'cultivar' : undefined),
     imageUrl: recordDefault ? recordDefault.imageUrl : record.imageUrl,
     thumbnailUrl: recordDefault ? photoUrl(recordDefault) : record.thumbnailUrl,
     cultivarImageUrl: cultivarDefault ? cultivarDefault.imageUrl : record.cultivarImageUrl,
@@ -390,9 +392,30 @@ export async function updateRecord(id, input, gardenId) {
     throw error
   }
 
+  let adjustedInput = normalizedInput
+  const oldKey = cultivarKey(existing)
+  const newKey = cultivarKey(normalizedInput)
+  if (oldKey !== newKey) {
+    const gardenRecords = await listRecords(targetGardenId)
+    const donor = gardenRecords.find((r) => r.id !== id && cultivarKey(r) === newKey && r.cultivarPhotos?.length)
+    const newCultivarPhotos = donor ? uniquePhotos(donor.cultivarPhotos) : []
+    const byAge = (a, b) => (a.createdAt ?? 'z').localeCompare(b.createdAt ?? 'z')
+    const userPick = newCultivarPhotos.find((p) => p.id === normalizedInput.defaultCultivarPhotoId)
+    const oldestPhoto = newCultivarPhotos.length > 0 ? [...newCultivarPhotos].sort(byAge)[0] : undefined
+    const newDefault = userPick ?? oldestPhoto
+    adjustedInput = {
+      ...normalizedInput,
+      cultivarPhotos: newCultivarPhotos,
+      defaultCultivarPhotoId: newDefault?.id,
+      defaultPhotoScope: newDefault ? 'cultivar' : normalizedInput.defaultPhotoScope === 'cultivar' ? undefined : normalizedInput.defaultPhotoScope,
+      cultivarImageUrl: undefined,
+      cultivarThumbnailUrl: undefined,
+    }
+  }
+
   const next = {
     ...existing,
-    ...withPhotoDefaults(normalizedInput),
+    ...withPhotoDefaults(adjustedInput),
     gardenId: targetGardenId,
     id: undefined,
     recordNumber: existing.recordNumber,
@@ -405,7 +428,7 @@ export async function updateRecord(id, input, gardenId) {
   }
 
   await getDb().collection(COLLECTION).doc(id).set(withoutUndefined(next), { merge: false })
-  await writeRecordSummary({ id, ...next })
+  await writeRecordSummary({ ...next, id })
   clearRecordSummaryCache()
   return await getRecord(id)
 }

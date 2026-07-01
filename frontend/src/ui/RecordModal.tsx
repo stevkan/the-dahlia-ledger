@@ -1140,6 +1140,21 @@ export function RecordModal({
         }
         setForm(next)
       }
+      const ownCultivarPhotos = uniquePhotos(next.cultivarPhotos ?? [])
+      const ownRecordPhotos = photosWithLegacy(next, 'record')
+      const scopedDefaultValid =
+        (next.defaultPhotoScope === 'cultivar' && ownCultivarPhotos.some((p) => p.id === next.defaultCultivarPhotoId)) ||
+        (next.defaultPhotoScope === 'record' && ownRecordPhotos.some((p) => p.id === next.defaultRecordPhotoId))
+      if (!scopedDefaultValid) {
+        const byAge = (a: DahliaPhoto, b: DahliaPhoto) => (a.createdAt ?? 'z').localeCompare(b.createdAt ?? 'z')
+        const oldestCultivar = [...ownCultivarPhotos].sort(byAge)[0]
+        const oldestRecord = [...ownRecordPhotos].sort(byAge)[0]
+        if (oldestCultivar) {
+          next = { ...next, defaultCultivarPhotoId: oldestCultivar.id, defaultPhotoScope: 'cultivar' }
+        } else if (oldestRecord) {
+          next = { ...next, defaultRecordPhotoId: oldestRecord.id, defaultPhotoScope: 'record' }
+        }
+      }
       let uploadedPhoto: DahliaPhoto | undefined
       if (photoFile) {
         if (!onUploadPhoto) throw new Error('Photo uploads are not configured.')
