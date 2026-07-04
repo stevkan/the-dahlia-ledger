@@ -1571,7 +1571,7 @@ export default function App() {
       <div className="appShell">
       <header className="topBar">
         <div className="brand">
-          <div className="brandTitle">The Dahlia Ledger</div>
+          <div className="brandTitle">The Dahlia Ledger <span className="brandVersion">v{__APP_VERSION__}</span></div>
           <div className="brandSub">Records, images, seasons, and notes</div>
         </div>
         <div className="topActions">

@@ -267,6 +267,14 @@ body {
   letter-spacing: 0.2px;
 }
 
+.brandVersion {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  letter-spacing: 0;
+  margin-left: 6px;
+}
+
 .brandSub {
   margin-top: 2px;
   font-size: 12px;

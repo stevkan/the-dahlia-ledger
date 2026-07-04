@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.0 - 2026-07-04
+
+- Displays the app version number next to the title in the top bar.
+
 ## 0.21.0 - 2026-07-04
 
 - Converted the mobile navigation hamburger panel into a slide-in drawer that overlays from the right, with a backdrop, smooth transition, and a close button inside the panel.
