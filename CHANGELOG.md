@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.20.2 - 2026-07-03
+
+- Renamed the "Garden Assignment" label to "Garden" on order item rows in the order modal.
+
 ## 0.20.1 - 2026-07-03
 
 - Fixed order item picker in the record form to hide items already linked to other records, preventing duplicate order item assignments.

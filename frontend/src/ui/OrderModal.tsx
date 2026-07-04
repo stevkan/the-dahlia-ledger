@@ -736,8 +736,8 @@ export function OrderModal({
                 onBlur={() => setItems((p) => p.map((row, i) => (i === index ? { ...row, itemCost: row.itemCost?.trim() ? formatMoneyInput(row.itemCost) : '' } : row)))}
               />
               <label className="field">
-                <FieldLabel label="Garden Assignment" hint={ORDER_FIELD_HINTS.gardenAssignment} />
-                <DropdownField label="Garden Assignment" value={item.gardenId ?? ''} options={[{ value: '', label: 'Unassigned' }, ...gardens.map((garden) => ({ value: garden.id, label: garden.name }))]} onChange={(value) => setItems((p) => p.map((row, i) => (i === index ? { ...row, gardenId: value || undefined } : row)))} />
+                <FieldLabel label="Garden" hint={ORDER_FIELD_HINTS.gardenAssignment} />
+                <DropdownField label="Garden" value={item.gardenId ?? ''} options={[{ value: '', label: 'Unassigned' }, ...gardens.map((garden) => ({ value: garden.id, label: garden.name }))]} onChange={(value) => setItems((p) => p.map((row, i) => (i === index ? { ...row, gardenId: value || undefined } : row)))} />
               </label>
             </div>
           ))}
