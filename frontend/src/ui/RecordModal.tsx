@@ -1247,6 +1247,16 @@ export function RecordModal({
     setPhotoLoadError(false)
   }, [currentPhoto])
   const linkedOrderItemIds = form.tuber.linkedOrderItemIds ?? []
+  const allAssignedOrderItemIds = useMemo(() => {
+    const ids = new Set<string>(linkedOrderItemIds)
+    for (const record of [...(recordSummaries ?? []), ...(records ?? [])]) {
+      if (record.id === initial?.id) continue
+      for (const id of record.tuber?.linkedOrderItemIds ?? []) {
+        ids.add(id)
+      }
+    }
+    return ids
+  }, [linkedOrderItemIds, recordSummaries, records, initial?.id])
   const linkedOrderRows = orders.flatMap((order) =>
     order.items
       .filter((item) => linkedOrderItemIds.includes(item.id))
@@ -1577,11 +1587,10 @@ export function RecordModal({
                         clearable={false}
                         placeholder="Select Invoice Item..."
                         options={orders.flatMap((order) => order.items
-                          .filter((item) => !item.gardenId || !gardenId || item.gardenId === gardenId)
+                          .filter((item) => (!item.gardenId || !gardenId || item.gardenId === gardenId) && !allAssignedOrderItemIds.has(item.id))
                           .map((item) => ({
                             value: item.id,
                             label: `${order.company?.name ?? 'Company'}${order.invoiceNumber ? ` - ${order.invoiceNumber}` : ''} - ${item.flowerName}`,
-                            disabled: linkedOrderItemIds.includes(item.id),
                           }))
                         )}
                         value={undefined}

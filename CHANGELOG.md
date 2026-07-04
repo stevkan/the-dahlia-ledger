@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.20.1 - 2026-07-03
+
+- Fixed order item picker in the record form to hide items already linked to other records, preventing duplicate order item assignments.
+
 ## 0.20.0 - 2026-07-03
 
 - Added `required` and `disabled` props to `DahliaPickerField` so picker fields can display a required indicator and be conditionally disabled.
