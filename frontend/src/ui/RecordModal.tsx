@@ -1343,11 +1343,11 @@ export function RecordModal({
           ) : null}
           {plantingState === 'in_garden' ? (
             <>
-              <SelectField
+              <DahliaPickerField
                 label="Zone"
                 hint="The zone or section where this dahlia is planted."
                 required
-                value={gardenArea}
+                value={gardenArea || undefined}
                 options={gardenOptions.gardenAreas}
                 onChange={setGardenArea}
                 labelAction={onOpenGardenOptions ? (
@@ -1356,11 +1356,11 @@ export function RecordModal({
                   </button>
                 ) : undefined}
               />
-              <SelectField
+              <DahliaPickerField
                 label="Row/Bed"
                 hint="Row or bed labels available for planted records."
                 required
-                value={gardenRow}
+                value={gardenRow || undefined}
                 options={availableGardenRows}
                 disabled={!gardenArea}
                 onChange={setGardenRow}
@@ -1370,14 +1370,17 @@ export function RecordModal({
                   </button>
                 ) : undefined}
               />
-              <SelectField
+              <DahliaPickerField
                 label="Position"
                 hint="Position labels available inside each row or bed."
                 required
-                value={gardenPosition}
-                options={gardenOptions.gardenPositions}
+                value={gardenPosition || undefined}
+                options={gardenOptions.gardenPositions.map((position) => ({
+                  value: position,
+                  label: position,
+                  disabled: isGardenOptionInUse(gardenRow, Number(position)),
+                }))}
                 disabled={!gardenRow}
-                disabledOptions={gardenOptions.gardenPositions.filter((position) => isGardenOptionInUse(gardenRow, Number(position)))}
                 onChange={setGardenPosition}
                 labelAction={onOpenGardenOptions ? (
                   <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenPositions')}>

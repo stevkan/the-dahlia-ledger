@@ -1891,6 +1891,13 @@ export default function App() {
               }}>
                 New Record
               </button>
+              {recordSummariesQuery.dataUpdatedAt > 0 && !loading && (
+                <span className="recordsRefreshStatus">
+                  {recordSummariesQuery.isRefetching
+                    ? 'Updating…'
+                    : `Updated ${new Date(recordSummariesQuery.dataUpdatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
+                </span>
+              )}
               <label className="pageSizeControl">
                 <span className="pageSizeLabel">Refresh</span>
                 <select className="select" value={recordsRefreshIntervalMs} onChange={(event) => setRecordsRefreshIntervalMs(Number(event.target.value))}>

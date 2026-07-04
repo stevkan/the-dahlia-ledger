@@ -711,6 +711,11 @@ body {
   margin-left: auto;
 }
 
+.recordsRefreshStatus {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .pageSizeControl {
   display: inline-flex;
   align-items: center;

@@ -15,7 +15,7 @@ function optionDisabled(opt: PickerOption): boolean {
   return typeof opt === 'string' ? false : (opt.disabled ?? false)
 }
 
-function FieldHintLabel({ label, hint, action }: { label: string; hint?: string; action?: React.ReactNode }) {
+function FieldHintLabel({ label, hint, required, action }: { label: string; hint?: string; required?: boolean; action?: React.ReactNode }) {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -32,6 +32,7 @@ function FieldHintLabel({ label, hint, action }: { label: string; hint?: string;
   return (
     <div className="label fieldLabel">
       {action ?? <span>{label}</span>}
+      {required ? <span className="requiredMark" aria-label="required">*</span> : null}
       {hint ? (
         <button
           className={`helpIcon${visible ? ' show' : ''}`}
@@ -62,6 +63,8 @@ export function DahliaPickerField({
   layout = 'grid',
   clearable = true,
   labelAction,
+  required,
+  disabled,
 }: {
   label: string
   hint?: string
@@ -73,6 +76,8 @@ export function DahliaPickerField({
   layout?: 'grid' | 'list'
   clearable?: boolean
   labelAction?: React.ReactNode
+  required?: boolean
+  disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
 
@@ -129,10 +134,11 @@ export function DahliaPickerField({
 
   return (
     <div className="field">
-      <FieldHintLabel label={label} hint={hint} action={labelAction} />
+      <FieldHintLabel label={label} hint={hint} required={required} action={labelAction} />
       <button
         className="input dahliaFormTrigger"
         type="button"
+        disabled={disabled}
         onClick={() => setOpen(true)}
       >
         {displayValue ?? <span className="dahliaFormPlaceholder">{placeholder ?? 'Select...'}</span>}

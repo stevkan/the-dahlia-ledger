@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.0 - 2026-07-03
+
+- Added `required` and `disabled` props to `DahliaPickerField` so picker fields can display a required indicator and be conditionally disabled.
+- Switched the Zone, Row/Bed, and Position picker fields in the record form to use `DahliaPickerField`, with taken positions shown as disabled options.
+- Added a records refresh status label next to the New Record button that shows the last-updated time and indicates when a background refresh is in progress.
+
 ## 0.19.0 - 2026-07-01
 
 - Replaced `DahliaFormField` with a new generic `DahliaPickerField` component that supports configurable options, grid and list layouts, disabled entries, and an optional clear action.
