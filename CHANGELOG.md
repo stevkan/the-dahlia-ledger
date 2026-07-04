@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.21.0 - 2026-07-04
+
+- Converted the mobile navigation hamburger panel into a slide-in drawer that overlays from the right, with a backdrop, smooth transition, and a close button inside the panel.
+- Fixed the top bar backdrop blur to use a `::before` pseudo-element so it no longer clips content that overlaps the bar.
+
 ## 0.20.3 - 2026-07-03
 
 - Limited invoice item association to one item per record; the picker is disabled once an item is linked.

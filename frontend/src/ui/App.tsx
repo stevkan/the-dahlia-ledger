@@ -1643,6 +1643,14 @@ export default function App() {
               <span className="accordionIcon" aria-hidden="true">☰</span>
             </button>
             <div className={`hamburgerPanel${hamburgerMenuOpen ? ' open' : ''}`}>
+              <button
+                className="navDrawerClose btn ghost compact"
+                type="button"
+                aria-label="Close menu"
+                onClick={() => setHamburgerMenuOpen(false)}
+              >
+                ✕
+              </button>
               <div className="actionAccordion" ref={recordsManagementRef}>
                 <button
                   className="btn ghost accordionToggle"
@@ -1876,6 +1884,9 @@ export default function App() {
           </div>
         </div>
         {highPriorityIncompleteReminderCount ? <div className="topPriorityMessage" role="status">{highPriorityReminderMessage(highPriorityIncompleteReminderCount)}</div> : null}
+        {hamburgerMenuOpen && (
+          <div className="navDrawerBackdrop" aria-hidden="true" onClick={() => setHamburgerMenuOpen(false)} />
+        )}
       </header>
 
       <main className="mainGrid">
