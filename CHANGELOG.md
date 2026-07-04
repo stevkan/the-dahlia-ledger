@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.20.3 - 2026-07-03
+
+- Limited invoice item association to one item per record; the picker is disabled once an item is linked.
+- Added company filtering to the invoice item picker so only items matching the selected source company are shown.
+- Added a disabled style for `DahliaPickerField` trigger buttons when the field is disabled.
+- Auto-populates the source field with the company name when an invoice item is selected and no source is set.
+
 ## 0.20.2 - 2026-07-03
 
 - Renamed the "Garden Assignment" label to "Garden" on order item rows in the order modal.

@@ -3479,6 +3479,15 @@ th.sortable {
   background: var(--surface-hover);
 }
 
+.dahliaFormTrigger:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.dahliaFormTrigger:disabled .dahliaFormPlaceholder {
+  color: var(--text-muted);
+}
+
 .dahliaFormPlaceholder {
   color: var(--text);
 }

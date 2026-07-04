@@ -1262,6 +1262,21 @@ export function RecordModal({
       .filter((item) => linkedOrderItemIds.includes(item.id))
       .map((item) => ({ order, item })),
   )
+  const invoiceItemCompanyFilter = selectedSourceCompany ? normalizeCompanyKey(selectedSourceCompany) : ''
+  const availableInvoiceItems = orders.flatMap((order) =>
+    order.items
+      .filter((item) =>
+        (!item.gardenId || !gardenId || item.gardenId === gardenId) &&
+        !allAssignedOrderItemIds.has(item.id) &&
+        (!invoiceItemCompanyFilter || normalizeCompanyKey(order.company?.name ?? '') === invoiceItemCompanyFilter)
+      )
+      .map((item) => ({
+        value: item.id,
+        label: `${order.company?.name ?? 'Company'}${order.invoiceNumber ? ` - ${order.invoiceNumber}` : ''} - ${item.flowerName}`,
+      }))
+  )
+  const invoiceItemsCompanyFiltered = Boolean(invoiceItemCompanyFilter)
+  const invoiceItemsEmpty = invoiceItemsCompanyFiltered && availableInvoiceItems.length === 0
   const relatedVarietyRecords = useMemo(() => {
     if (!initial) return []
     const key = varietyKey(form)
@@ -1581,30 +1596,31 @@ export function RecordModal({
                   {k === 'tuber' ? (
                     <>
                       <DahliaPickerField
-                        label="Invoice Items"
-                        hint="Associate one or more saved invoice order items with this dahlia record."
+                        label="Invoice Item"
+                        hint="Associate one saved invoice order item with this dahlia record. Remove the current item to assign a different one."
                         layout="list"
                         clearable={false}
                         placeholder="Select Invoice Item..."
-                        options={orders.flatMap((order) => order.items
-                          .filter((item) => (!item.gardenId || !gardenId || item.gardenId === gardenId) && !allAssignedOrderItemIds.has(item.id))
-                          .map((item) => ({
-                            value: item.id,
-                            label: `${order.company?.name ?? 'Company'}${order.invoiceNumber ? ` - ${order.invoiceNumber}` : ''} - ${item.flowerName}`,
-                          }))
-                        )}
+                        disabled={linkedOrderItemIds.length >= 1 || invoiceItemsEmpty}
+                        options={availableInvoiceItems}
                         value={undefined}
                         onChange={(value) => {
                           if (!value) return
+                          const matchingOrder = orders.find((order) => order.items.some((item) => item.id === value))
+                          const companyName = matchingOrder?.company?.name
                           setForm((p) => ({
                             ...p,
                             tuber: {
                               ...p.tuber,
-                              linkedOrderItemIds: Array.from(new Set([...(p.tuber.linkedOrderItemIds ?? []), value])),
+                              linkedOrderItemIds: [value],
+                              ...(!p.tuber.source && companyName ? { source: companyName } : {}),
                             },
                           }))
                         }}
                       />
+                      {invoiceItemsEmpty ? (
+                        <div className="fieldMessage">No invoice items match &ldquo;{selectedSourceCompany}&rdquo;.</div>
+                      ) : null}
                       {linkedOrderRows.length ? (
                         <div className="tableWrap miniTable">
                           <table className="table">
