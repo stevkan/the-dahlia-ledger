@@ -1,0 +1,101 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "dahliaRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "gardenId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "recordNumber",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "dahliaRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "gardenId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "recordNumber",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "dahliaRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "gardenId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "seasonYearStart",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "recordNumber",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "dahliaRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "gardenId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "locationName",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "recordNumber",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "dahliaRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "gardenId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "meta.updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "recordNumber",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "dahliaRecordSummaries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "gardenId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "recordNumber",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

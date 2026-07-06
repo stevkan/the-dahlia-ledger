@@ -1,6 +1,9 @@
 import { getDb } from './firebase.js'
 const COLLECTION = 'dahliaRecords'
+const SUMMARY_COLLECTION = 'dahliaRecordSummaries'
 const ONENOTE_IMPORT_NOTE = 'Imported from OneNote MHT.'
+const RECORD_SUMMARY_CACHE_TTL_MS = 30_000
+const recordSummaryCache = new Map()
 
 function nowIso() {
   return new Date().toISOString()
@@ -17,13 +20,32 @@ function withoutUndefined(value) {
   )
 }
 
+function recordSummaryCacheKey(gardenId, options = {}) {
+  return `${gardenId ?? 'all'}:${options.includeLegacyUnassigned ? 'legacy' : 'current'}`
+}
+
+function clearRecordSummaryCache() {
+  recordSummaryCache.clear()
+}
+
+function isMissingFirestoreIndexError(error) {
+  return error?.code === 9 || error?.code === 'failed-precondition'
+}
+
+function getPlacement(record) {
+  return {
+    zone: record?.meta?.gardenZone ?? record?.meta?.gardenArea,
+    rowOrBed: record?.meta?.rowOrBed ?? record?.meta?.gardenRow,
+    position: record?.meta?.position ?? record?.meta?.gardenPosition,
+  }
+}
+
 function getGardenKey(record) {
   if (record?.meta?.plantingState !== 'in_garden') return undefined
 
-  const row = record?.meta?.gardenRow
-  const position = record?.meta?.gardenPosition
+  const { zone, rowOrBed, position } = getPlacement(record)
 
-  return row && position ? `${row}${position}` : undefined
+  return rowOrBed && position ? `${zone ?? ''}|${rowOrBed}|${position}` : undefined
 }
 
 function normalizedValue(value) {
@@ -68,7 +90,9 @@ function withPhotoDefaults(record) {
     cultivarPhotos,
     defaultRecordPhotoId: recordDefault?.id,
     defaultCultivarPhotoId: cultivarDefault?.id,
-    defaultPhotoScope: record.defaultPhotoScope || (recordDefault ? 'record' : cultivarDefault ? 'cultivar' : undefined),
+    defaultPhotoScope: record.defaultPhotoScope === 'cultivar'
+      ? (cultivarDefault ? 'cultivar' : recordDefault ? 'record' : undefined)
+      : (recordDefault ? 'record' : cultivarDefault ? 'cultivar' : undefined),
     imageUrl: recordDefault ? recordDefault.imageUrl : record.imageUrl,
     thumbnailUrl: recordDefault ? photoUrl(recordDefault) : record.thumbnailUrl,
     cultivarImageUrl: cultivarDefault ? cultivarDefault.imageUrl : record.cultivarImageUrl,
@@ -98,25 +122,127 @@ function cleanCoreNotes(notes) {
 }
 
 function cleanRecord(record) {
+  const placement = record?.meta?.plantingState === 'in_garden' ? getPlacement(record) : {}
   return withPhotoDefaults({
     ...record,
+    gardenLocation: record.meta?.plantingState === 'in_garden' ? record.gardenLocation || [placement.rowOrBed, placement.position].filter(Boolean).join('') : '',
     core: {
       ...(record.core ?? {}),
       notes: cleanCoreNotes(record.core?.notes),
     },
+    meta: {
+      ...(record.meta ?? {}),
+      gardenZone: placement.zone,
+      rowOrBed: placement.rowOrBed,
+      position: placement.position,
+    },
   })
 }
 
-async function findGardenLocationConflict(input, excludeId) {
+export function toRecordSummary(record) {
+  const placement = record?.meta?.plantingState === 'in_garden' ? getPlacement(record) : {}
+
+  return {
+    id: record.id,
+    recordNumber: record.recordNumber,
+    gardenId: record.gardenId,
+    flowerName: record.flowerName,
+    gardenLocation: record.gardenLocation,
+    seasonYearStart: record.seasonYearStart,
+    thumbnailUrl: record.thumbnailUrl,
+    imageUrl: record.imageUrl,
+    cultivarThumbnailUrl: record.cultivarThumbnailUrl,
+    cultivarImageUrl: record.cultivarImageUrl,
+    defaultPhotoScope: record.defaultPhotoScope,
+    core: {
+      color: record.core?.color,
+      size: record.core?.size,
+      cultivar: record.core?.cultivar,
+    },
+    growth: {
+      height: record.growth?.height,
+    },
+    tuber: {
+      source: record.tuber?.source,
+      linkedOrderItemIds: record.tuber?.linkedOrderItemIds,
+    },
+    meta: {
+      gardenArea: placement.zone,
+      gardenRow: placement.rowOrBed,
+      gardenPosition: placement.position,
+      gardenZone: placement.zone,
+      rowOrBed: placement.rowOrBed,
+      position: placement.position,
+      plantingState: record.meta?.plantingState,
+    },
+  }
+}
+
+async function writeRecordSummary(record) {
+  if (!record?.id) return
+  await getDb().collection(SUMMARY_COLLECTION).doc(record.id).set(withoutUndefined(toRecordSummary(record)), { merge: false })
+}
+
+async function deleteRecordSummary(id) {
+  await getDb().collection(SUMMARY_COLLECTION).doc(id).delete()
+}
+
+function cleanRecordSummary(summary, options = {}) {
+  return withoutUndefined({
+    ...summary,
+    gardenId: summary.gardenId ?? (options.includeLegacyUnassigned ? options.gardenId : undefined),
+  })
+}
+
+async function backfillMissingSummaries(records) {
+  await Promise.all(records.map((record) => writeRecordSummary(record)))
+}
+
+export async function listRecordSummaries(gardenId, options = {}) {
+  const key = recordSummaryCacheKey(gardenId, options)
+  const cached = recordSummaryCache.get(key)
+  if (cached && cached.expiresAt > Date.now()) return cached.value
+
+  const db = getDb()
+  let summaries
+  try {
+    const snap = gardenId
+      ? await db.collection(SUMMARY_COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'asc').get()
+      : await db.collection(SUMMARY_COLLECTION).orderBy('recordNumber', 'asc').get()
+    summaries = snap.docs.map((d) => cleanRecordSummary({ id: d.id, ...d.data() }, { ...options, gardenId }))
+
+    if (gardenId && options.includeLegacyUnassigned) {
+      const legacySnap = await db.collection(SUMMARY_COLLECTION).orderBy('recordNumber', 'asc').get()
+      summaries.push(...legacySnap.docs.filter((doc) => !doc.data().gardenId).map((d) => cleanRecordSummary({ id: d.id, ...d.data() }, { ...options, gardenId })))
+    }
+  } catch (e) {
+    if (!isMissingFirestoreIndexError(e)) throw e
+    const records = await listRecords(gardenId, options)
+    await backfillMissingSummaries(records)
+    summaries = records.map(toRecordSummary)
+  }
+
+  let value = summaries.sort((a, b) => a.recordNumber - b.recordNumber)
+  if (value.length === 0) {
+    const records = await listRecords(gardenId, options)
+    await backfillMissingSummaries(records)
+    value = records.map(toRecordSummary)
+  }
+
+  recordSummaryCache.set(key, { value, expiresAt: Date.now() + RECORD_SUMMARY_CACHE_TTL_MS })
+  return value
+}
+
+async function findGardenLocationConflict(input, excludeId, gardenId) {
   const inputKey = getGardenKey(input)
   if (!inputKey) return null
 
-  const records = await listRecords()
-  return records.find((record) => record.id !== excludeId && record.seasonYearStart === input.seasonYearStart && getGardenKey(record) === inputKey) ?? null
+  const records = await listRecords(gardenId)
+  return records.find((record) => record.id !== excludeId && (record.gardenId ?? gardenId) === gardenId && record.seasonYearStart === input.seasonYearStart && getGardenKey(record) === inputKey) ?? null
 }
 
-async function getNextRecordNumber() {
-  const snap = await getDb().collection(COLLECTION).orderBy('recordNumber', 'desc').limit(1).get()
+async function getNextRecordNumber(gardenId) {
+  const snap = await getDb().collection(COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'desc').limit(1).get()
   const highest = snap.docs[0]?.data()?.recordNumber
   return Number.isInteger(highest) ? highest + 1 : 1
 }
@@ -134,9 +260,86 @@ function normalizeRecordText(input) {
   }
 }
 
-export async function listRecords() {
-  const snap = await getDb().collection(COLLECTION).orderBy('recordNumber', 'asc').get()
-  return snap.docs.map((d) => cleanRecord({ id: d.id, ...d.data() }))
+export async function listRecords(gardenId, options = {}) {
+  const db = getDb()
+  const snap = gardenId
+    ? await db.collection(COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'asc').get()
+    : await db.collection(COLLECTION).orderBy('recordNumber', 'asc').get()
+  const docs = snap.docs
+
+  if (gardenId && options.includeLegacyUnassigned) {
+    const legacySnap = await db.collection(COLLECTION).orderBy('recordNumber', 'asc').get()
+    docs.push(...legacySnap.docs.filter((doc) => !doc.data().gardenId))
+  }
+
+  return docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .map((record) => cleanRecord({ ...record, gardenId: record.gardenId ?? (options.includeLegacyUnassigned ? gardenId : undefined) }))
+    .sort((a, b) => a.recordNumber - b.recordNumber)
+}
+
+export async function listRecordsPage(gardenId, options = {}) {
+  const db = getDb()
+  const limit = Math.min(Math.max(Number(options.limit) || 100, 1), 250)
+  const startAfter = Number(options.startAfter)
+  let query = gardenId
+    ? db.collection(COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'asc')
+    : db.collection(COLLECTION).orderBy('recordNumber', 'asc')
+
+  if (Number.isFinite(startAfter)) query = query.startAfter(startAfter)
+
+  const snap = await query.limit(limit + 1).get()
+  const docs = snap.docs
+  const pageDocs = docs.slice(0, limit)
+
+  const records = pageDocs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .map((record) => cleanRecord({ ...record, gardenId: record.gardenId ?? (options.includeLegacyUnassigned ? gardenId : undefined) }))
+
+  return {
+    records,
+    nextCursor: docs.length > limit ? records.at(-1)?.recordNumber : undefined,
+  }
+}
+
+export async function listRecordSummariesPage(gardenId, options = {}) {
+  const db = getDb()
+  const limit = Math.min(Math.max(Number(options.limit) || 100, 1), 250)
+  const startAfter = Number(options.startAfter)
+  let query = gardenId
+    ? db.collection(SUMMARY_COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'asc')
+    : db.collection(SUMMARY_COLLECTION).orderBy('recordNumber', 'asc')
+
+  if (Number.isFinite(startAfter)) query = query.startAfter(startAfter)
+
+  let snap
+  try {
+    snap = await query.limit(limit + 1).get()
+  } catch (e) {
+    if (!isMissingFirestoreIndexError(e)) throw e
+    const fullPage = await listRecordsPage(gardenId, options)
+    await backfillMissingSummaries(fullPage.records)
+    return {
+      records: fullPage.records.map(toRecordSummary),
+      nextCursor: fullPage.nextCursor,
+    }
+  }
+  if (snap.empty && !Number.isFinite(startAfter)) {
+    const fullPage = await listRecordsPage(gardenId, options)
+    await backfillMissingSummaries(fullPage.records)
+    return {
+      records: fullPage.records.map(toRecordSummary),
+      nextCursor: fullPage.nextCursor,
+    }
+  }
+
+  const docs = snap.docs
+  const records = docs.slice(0, limit).map((d) => cleanRecordSummary({ id: d.id, ...d.data() }, { gardenId }))
+
+  return {
+    records,
+    nextCursor: docs.length > limit ? records.at(-1)?.recordNumber : undefined,
+  }
 }
 
 export async function getRecord(id) {
@@ -145,9 +348,9 @@ export async function getRecord(id) {
   return cleanRecord({ id: doc.id, ...doc.data() })
 }
 
-export async function createRecord(input) {
+export async function createRecord(input, gardenId) {
   const normalizedInput = normalizeRecordText(input)
-  const conflict = await findGardenLocationConflict(normalizedInput)
+  const conflict = await findGardenLocationConflict(normalizedInput, undefined, gardenId)
   if (conflict) {
     const error = new Error('Garden location is already assigned to another record.')
     error.code = 'garden_location_conflict'
@@ -157,7 +360,8 @@ export async function createRecord(input) {
   const timestamp = nowIso()
   const base = {
     ...withPhotoDefaults(normalizedInput),
-    recordNumber: await getNextRecordNumber(),
+    gardenId,
+    recordNumber: await getNextRecordNumber(gardenId),
     thumbnailUrl: normalizedInput.thumbnailUrl || undefined,
     imageUrl: normalizedInput.imageUrl || undefined,
     cultivarThumbnailUrl: normalizedInput.cultivarThumbnailUrl || undefined,
@@ -170,24 +374,49 @@ export async function createRecord(input) {
   }
 
   const ref = await getDb().collection(COLLECTION).add(withoutUndefined(base))
+  await writeRecordSummary({ id: ref.id, ...base })
+  clearRecordSummaryCache()
   return await getRecord(ref.id)
 }
 
-export async function updateRecord(id, input) {
+export async function updateRecord(id, input, gardenId) {
   const existing = await getRecord(id)
   if (!existing) return null
 
   const normalizedInput = normalizeRecordText(input)
-  const conflict = await findGardenLocationConflict(normalizedInput, id)
+  const targetGardenId = gardenId ?? existing.gardenId
+  const conflict = await findGardenLocationConflict(normalizedInput, id, targetGardenId)
   if (conflict) {
     const error = new Error('Garden location is already assigned to another record.')
     error.code = 'garden_location_conflict'
     throw error
   }
 
+  let adjustedInput = normalizedInput
+  const oldKey = cultivarKey(existing)
+  const newKey = cultivarKey(normalizedInput)
+  if (oldKey !== newKey) {
+    const gardenRecords = await listRecords(targetGardenId)
+    const donor = gardenRecords.find((r) => r.id !== id && cultivarKey(r) === newKey && r.cultivarPhotos?.length)
+    const newCultivarPhotos = donor ? uniquePhotos(donor.cultivarPhotos) : []
+    const byAge = (a, b) => (a.createdAt ?? 'z').localeCompare(b.createdAt ?? 'z')
+    const userPick = newCultivarPhotos.find((p) => p.id === normalizedInput.defaultCultivarPhotoId)
+    const oldestPhoto = newCultivarPhotos.length > 0 ? [...newCultivarPhotos].sort(byAge)[0] : undefined
+    const newDefault = userPick ?? oldestPhoto
+    adjustedInput = {
+      ...normalizedInput,
+      cultivarPhotos: newCultivarPhotos,
+      defaultCultivarPhotoId: newDefault?.id,
+      defaultPhotoScope: newDefault ? 'cultivar' : normalizedInput.defaultPhotoScope === 'cultivar' ? undefined : normalizedInput.defaultPhotoScope,
+      cultivarImageUrl: undefined,
+      cultivarThumbnailUrl: undefined,
+    }
+  }
+
   const next = {
     ...existing,
-    ...withPhotoDefaults(normalizedInput),
+    ...withPhotoDefaults(adjustedInput),
+    gardenId: targetGardenId,
     id: undefined,
     recordNumber: existing.recordNumber,
     meta: {
@@ -199,6 +428,8 @@ export async function updateRecord(id, input) {
   }
 
   await getDb().collection(COLLECTION).doc(id).set(withoutUndefined(next), { merge: false })
+  await writeRecordSummary({ ...next, id })
+  clearRecordSummaryCache()
   return await getRecord(id)
 }
 
@@ -239,9 +470,12 @@ export async function updateCultivarPhoto(id, { cultivarImageUrl, cultivarThumbn
     }),
   )
 
+  const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
+  await backfillMissingSummaries(updatedRecords.filter(Boolean))
+  clearRecordSummaryCache()
   return {
     updatedCount: matchedRecords.length,
-    records: await listRecords(),
+    records: updatedRecords.filter(Boolean),
   }
 }
 
@@ -277,9 +511,12 @@ export async function updateCultivarPhotoDefault(id, { photo }) {
     }),
   )
 
+  const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
+  await backfillMissingSummaries(updatedRecords.filter(Boolean))
+  clearRecordSummaryCache()
   return {
     updatedCount: matchedRecords.length,
-    records: await listRecords(),
+    records: updatedRecords.filter(Boolean),
   }
 }
 
@@ -308,9 +545,11 @@ export async function updateRecordPhotoDefault(id, { photo }) {
     { merge: false },
   )
 
+  const updatedRecord = await getRecord(id)
+  if (updatedRecord) await writeRecordSummary(updatedRecord)
+  clearRecordSummaryCache()
   return {
-    record: await getRecord(id),
-    records: await listRecords(),
+    record: updatedRecord,
   }
 }
 
@@ -348,13 +587,18 @@ export async function deleteCultivarPhoto(id, { imageUrl }) {
     }),
   )
 
+  const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
+  await backfillMissingSummaries(updatedRecords.filter(Boolean))
+  clearRecordSummaryCache()
   return {
     updatedCount: matchedRecords.length,
-    records: await listRecords(),
+    records: updatedRecords.filter(Boolean),
   }
 }
 
 export async function deleteRecord(id) {
   await getDb().collection(COLLECTION).doc(id).delete()
+  await deleteRecordSummary(id)
+  clearRecordSummaryCache()
   return true
 }

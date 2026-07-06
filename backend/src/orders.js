@@ -1,5 +1,5 @@
 import { getDb } from './firebase.js'
-import { toTitleCase } from './textFormat.js'
+import { getGardenAccess, listGardens, resolveGardenId, requireGardenAccess } from './gardens.js'
 
 const COMPANIES = 'companies'
 const ORDERS = 'orders'
@@ -33,9 +33,52 @@ function sortByName(a, b) {
   return String(a.name ?? '').localeCompare(String(b.name ?? ''))
 }
 
-export async function listCompanies() {
-  const snap = await getDb().collection(COMPANIES).get()
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(sortByName)
+function ownerMatches(doc, context = {}) {
+  if (context.userId) return doc.ownerUserId === context.userId
+  return true
+}
+
+function contextMatches(doc, context = {}, gardenIds = null) {
+  if (!context.userId) return true
+  if (doc.gardenId && gardenIds) return gardenIds.has(doc.gardenId)
+  if (context.gardenOwnerUserIds?.has(doc.ownerUserId)) return true
+  return doc.ownerUserId === context.userId
+}
+
+function orderMatchesContext(doc, context = {}) {
+  return ownerMatches(doc, context)
+}
+
+async function getContextGardenIds(context = {}) {
+  if (!context.user) return null
+  const gardens = await listGardens(context.user)
+  return new Set(gardens.map((garden) => garden.id))
+}
+
+function recordMatchesContext(record, context = {}, gardenIds = null) {
+  if (!context.userId) return true
+  if (!gardenIds) return false
+  return gardenIds.has(record.gardenId)
+}
+
+export async function listCompanies(context = {}) {
+  const [snap, gardenIds] = await Promise.all([
+    getDb().collection(COMPANIES).get(),
+    getContextGardenIds(context),
+  ])
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((company) => contextMatches(company, context, gardenIds)).map((company) => withCompanyPermissions(company, context, gardenIds)).sort(sortByName)
+}
+
+function withCompanyPermissions(company, context = {}, gardenIds = null) {
+  const isOwner = Boolean(context.userId && company.ownerUserId === context.userId)
+  const isGardenVisible = Boolean(company.gardenId && gardenIds?.has(company.gardenId))
+  const isGardenOwnerLegacyCompany = Boolean(!company.gardenId && context.gardenOwnerUserIds?.has(company.ownerUserId))
+  const isGardenOwner = Boolean(company.gardenId && context.gardenOwnerIds?.has(company.gardenId))
+  return {
+    ...company,
+    canUpdate: isOwner || isGardenVisible || isGardenOwnerLegacyCompany,
+    canDelete: isOwner || isGardenOwner,
+  }
 }
 
 function emptyCompanyUsage() {
@@ -59,9 +102,14 @@ function summarizeCompanyUsage({ orders = [], flowerRecords = [] }) {
     })),
     flowerRecords: flowerRecords.map((record) => ({
       id: record.id,
+      gardenId: record.gardenId ?? null,
       recordNumber: record.recordNumber ?? null,
       flowerName: record.flowerName ?? '',
       seasonYearStart: record.seasonYearStart ?? null,
+      meta: {
+        gardenArea: record.meta?.gardenArea ?? null,
+        gardenZone: record.meta?.gardenZone ?? null,
+      },
     })),
   }
 }
@@ -76,23 +124,26 @@ function cleanCompanyInput(input) {
   }
 }
 
-export async function listCompaniesWithUsage() {
-  const [companies, ordersSnap, recordsSnap] = await Promise.all([
-    listCompanies(),
+export async function listCompaniesWithUsage(context = {}) {
+  const [companies, ordersSnap, recordsSnap, gardenIds] = await Promise.all([
+    listCompanies(context),
     getDb().collection(ORDERS).get(),
     getDb().collection('dahliaRecords').get(),
+    getContextGardenIds(context),
   ])
   const usageByCompanyId = new Map(companies.map((company) => [company.id, emptyCompanyUsage()]))
   const companyIdByKey = new Map(companies.map((company) => [normalizeCompanyKey(company.name), company.id]))
 
   for (const doc of ordersSnap.docs) {
     const order = { id: doc.id, ...doc.data() }
+    if (!ownerMatches(order, context)) continue
     const usage = usageByCompanyId.get(order.companyId)
     if (usage) usage.orders.push(order)
   }
 
   for (const doc of recordsSnap.docs) {
     const record = { id: doc.id, ...doc.data() }
+    if (!recordMatchesContext(record, context, gardenIds)) continue
     const companyId = companyIdByKey.get(normalizeCompanyKey(record.tuber?.source))
     const usage = companyId ? usageByCompanyId.get(companyId) : null
     if (usage) usage.flowerRecords.push(record)
@@ -104,18 +155,22 @@ export async function listCompaniesWithUsage() {
   }))
 }
 
-export async function getCompanyWithUsage(id) {
-  const companies = await listCompaniesWithUsage()
+export async function getCompanyWithUsage(id, context = {}) {
+  const companies = await listCompaniesWithUsage(context)
   return companies.find((company) => company.id === id) ?? null
 }
 
-export async function createCompany(input) {
+export async function createCompany(input, context = {}) {
   const timestamp = nowIso()
+  const gardenId = input.gardenId || context.gardenId || (context.user ? await resolveGardenId(context.user, null) : undefined)
+  if (gardenId && context.user) await requireGardenAccess(context.user, gardenId)
   const ref = await getDb()
     .collection(COMPANIES)
     .add(
       withoutUndefined({
         ...input,
+        gardenId: gardenId || undefined,
+        ownerUserId: input.ownerUserId || context.userId || undefined,
         name: String(input.name ?? '').trim(),
         website: input.website || undefined,
         email: input.email || undefined,
@@ -129,22 +184,24 @@ export async function createCompany(input) {
   return { id: doc.id, ...doc.data() }
 }
 
-export async function ensureCompany(name) {
+export async function ensureCompany(name, context = {}) {
   const companyName = String(name ?? '').trim()
   if (!companyName) return { company: null, created: false }
 
-  const companies = await listCompanies()
+  const companies = await listCompanies(context)
   const companyKey = normalizeCompanyKey(companyName)
   const existing = companies.find((company) => normalizeCompanyKey(company.name) === companyKey)
   if (existing) return { company: existing, created: false }
 
-  return { company: await createCompany({ name: companyName }), created: true }
+  return { company: await createCompany({ name: companyName }, context), created: true }
 }
 
-export async function updateCompany(id, input) {
+export async function updateCompany(id, input, context = {}) {
   const existing = await getDb().collection(COMPANIES).doc(id).get()
   if (!existing.exists) return null
   const existingCompany = { id: existing.id, ...existing.data() }
+  const gardenIds = await getContextGardenIds(context)
+  if (!contextMatches(existingCompany, context, gardenIds)) return null
   const cleanedInput = cleanCompanyInput(input)
 
   await getDb()
@@ -161,9 +218,13 @@ export async function updateCompany(id, input) {
     )
 
   if (normalizeCompanyKey(existingCompany.name) !== normalizeCompanyKey(cleanedInput.name)) {
-    const recordsSnap = await getDb().collection(RECORDS).get()
+    const [recordsSnap, gardenIds] = await Promise.all([
+      getDb().collection(RECORDS).get(),
+      getContextGardenIds(context),
+    ])
     const matchingRecords = recordsSnap.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .filter((record) => recordMatchesContext(record, context, gardenIds))
       .filter((record) => normalizeCompanyKey(record.tuber?.source) === normalizeCompanyKey(existingCompany.name))
 
     await Promise.all(matchingRecords.map((record) => getDb().collection(RECORDS).doc(record.id).set(
@@ -183,21 +244,32 @@ export async function updateCompany(id, input) {
     )))
   }
 
-  return await getCompanyWithUsage(id)
+  return await getCompanyWithUsage(id, context)
 }
 
-export async function deleteCompany(id) {
+export async function deleteCompany(id, context = {}) {
   const companyDoc = await getDb().collection(COMPANIES).doc(id).get()
   if (!companyDoc.exists) return true
 
   const company = { id: companyDoc.id, ...companyDoc.data() }
+  const gardenIds = await getContextGardenIds(context)
+  if (!contextMatches(company, context, gardenIds)) return true
+  const isOwner = context.userId && company.ownerUserId === context.userId
+  const gardenAccess = company.gardenId && context.user ? await getGardenAccess(context.user, company.gardenId) : null
+  if (!isOwner && gardenAccess?.role !== 'owner') {
+    const error = new Error('Only the company owner or a joint garden owner can delete this company.')
+    error.code = 'company_delete_denied'
+    throw error
+  }
   const [ordersSnap, recordsSnap] = await Promise.all([
     getDb().collection(ORDERS).where('companyId', '==', id).get(),
     getDb().collection('dahliaRecords').get(),
   ])
   const linkedOrders = ordersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+    .filter((order) => ownerMatches(order, context))
   const linkedFlowerRecords = recordsSnap.docs
     .map((doc) => ({ id: doc.id, ...doc.data() }))
+    .filter((record) => recordMatchesContext(record, context, gardenIds))
     .filter((record) => normalizeCompanyKey(record.tuber?.source) === normalizeCompanyKey(company.name))
 
   if (linkedOrders.length > 0 || linkedFlowerRecords.length > 0) {
@@ -211,14 +283,35 @@ export async function deleteCompany(id) {
   return true
 }
 
-export async function listOrders() {
-  const [companies, ordersSnap, itemsSnap, filesSnap] = await Promise.all([
-    listCompanies(),
+export async function reassignCompanies(companyIds, ownerUserId) {
+  const ids = [...new Set((companyIds ?? []).map((id) => String(id ?? '').trim()).filter(Boolean))]
+  const nextOwnerUserId = String(ownerUserId ?? '').trim()
+  if (!ids.length || !nextOwnerUserId) return []
+
+  const docs = await Promise.all(ids.map((id) => getDb().collection(COMPANIES).doc(id).get()))
+  const existingDocs = docs.filter((doc) => doc.exists)
+  const timestamp = nowIso()
+
+  await Promise.all(existingDocs.map((doc) => doc.ref.set(
+    withoutUndefined({
+      ...doc.data(),
+      ownerUserId: nextOwnerUserId,
+      updatedAt: timestamp,
+    }),
+    { merge: false },
+  )))
+
+  return existingDocs.map((doc) => ({ id: doc.id, ...doc.data(), ownerUserId: nextOwnerUserId, updatedAt: timestamp })).sort(sortByName)
+}
+
+export async function listOrders(context = {}) {
+  const [companiesSnap, ordersSnap, itemsSnap, filesSnap] = await Promise.all([
+    getDb().collection(COMPANIES).get(),
     getDb().collection(ORDERS).get(),
     getDb().collection(ORDER_ITEMS).get(),
     getDb().collection(ORDER_FILES).get(),
   ])
-  const companyById = new Map(companies.map((company) => [company.id, company]))
+  const companyById = new Map(companiesSnap.docs.map((doc) => [doc.id, { id: doc.id, ...doc.data() }]))
   const itemsByOrder = new Map()
   const filesByOrder = new Map()
 
@@ -239,6 +332,7 @@ export async function listOrders() {
   return ordersSnap.docs
     .map((doc) => {
       const order = { id: doc.id, ...doc.data() }
+      if (!orderMatchesContext(order, context)) return null
       return {
         ...order,
         company: companyById.get(order.companyId) ?? null,
@@ -246,16 +340,18 @@ export async function listOrders() {
         files: filesByOrder.get(order.id) ?? [],
       }
     })
+    .filter(Boolean)
     .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
 }
 
-export async function createOrder(input) {
+export async function createOrder(input, context = {}) {
   const timestamp = nowIso()
   const ref = await getDb()
     .collection(ORDERS)
     .add(
       withoutUndefined({
         companyId: input.companyId,
+        ownerUserId: input.ownerUserId || context.userId || undefined,
         invoiceNumber: input.invoiceNumber || undefined,
         orderDate: input.orderDate || undefined,
         totalCost: input.totalCost ?? undefined,
@@ -271,8 +367,9 @@ export async function createOrder(input) {
       .add(
         withoutUndefined({
           ...item,
-          flowerName: toTitleCase(item.flowerName),
-          cultivarName: item.cultivarName ? toTitleCase(item.cultivarName) : undefined,
+          flowerName: String(item.flowerName ?? '').trim(),
+          cultivarName: item.cultivarName ? String(item.cultivarName).trim() : undefined,
+          gardenId: item.gardenId || undefined,
           itemCost: item.itemCost ?? undefined,
           quantity: item.quantity ?? undefined,
           notes: item.notes || undefined,
@@ -283,12 +380,13 @@ export async function createOrder(input) {
       )
   }
 
-  return (await listOrders()).find((order) => order.id === ref.id)
+  return (await listOrders(context)).find((order) => order.id === ref.id)
 }
 
-export async function updateOrder(id, input) {
+export async function updateOrder(id, input, context = {}) {
   const existing = await getDb().collection(ORDERS).doc(id).get()
   if (!existing.exists) return null
+  if (!orderMatchesContext(existing.data(), context)) return null
 
   const timestamp = nowIso()
   const existingItems = await getDb().collection(ORDER_ITEMS).where('orderId', '==', id).get()
@@ -301,6 +399,7 @@ export async function updateOrder(id, input) {
       withoutUndefined({
         ...existing.data(),
         companyId: input.companyId,
+        ownerUserId: input.ownerUserId || existing.data().ownerUserId || context.userId || undefined,
         invoiceNumber: input.invoiceNumber || undefined,
         orderDate: input.orderDate || undefined,
         totalCost: input.totalCost ?? undefined,
@@ -317,8 +416,9 @@ export async function updateOrder(id, input) {
       withoutUndefined({
         ...item,
         id: undefined,
-        flowerName: toTitleCase(item.flowerName),
-        cultivarName: item.cultivarName ? toTitleCase(item.cultivarName) : undefined,
+        flowerName: String(item.flowerName ?? '').trim(),
+        cultivarName: item.cultivarName ? String(item.cultivarName).trim() : undefined,
+        gardenId: item.gardenId || undefined,
         itemCost: item.itemCost ?? undefined,
         quantity: item.quantity ?? undefined,
         notes: item.notes || undefined,
@@ -330,13 +430,14 @@ export async function updateOrder(id, input) {
     )
   }
 
-  return (await listOrders()).find((order) => order.id === id)
+  return (await listOrders(context)).find((order) => order.id === id)
 }
 
-export async function deleteOrder(id) {
+export async function deleteOrder(id, context = {}) {
   const orderRef = getDb().collection(ORDERS).doc(id)
   const existing = await orderRef.get()
   if (!existing.exists) return false
+  if (!orderMatchesContext(existing.data(), context)) return false
 
   const [itemsSnap, filesSnap] = await Promise.all([
     getDb().collection(ORDER_ITEMS).where('orderId', '==', id).get(),
@@ -349,6 +450,11 @@ export async function deleteOrder(id) {
     orderRef.delete(),
   ])
   return true
+}
+
+export async function countOrderFiles(orderId) {
+  const snap = await getDb().collection(ORDER_FILES).where('orderId', '==', orderId).count().get()
+  return snap.data().count
 }
 
 export async function addOrderFile(orderId, fileInput) {

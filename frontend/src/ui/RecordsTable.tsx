@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   flexRender,
@@ -10,47 +11,52 @@ import {
   type SortingState,
 } from '@tanstack/react-table'
 import { useState } from 'react'
-import type { DahliaRecord, Order } from '../types'
+import type { DahliaRecordSummary, Order } from '../types'
 
 function compareGardenRows(a: string, b: string) {
   if (a.length !== b.length) return a.length - b.length
   return a.localeCompare(b)
 }
 
-function compareGardenLocations(a: DahliaRecord, b: DahliaRecord) {
-  const areaCompare = String(a.meta?.gardenArea ?? '').localeCompare(String(b.meta?.gardenArea ?? ''))
+function compareGardenLocations(a: DahliaRecordSummary, b: DahliaRecordSummary) {
+  const areaCompare = String(a.meta?.gardenZone ?? a.meta?.gardenArea ?? '').localeCompare(String(b.meta?.gardenZone ?? b.meta?.gardenArea ?? ''))
   if (areaCompare !== 0) return areaCompare
 
-  const rowCompare = compareGardenRows(a.meta?.gardenRow ?? '', b.meta?.gardenRow ?? '')
+  const rowCompare = compareGardenRows(a.meta?.rowOrBed ?? a.meta?.gardenRow ?? '', b.meta?.rowOrBed ?? b.meta?.gardenRow ?? '')
   if (rowCompare !== 0) return rowCompare
 
-  const aPosition = Number(a.meta?.gardenPosition)
-  const bPosition = Number(b.meta?.gardenPosition)
+  const aPosition = Number(a.meta?.position ?? a.meta?.gardenPosition)
+  const bPosition = Number(b.meta?.position ?? b.meta?.gardenPosition)
   if (Number.isFinite(aPosition) && Number.isFinite(bPosition) && aPosition !== bPosition) return aPosition - bPosition
 
   return formatGardenLocation(a).localeCompare(formatGardenLocation(b), undefined, { numeric: true })
 }
 
-function resolveRecordPhoto(record: DahliaRecord) {
-  const recordDefault = record.recordPhotos?.find((photo) => photo.id === record.defaultRecordPhotoId)
-  const cultivarDefault = record.cultivarPhotos?.find((photo) => photo.id === record.defaultCultivarPhotoId)
+function resolveRecordPhoto(record: DahliaRecordSummary) {
   if (record.defaultPhotoScope === 'cultivar') {
-    return cultivarDefault?.thumbnailUrl || cultivarDefault?.imageUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl || recordDefault?.thumbnailUrl || recordDefault?.imageUrl || record.thumbnailUrl || record.imageUrl
+    return record.cultivarThumbnailUrl || record.cultivarImageUrl || record.thumbnailUrl || record.imageUrl
   }
-  return recordDefault?.thumbnailUrl || recordDefault?.imageUrl || cultivarDefault?.thumbnailUrl || cultivarDefault?.imageUrl || record.thumbnailUrl || record.imageUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl
+  return record.thumbnailUrl || record.imageUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl
 }
 
-function formatGardenLocation(record: DahliaRecord) {
+function formatGardenLocation(record: DahliaRecordSummary) {
   const plantingState = record.meta?.plantingState ?? 'purchased_container'
   if (plantingState === 'purchased_container') return 'Purchased Container'
   if (plantingState === 'garden_tray') return 'Garden Tray'
   if (plantingState === 'not_planted') return 'Not Planted'
   if (plantingState === 'not_viable') return 'Not Viable'
 
-  const { gardenArea, gardenRow, gardenPosition } = record.meta ?? {}
+  const gardenArea = record.meta?.gardenZone ?? record.meta?.gardenArea
+  const gardenRow = record.meta?.rowOrBed ?? record.meta?.gardenRow
+  const gardenPosition = record.meta?.position ?? record.meta?.gardenPosition
   const rowAndPosition = gardenRow && gardenPosition ? `${gardenRow}${gardenPosition}` : record.gardenLocation
 
   return [gardenArea, rowAndPosition].filter(Boolean).join(' - ')
+}
+
+function getInGardenRow(record: DahliaRecordSummary) {
+  if (record.meta?.plantingState !== 'in_garden') return ''
+  return record.meta?.rowOrBed ?? record.meta?.gardenRow ?? ''
 }
 
 const columnClassNames: Record<string, string> = {
@@ -65,42 +71,61 @@ const columnClassNames: Record<string, string> = {
 }
 
 const pageSizeOptions = [10, 25, 50, 100]
+const RECORD_THUMB_SIZE = 42
+
+type SearchableRecordRow = {
+  record: DahliaRecordSummary
+  searchableText: string
+}
+
+function normalizeSearchValues(values: unknown[]) {
+  return values.map((value) => String(value ?? '').toLowerCase()).join(' ')
+}
 
 export function RecordsTable({
   rows,
   orders = [],
   loading = false,
+  loadingMore = false,
+  hasMore = false,
+  onLoadMore,
   onOpen,
 }: {
-  rows: DahliaRecord[]
+  rows: DahliaRecordSummary[]
   orders?: Order[]
   loading?: boolean
-  onOpen: (r: DahliaRecord) => void
+  loadingMore?: boolean
+  hasMore?: boolean
+  onLoadMore: () => void
+  onOpen: (r: DahliaRecordSummary) => void
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 25 })
   const [search, setSearch] = useState('')
+  const deferredSearch = useDeferredValue(search)
   const [selectedSeasonYears, setSelectedSeasonYears] = useState<number[]>([])
   const [selectedGardenRows, setSelectedGardenRows] = useState<string[]>([])
   const [seasonFilterOpen, setSeasonFilterOpen] = useState(false)
   const [gardenRowFilterOpen, setGardenRowFilterOpen] = useState(false)
   const [pageSizeFilterOpen, setPageSizeFilterOpen] = useState(false)
+  const defaultSeasonAppliedRef = useRef(false)
   const seasonFilterRef = useRef<HTMLDetailsElement>(null)
   const gardenRowFilterRef = useRef<HTMLDetailsElement>(null)
   const pageSizeFilterRef = useRef<HTMLDetailsElement>(null)
+  const tableWrapRef = useRef<HTMLDivElement>(null)
 
-  const columns = useMemo<ColumnDef<DahliaRecord>[]>(
+  const columns = useMemo<ColumnDef<DahliaRecordSummary>[]>(
     () => [
       {
         header: '#',
         accessorKey: 'recordNumber',
       },
       {
-        header: 'Thumbnail',
+        header: 'Photo',
         id: 'thumb',
         cell: ({ row }) => {
           const url = resolveRecordPhoto(row.original)
-          return url ? <img className="thumb" src={url} alt="" loading="lazy" decoding="async" /> : <div className="thumb ph" />
+          return url ? <img className="thumb" src={url} alt="" loading="lazy" decoding="async" width={RECORD_THUMB_SIZE} height={RECORD_THUMB_SIZE} /> : <div className="thumb ph" />
         },
         enableSorting: false,
       },
@@ -145,9 +170,16 @@ export function RecordsTable({
     [rows],
   )
 
+  useEffect(() => {
+    if (!defaultSeasonAppliedRef.current && selectedSeasonYears.length === 0 && seasonYears.length > 0) {
+      defaultSeasonAppliedRef.current = true
+      setSelectedSeasonYears([seasonYears[0]])
+    }
+  }, [seasonYears, selectedSeasonYears.length])
+
   const gardenRows = useMemo(
     () =>
-      Array.from(new Set(rows.map((record) => record.meta?.gardenRow).filter((row): row is string => Boolean(row)))).sort(
+      Array.from(new Set(rows.map(getInGardenRow).filter(Boolean))).sort(
         compareGardenRows,
       ),
     [rows],
@@ -168,19 +200,13 @@ export function RecordsTable({
     return lookup
   }, [orders])
 
-  const filteredRows = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    const selectedSeasonYearSet = new Set(selectedSeasonYears)
-    const selectedGardenRowSet = new Set(selectedGardenRows)
-
-    return rows.filter((record) => {
-      if (selectedSeasonYearSet.size > 0 && !selectedSeasonYearSet.has(record.seasonYearStart)) return false
-      if (selectedGardenRowSet.size > 0 && !selectedGardenRowSet.has(record.meta?.gardenRow ?? '')) return false
-      if (!query) return true
-
-      const searchableValues = [
+  const searchableRows = useMemo<SearchableRecordRow[]>(() => {
+    return rows.map((record) => ({
+      record,
+      searchableText: normalizeSearchValues([
         record.recordNumber,
         record.flowerName,
+        record.core?.cultivar,
         record.core.color,
         record.core.size,
         record.growth.height,
@@ -188,11 +214,29 @@ export function RecordsTable({
         record.seasonYearStart,
         record.tuber.source,
         ...(record.tuber.linkedOrderItemIds ?? []).flatMap((id) => linkedOrderSearchValuesByItemId.get(id) ?? []),
-      ]
+      ]),
+    }))
+  }, [rows, linkedOrderSearchValuesByItemId])
 
-      return searchableValues.some((value) => String(value ?? '').toLowerCase().includes(query))
-    })
-  }, [rows, search, selectedSeasonYears, selectedGardenRows, linkedOrderSearchValuesByItemId])
+  const filteredRows = useMemo(() => {
+    const rawQuery = deferredSearch.trim()
+    const isExactPhrase = rawQuery.length > 2 && rawQuery.startsWith('"') && rawQuery.endsWith('"')
+    const query = isExactPhrase ? rawQuery.slice(1, -1).toLowerCase() : rawQuery.toLowerCase()
+    const exactPhraseRegex = isExactPhrase && query
+      ? new RegExp(`\\b${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`)
+      : null
+    const selectedSeasonYearSet = new Set(selectedSeasonYears)
+    const selectedGardenRowSet = new Set(selectedGardenRows)
+
+    return searchableRows.filter(({ record, searchableText }) => {
+      if (selectedSeasonYearSet.size > 0 && !selectedSeasonYearSet.has(record.seasonYearStart)) return false
+      if (selectedGardenRowSet.size > 0 && !selectedGardenRowSet.has(getInGardenRow(record))) return false
+      if (query) {
+        if (exactPhraseRegex ? !exactPhraseRegex.test(searchableText) : !searchableText.includes(query)) return false
+      }
+      return true
+    }).map(({ record }) => record)
+  }, [searchableRows, deferredSearch, selectedSeasonYears, selectedGardenRows])
 
   const seasonFilterLabel = useMemo(() => {
     if (selectedSeasonYears.length === 0) return 'All seasons'
@@ -201,9 +245,9 @@ export function RecordsTable({
   }, [selectedSeasonYears])
 
   const gardenRowFilterLabel = useMemo(() => {
-    if (selectedGardenRows.length === 0) return 'All rows'
-    if (selectedGardenRows.length === 1) return `Row ${selectedGardenRows[0]}`
-    return `${selectedGardenRows.length} rows`
+    if (selectedGardenRows.length === 0) return 'All rows/beds'
+    if (selectedGardenRows.length === 1) return `Row/Bed ${selectedGardenRows[0]}`
+    return `${selectedGardenRows.length} rows/beds`
   }, [selectedGardenRows])
 
   function toggleSeasonYear(year: number, checked: boolean) {
@@ -278,12 +322,23 @@ export function RecordsTable({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    autoResetPageIndex: false,
   })
 
   const pageRows = table.getRowModel().rows
+  const virtualizer = useVirtualizer({
+    count: pageRows.length,
+    getScrollElement: () => tableWrapRef.current,
+    estimateSize: () => 63,
+    overscan: 8,
+  })
+  const virtualRows = virtualizer.getVirtualItems()
+  const virtualPaddingTop = virtualRows[0]?.start ?? 0
+  const virtualPaddingBottom = virtualRows.length > 0 ? virtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end : 0
   const pageCount = table.getPageCount()
   const pageStart = filteredRows.length === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1
   const pageEnd = Math.min(filteredRows.length, pageStart + pageRows.length - 1)
+  const loadedEndReached = pageEnd >= filteredRows.length
 
   return (
     <div className="recordsTableStack">
@@ -350,7 +405,7 @@ export function RecordsTable({
                   setSorting([{ id: 'recordNumber', desc: false }])
                 }}
               />
-              All rows
+              All rows/beds
             </label>
             {gardenRows.map((row) => (
               <label key={row} className="seasonFilterOption">
@@ -360,47 +415,50 @@ export function RecordsTable({
                   checked={selectedGardenRows.includes(row)}
                   onChange={(event) => toggleGardenRow(row, event.target.checked)}
                 />
-                Row {row}
+                Row/Bed {row}
               </label>
             ))}
           </fieldset>
         </details>
 
-        <div className="pageSizeControl">
-          <span className="pageSizeLabel">Rows</span>
-          <details className="seasonFilter pageSizeFilter" ref={pageSizeFilterRef} open={pageSizeFilterOpen}>
-            <summary
-              className="input seasonFilterSummary"
-              onClick={(event) => {
-                event.preventDefault()
-                setPageSizeFilterOpen((open) => !open)
-              }}
-            >
-              {pagination.pageSize}
-            </summary>
-            <fieldset className="seasonFilterOptions pageSizeOptions">
-              <legend className="srOnly">Rows per page</legend>
-              {pageSizeOptions.map((pageSize) => (
-                <label key={pageSize} className="seasonFilterOption">
-                  <input
-                    type="radio"
-                    name="recordsPageSize"
-                    value={pageSize}
-                    checked={pagination.pageSize === pageSize}
-                    onChange={() => {
-                      table.setPageSize(pageSize)
-                      setPageSizeFilterOpen(false)
-                    }}
-                  />
-                  {pageSize}
-                </label>
-              ))}
-            </fieldset>
-          </details>
+        <div className="tableToolbarRightControls">
+          <div className="pageSizeControl">
+            <span className="pageSizeLabel">Rows</span>
+            <details className="seasonFilter pageSizeFilter" ref={pageSizeFilterRef} open={pageSizeFilterOpen}>
+              <summary
+                className="input seasonFilterSummary"
+                onClick={(event) => {
+                  event.preventDefault()
+                  setPageSizeFilterOpen((open) => !open)
+                }}
+              >
+                {pagination.pageSize}
+              </summary>
+              <fieldset className="seasonFilterOptions pageSizeOptions">
+                <legend className="srOnly">Rows per page</legend>
+                {pageSizeOptions.map((pageSize) => (
+                  <label key={pageSize} className="seasonFilterOption">
+                    <input
+                      type="radio"
+                      name="recordsPageSize"
+                      value={pageSize}
+                      checked={pagination.pageSize === pageSize}
+                      onChange={() => {
+                        table.setPageSize(pageSize)
+                        setPageSizeFilterOpen(false)
+                      }}
+                    />
+                    {pageSize}
+                  </label>
+                ))}
+              </fieldset>
+            </details>
+          </div>
+
         </div>
       </div>
 
-      <div className="tableWrap">
+      <div className="tableWrap" ref={tableWrapRef}>
         <table className="table">
         <thead>
           {table.getHeaderGroups().map((hg) => (
@@ -424,7 +482,15 @@ export function RecordsTable({
               </td>
             </tr>
           ) : pageRows.length > 0 ? (
-            pageRows.map((r) => (
+            <>
+              {virtualPaddingTop > 0 ? (
+                <tr aria-hidden="true">
+                  <td colSpan={8} className="virtualTableSpacer" style={{ height: virtualPaddingTop }} />
+                </tr>
+              ) : null}
+              {virtualRows.map((virtualRow) => {
+                const r = pageRows[virtualRow.index]
+                return (
               <tr key={r.id} className="row" onClick={() => onOpen(r.original)}>
                 {r.getVisibleCells().map((c) => (
                   <td key={c.id} className={columnClassNames[c.column.id]}>
@@ -432,7 +498,14 @@ export function RecordsTable({
                   </td>
                 ))}
               </tr>
-            ))
+                )
+              })}
+              {virtualPaddingBottom > 0 ? (
+                <tr aria-hidden="true">
+                  <td colSpan={8} className="virtualTableSpacer" style={{ height: virtualPaddingBottom }} />
+                </tr>
+              ) : null}
+            </>
           ) : (
             <tr>
               <td colSpan={8} className="empty">
@@ -457,6 +530,9 @@ export function RecordsTable({
           </span>
           <button className="btn paginationButton" type="button" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
             Next
+          </button>
+          <button className="btn paginationButton" type="button" onClick={onLoadMore} disabled={!hasMore || loadingMore || !loadedEndReached}>
+            {loadingMore ? 'Loading...' : 'Load more'}
           </button>
         </div>
       </div>

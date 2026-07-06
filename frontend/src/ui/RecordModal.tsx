@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_GARDEN_OPTIONS } from '../gardenOptions'
-import type { AgentCorrectionResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, GardenOptionKey, GardenOptions, NotPlantedReason, NotViableReason, Order, PlantingState } from '../types'
+import type { AgentCorrectionResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, GardenOptionKey, GardenOptions, NotPlantedReason, NotViableReason, Order, PlantingState } from '../types'
+import { DropdownField } from './DropdownField'
+import { FlowerNameField } from './FlowerNameField'
+import { ColorField } from './ColorField'
+import { DahliaPickerField } from './DahliaPickerField'
 
 type SectionKey = 'core' | 'growth' | 'care' | 'tuber' | 'storage' | 'health' | 'varieties' | 'meta' | 'photos'
 type ConfirmAction = 'review' | 'delete' | 'duplicate' | null
@@ -39,6 +43,17 @@ const DAHLIA_FORM_OPTIONS = [
   'Stellar',
   'Waterlily',
 ]
+const DAHLIA_HABIT_OPTIONS = ['Upright', 'Forward', 'Down']
+const BLOOM_WIDTH_OPTIONS = [
+  'AA - over 10"',
+  'A - 8" to 10"',
+  'B - 6" to 8"',
+  'BB - 4" to 6"',
+  'M - up to 4"',
+  'MC - up to 2"',
+]
+const PHOTO_PREVIEW_SIZE = 160
+const PHOTO_GALLERY_THUMB_SIZE = 112
 
 const DEFAULT_INPUT: DahliaRecordInput = {
   flowerName: '',
@@ -54,6 +69,7 @@ const DEFAULT_INPUT: DahliaRecordInput = {
   meta: {
     plantingState: 'in_garden',
     gardenArea: 'Main Garden',
+    gardenZone: 'Main Garden',
   },
 }
 
@@ -111,6 +127,7 @@ function findCompanyNameMatch(companies: Company[], value?: string) {
 
 function normalizeInputForComparison(input: DahliaRecordInput) {
   const normalized = inputWithGardenLocation(input)
+  const tuber = normalized.tuber ?? {}
 
   return JSON.stringify({
     id: normalized.id,
@@ -130,10 +147,54 @@ function normalizeInputForComparison(input: DahliaRecordInput) {
     core: normalized.core ?? {},
     growth: normalized.growth ?? {},
     care: normalized.care ?? {},
-    tuber: normalized.tuber ?? {},
+    tuber: { ...tuber, linkedOrderItemIds: tuber.linkedOrderItemIds ?? [] },
     health: normalized.health ?? {},
     meta: normalized.meta ?? {},
   })
+}
+
+function normalizeBloomWidthValue(value?: string) {
+  const normalized = value?.trim()
+  if (!normalized) return undefined
+
+  const existingOption = BLOOM_WIDTH_OPTIONS.find((option) => option.toLowerCase() === normalized.toLowerCase())
+  if (existingOption) return existingOption
+
+  const compact = normalized.toLowerCase().replace(/inches|inch|in\.?|"/g, '').replace(/\s+/g, '')
+  if (/^aa$|^over10$|^>10$|^10\+$/.test(compact)) return 'AA - over 10"'
+  if (/^a$|^8-10$|^8to10$/.test(compact)) return 'A - 8" to 10"'
+  if (/^b$|^6-8$|^6to8$/.test(compact)) return 'B - 6" to 8"'
+  if (/^bb$|^4-6$|^4to6$/.test(compact)) return 'BB - 4" to 6"'
+  if (/^m$|^upto4$|^<=4$|^<4$/.test(compact)) return 'M - up to 4"'
+  if (/^mc$|^upto2$|^<=2$|^<2$/.test(compact)) return 'MC - up to 2"'
+
+  const numericValue = Number(compact)
+  if (Number.isFinite(numericValue)) {
+    if (numericValue > 10) return 'AA - over 10"'
+    if (numericValue > 8) return 'A - 8" to 10"'
+    if (numericValue > 6) return 'B - 6" to 8"'
+    if (numericValue > 4) return 'BB - 4" to 6"'
+    if (numericValue > 2) return 'M - up to 4"'
+    if (numericValue > 0) return 'MC - up to 2"'
+  }
+
+  return undefined
+}
+
+function inputWithNormalizedBloomWidth(input: DahliaRecordInput) {
+  const size = input.core?.size
+  const normalizedSize = normalizeBloomWidthValue(size)
+  if (!size || normalizedSize === size) return input
+  if (normalizedSize) return { ...input, core: { ...input.core, size: normalizedSize } }
+
+  const note = `Bloom Width: ${size}`
+  const notes = input.core.notes?.includes(note) ? input.core.notes : [input.core.notes, note].filter(Boolean).join('\n')
+  return { ...input, core: { ...input.core, size: undefined, notes } }
+}
+
+function inputFromInitialRecord(initial: DahliaRecord | null, draft?: DahliaRecordInput | null) {
+  if (!initial) return mergeDraftWithDefaults(draft)
+  return recordToInput(initial)
 }
 
 function mergeDraftWithDefaults(draft?: DahliaRecordInput | null) {
@@ -181,7 +242,10 @@ function plantingStateOptions() {
 
 function inputWithGardenLocation(input: DahliaRecordInput) {
   const plantingState = input.meta.plantingState
-  const gardenLocation = plantingState === 'in_garden' ? getGardenLocation(input.meta.gardenRow, input.meta.gardenPosition) : ''
+  const gardenZone = input.meta.gardenZone ?? input.meta.gardenArea
+  const rowOrBed = input.meta.rowOrBed ?? input.meta.gardenRow
+  const position = input.meta.position ?? input.meta.gardenPosition
+  const gardenLocation = plantingState === 'in_garden' ? getGardenLocation(rowOrBed, position) : ''
 
   return {
     ...input,
@@ -189,9 +253,12 @@ function inputWithGardenLocation(input: DahliaRecordInput) {
     meta: {
       ...input.meta,
       plantingState,
-      gardenArea: plantingState === 'in_garden' ? input.meta.gardenArea : undefined,
-      gardenRow: plantingState === 'in_garden' ? input.meta.gardenRow : undefined,
-      gardenPosition: plantingState === 'in_garden' ? input.meta.gardenPosition : undefined,
+      gardenArea: plantingState === 'in_garden' ? gardenZone : undefined,
+      gardenRow: plantingState === 'in_garden' ? rowOrBed : undefined,
+      gardenPosition: plantingState === 'in_garden' ? position : undefined,
+      gardenZone: plantingState === 'in_garden' ? gardenZone : undefined,
+      rowOrBed: plantingState === 'in_garden' ? rowOrBed : undefined,
+      position: plantingState === 'in_garden' ? position : undefined,
       notPlantedReason: plantingState === 'not_planted' ? input.meta.notPlantedReason : undefined,
       notViableReason: plantingState === 'not_viable' ? input.meta.notViableReason : undefined,
     },
@@ -311,8 +378,11 @@ function formatLocation(record: DahliaRecord) {
   if (state === 'not_planted') return 'Not Planted'
   if (state === 'not_viable') return 'Not Viable'
 
-  const rowAndPosition = record.meta?.gardenRow && record.meta?.gardenPosition ? `${record.meta.gardenRow}${record.meta.gardenPosition}` : record.gardenLocation
-  return [record.meta?.gardenArea, rowAndPosition].filter(Boolean).join(' - ') || 'In Garden'
+  const zone = record.meta?.gardenZone ?? record.meta?.gardenArea
+  const rowOrBed = record.meta?.rowOrBed ?? record.meta?.gardenRow
+  const position = record.meta?.position ?? record.meta?.gardenPosition
+  const rowAndPosition = rowOrBed && position ? `${rowOrBed}${position}` : record.gardenLocation
+  return [zone, rowAndPosition].filter(Boolean).join(' - ') || 'In Garden'
 }
 
 function Overlay({ children }: { children: React.ReactNode }) {
@@ -336,6 +406,9 @@ function Field({
   readOnly,
   disabled,
   step,
+  inputClassName,
+  tabIndex,
+  labelAction,
 }: {
   label: string
   hint?: string
@@ -347,20 +420,37 @@ function Field({
   readOnly?: boolean
   disabled?: boolean
   step?: string
+  inputClassName?: string
+  tabIndex?: number
+  labelAction?: React.ReactNode
 }) {
+  const input = (
+    <input
+      className={`input${inputClassName ? ` ${inputClassName}` : ''}`}
+      value={value}
+      placeholder={placeholder}
+      type={type ?? 'text'}
+      step={step}
+      readOnly={readOnly}
+      disabled={disabled}
+      tabIndex={tabIndex}
+      onChange={(e) => onChange?.(e.target.value)}
+    />
+  )
+
+  if (labelAction) {
+    return (
+      <div className="field">
+        <FieldLabel label={label} hint={hint} required={required} action={labelAction} />
+        {input}
+      </div>
+    )
+  }
+
   return (
     <label className="field">
       <FieldLabel label={label} hint={hint} required={required} />
-      <input
-        className="input"
-        value={value}
-        placeholder={placeholder}
-        type={type ?? 'text'}
-        step={step}
-        readOnly={readOnly}
-        disabled={disabled}
-        onChange={(e) => onChange?.(e.target.value)}
-      />
+      {input}
     </label>
   )
 }
@@ -399,7 +489,7 @@ function FieldLabel({ label, hint, required, action }: { label: string; hint?: s
           onClick={showHint}
         >
           ?
-          {visible ? <span className="helpTooltip" role="tooltip">{hint}</span> : null}
+          {visible ? <span className="helpTooltip recordFieldTooltip" role="tooltip">{hint}</span> : null}
         </button>
       ) : null}
     </div>
@@ -436,6 +526,9 @@ function SelectField({
   disabledOptions,
   onChange,
   labelAction,
+  message,
+  disabled: disabledField = false,
+  portal = false,
 }: {
   label: string
   hint?: string
@@ -445,18 +538,29 @@ function SelectField({
   disabledOptions?: string[]
   onChange: (v: string | undefined) => void
   labelAction?: React.ReactNode
+  message?: string
+  disabled?: boolean
+  portal?: boolean
 }) {
   const disabled = new Set(disabledOptions ?? [])
-  const selectId = useMemo(() => `select-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, [label])
+  const hasSelectedOption = options.some((option) => (option.includes('|') ? option.split('|')[0] : option) === value)
   const select = (
-    <select id={selectId} className="select" value={value ?? ''} onChange={(e) => onChange(e.target.value || undefined)}>
-      <option value="">Select...</option>
-      {options.map((option) => (
-        <option key={option} value={option.includes('|') ? option.split('|')[0] : option} disabled={disabled.has(option)}>
-          {option.includes('|') ? option.split('|')[1] : option}
-        </option>
-      ))}
-    </select>
+    <DropdownField
+      label={label}
+      value={value ?? ''}
+      options={[
+        { value: '', label: 'Select...' },
+        ...(value && !hasSelectedOption ? [{ value, label: value }] : []),
+        ...options.map((option) => ({
+          value: option.includes('|') ? option.split('|')[0] : option,
+          label: option.includes('|') ? option.split('|')[1] : option,
+          disabled: disabled.has(option),
+        })),
+      ]}
+      onChange={(nextValue) => onChange(nextValue || undefined)}
+      disabled={disabledField}
+      portal={portal}
+    />
   )
 
   if (labelAction) {
@@ -464,14 +568,16 @@ function SelectField({
       <div className="field">
         <FieldLabel label={label} hint={hint} required={required} action={labelAction} />
         {select}
+        {message ? <div className="fieldMessage">{message}</div> : null}
       </div>
     )
   }
 
   return (
-    <label className="field" htmlFor={selectId}>
+      <label className="field">
       <FieldLabel label={label} hint={hint} required={required} action={labelAction} />
       {select}
+      {message ? <div className="fieldMessage">{message}</div> : null}
     </label>
   )
 }
@@ -511,6 +617,7 @@ export function RecordModal({
   initial,
   draft,
   records,
+  recordSummaries,
   onClose,
   onSave,
   onSetRecordPhotoDefault,
@@ -531,14 +638,20 @@ export function RecordModal({
   onCreateCompany,
   onOpenCompanies,
   onOpenGardenOptions,
+  onOpenFlowerNames,
+  onOpenColors,
   gardenOptions = DEFAULT_GARDEN_OPTIONS,
   companies = [],
   orders = [],
+  flowerNames = [],
+  colors = [],
+  gardenId,
 }: {
   mode: 'view' | 'create'
   initial: DahliaRecord | null
   draft?: DahliaRecordInput | null
   records?: DahliaRecord[]
+  recordSummaries?: DahliaRecordSummary[]
   onClose: () => void
   onSave: (input: DahliaRecordInput, options?: { keepOpen?: boolean; skipRefresh?: boolean }) => void | Promise<void>
   onSetRecordPhotoDefault?: (photo: DahliaPhoto) => void | Promise<void>
@@ -546,7 +659,7 @@ export function RecordModal({
   onSetCultivarPhotoDefault?: (photo: DahliaPhoto) => void | Promise<void>
   onDeleteCultivarPhoto?: (imageUrl: string) => void | Promise<void>
   onDelete?: () => void | Promise<void>
-  onDuplicate?: (record: DahliaRecord) => void
+  onDuplicate?: (record: DahliaRecord) => void | Promise<void>
   onOpenRecord?: (record: DahliaRecord) => void
   onReview?: (record: DahliaRecordInput) => void | Promise<void>
   onProposeCorrection?: (record: DahliaRecordInput, userCorrection: string) => void | Promise<void>
@@ -559,9 +672,14 @@ export function RecordModal({
   onCreateCompany?: (input: CompanyInput) => Promise<Company>
   onOpenCompanies?: () => void
   onOpenGardenOptions?: (group: GardenOptionKey) => void
+  onOpenFlowerNames?: () => void
+  onOpenColors?: () => void
   gardenOptions?: GardenOptions
   companies?: Company[]
   orders?: Order[]
+  flowerNames?: string[]
+  colors?: string[]
+  gardenId?: string
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const confirmAreaRef = useRef<HTMLDivElement | null>(null)
@@ -578,11 +696,11 @@ export function RecordModal({
   })
 
   const [form, setForm] = useState<DahliaRecordInput>(() => {
-    if (!initial) return mergeDraftWithDefaults(draft)
-    return recordToInput(initial)
+    return inputWithNormalizedBloomWidth(inputFromInitialRecord(initial, draft))
   })
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [photoConverting, setPhotoConverting] = useState(false)
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false)
   const [viewerPhotoUrl, setViewerPhotoUrl] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
@@ -594,30 +712,47 @@ export function RecordModal({
   const [missedIssueText, setMissedIssueText] = useState('')
   const [saving, setSaving] = useState(false)
   const [deletedInheritedCultivarUrls, setDeletedInheritedCultivarUrls] = useState<string[]>([])
-  const [initialSnapshot, setInitialSnapshot] = useState(() => normalizeInputForComparison(form))
+  const [initialSnapshot, setInitialSnapshot] = useState(() => normalizeInputForComparison(inputFromInitialRecord(initial, draft)))
 
-  const title = mode === 'create' ? 'New Record' : `Record #${initial?.recordNumber ?? ''}`
-  const gardenArea = form.meta.gardenArea ?? ''
-  const gardenRow = form.meta.gardenRow ?? ''
-  const gardenPosition = form.meta.gardenPosition ? String(form.meta.gardenPosition) : ''
+  const title = mode === 'create' ? 'New Record' : `${form.flowerName || initial?.flowerName || 'Record'} [#${initial?.recordNumber ?? ''}]`
+  const gardenArea = form.meta.gardenZone ?? form.meta.gardenArea ?? ''
+  const gardenRow = form.meta.rowOrBed ?? form.meta.gardenRow ?? ''
+  const positionValue = form.meta.position ?? form.meta.gardenPosition
+  const gardenPosition = positionValue ? String(positionValue) : ''
+  const selectedGardenZoneOption = gardenOptions.gardenZones.find((zone) => zone.name === gardenArea)
+  const availableGardenRows = selectedGardenZoneOption?.rows.map((row) => row.name) ?? []
   const plantingState = form.meta.plantingState
   const notPlantedReason = form.meta.notPlantedReason ?? 'not_received'
   const notViableReason = form.meta.notViableReason ?? 'no_longer_present'
   const customSourceCompany = form.tuber.source ?? ''
   const customSourceCompanyMatch = findCompanyNameMatch(companies, customSourceCompany)
   const selectedSourceCompany = customSourceCompanyMatch ?? customSourceCompany
-  const selectedGardenKey = getGardenKey(gardenRow, form.meta.gardenPosition)
+  const selectedGardenKey = getGardenKey(gardenRow, positionValue)
   const usedGardenKeys = useMemo(() => {
-    return new Set(
-      (records ?? [])
-        .filter((record) => record.id !== initial?.id)
-        .filter((record) => record.meta?.plantingState === 'in_garden')
-        .filter((record) => record.seasonYearStart === form.seasonYearStart)
-        .map((record) => getGardenKey(record.meta?.gardenRow, record.meta?.gardenPosition))
-        .filter((key): key is string => Boolean(key)),
-    )
-  }, [form.seasonYearStart, initial?.id, records])
+    const keys = new Set<string>()
+    ;[...(records ?? []), ...(recordSummaries ?? [])].forEach((record) => {
+      if (record.id === initial?.id) return
+      if (record.meta?.plantingState !== 'in_garden') return
+      if (record.seasonYearStart !== form.seasonYearStart) return
+
+      const key = getGardenKey(record.meta?.rowOrBed ?? record.meta?.gardenRow, record.meta?.position ?? record.meta?.gardenPosition)
+      if (key) keys.add(key)
+    })
+    return keys
+  }, [form.seasonYearStart, initial?.id, recordSummaries, records])
   const gardenLocationInUse = Boolean(selectedGardenKey && usedGardenKeys.has(selectedGardenKey))
+
+  const knownFlowerNames = useMemo(() => {
+    const fromRecords = (records ?? []).map((r) => r.flowerName)
+    const merged = new Set([...flowerNames, ...fromRecords].filter(Boolean))
+    return [...merged].sort((a, b) => a.localeCompare(b))
+  }, [flowerNames, records])
+
+  const knownColors = useMemo(() => {
+    const fromRecords = (records ?? []).map((r) => r.core?.color).filter((c): c is string => Boolean(c))
+    const merged = new Set([...colors, ...fromRecords].filter(Boolean))
+    return [...merged].sort((a, b) => a.localeCompare(b))
+  }, [colors, records])
 
   const canSave = useMemo(() => {
     const hasPlantingState = plantingState !== undefined
@@ -634,9 +769,10 @@ export function RecordModal({
 
   useEffect(() => {
     if (initial) {
-      const next = recordToInput(initial)
+      const original = recordToInput(initial)
+      const next = inputWithNormalizedBloomWidth(original)
       setForm(next)
-      setInitialSnapshot(normalizeInputForComparison(next))
+      setInitialSnapshot(normalizeInputForComparison(original))
       setDeletedInheritedCultivarUrls([])
       setDirtyPhotoSection(null)
     }
@@ -663,14 +799,37 @@ export function RecordModal({
     onClose()
   }
 
-  function selectPhoto(file: File | undefined) {
+  async function selectPhoto(file: File | undefined) {
     if (!file) return
-    if (!file.type.startsWith('image/')) {
+    const isHeic = file.type === 'image/heic' || file.type === 'image/heif' || /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name)
+    if (!file.type.startsWith('image/') && !isHeic) {
       setPhotoError('Please select an image file.')
       return
     }
 
     setPhotoError(null)
+
+    if (isHeic) {
+      setPhotoConverting(true)
+      try {
+        const heic2any = (await import('heic2any')).default
+        const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 })
+        const jpeg = Array.isArray(converted) ? converted[0] : converted
+        const convertedName = file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg')
+        const convertedFile = new File([jpeg], convertedName, { type: 'image/jpeg' })
+        setPhotoFile(convertedFile)
+        setPhotoPreview((previous) => {
+          if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous)
+          return URL.createObjectURL(jpeg)
+        })
+      } catch {
+        setPhotoError('Could not convert HEIC file. Please try a different photo format.')
+      } finally {
+        setPhotoConverting(false)
+      }
+      return
+    }
+
     setPhotoFile(file)
     setPhotoPreview((previous) => {
       if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous)
@@ -685,6 +844,11 @@ export function RecordModal({
       meta: {
         ...previous.meta,
         gardenArea: value,
+        gardenZone: value,
+        gardenRow: undefined,
+        rowOrBed: undefined,
+        gardenPosition: undefined,
+        position: undefined,
       },
     }))
   }
@@ -696,6 +860,9 @@ export function RecordModal({
       meta: {
         ...previous.meta,
         gardenRow: value,
+        rowOrBed: value,
+        gardenPosition: undefined,
+        position: undefined,
       },
     }))
   }
@@ -708,6 +875,7 @@ export function RecordModal({
       meta: {
         ...previous.meta,
         gardenPosition: position,
+        position,
       },
     }))
   }
@@ -720,7 +888,8 @@ export function RecordModal({
       meta: {
         ...previous.meta,
         plantingState: nextState,
-        gardenArea: nextState === 'in_garden' ? previous.meta.gardenArea ?? 'Main Garden' : previous.meta.gardenArea,
+        gardenArea: nextState === 'in_garden' ? previous.meta.gardenZone ?? previous.meta.gardenArea ?? 'Main Garden' : previous.meta.gardenArea,
+        gardenZone: nextState === 'in_garden' ? previous.meta.gardenZone ?? previous.meta.gardenArea ?? 'Main Garden' : previous.meta.gardenZone,
         notPlantedReason: nextState === 'not_planted' ? previous.meta.notPlantedReason ?? 'not_received' : undefined,
         notViableReason: nextState === 'not_viable' ? previous.meta.notViableReason ?? 'no_longer_present' : undefined,
       },
@@ -991,6 +1160,21 @@ export function RecordModal({
         }
         setForm(next)
       }
+      const ownCultivarPhotos = uniquePhotos(next.cultivarPhotos ?? [])
+      const ownRecordPhotos = photosWithLegacy(next, 'record')
+      const scopedDefaultValid =
+        (next.defaultPhotoScope === 'cultivar' && ownCultivarPhotos.some((p) => p.id === next.defaultCultivarPhotoId)) ||
+        (next.defaultPhotoScope === 'record' && ownRecordPhotos.some((p) => p.id === next.defaultRecordPhotoId))
+      if (!scopedDefaultValid) {
+        const byAge = (a: DahliaPhoto, b: DahliaPhoto) => (a.createdAt ?? 'z').localeCompare(b.createdAt ?? 'z')
+        const oldestCultivar = [...ownCultivarPhotos].sort(byAge)[0]
+        const oldestRecord = [...ownRecordPhotos].sort(byAge)[0]
+        if (oldestCultivar) {
+          next = { ...next, defaultCultivarPhotoId: oldestCultivar.id, defaultPhotoScope: 'cultivar' }
+        } else if (oldestRecord) {
+          next = { ...next, defaultRecordPhotoId: oldestRecord.id, defaultPhotoScope: 'record' }
+        }
+      }
       let uploadedPhoto: DahliaPhoto | undefined
       if (photoFile) {
         if (!onUploadPhoto) throw new Error('Photo uploads are not configured.')
@@ -1041,9 +1225,9 @@ export function RecordModal({
     const matchingRecord = (records ?? []).find((record) => varietyKey(record) === key && (record.cultivarThumbnailUrl || record.cultivarImageUrl) && !deletedInheritedCultivarUrls.includes(record.cultivarImageUrl ?? ''))
     return matchingRecord?.cultivarThumbnailUrl ?? matchingRecord?.cultivarImageUrl ?? ''
   }, [deletedInheritedCultivarUrls, form, records])
-  const inheritedCultivarPhotos = ((records ?? []).find((record) => varietyKey(record) === varietyKey(form) && record.cultivarPhotos?.length)?.cultivarPhotos ?? []).filter((photo) => !deletedInheritedCultivarUrls.includes(photo.imageUrl))
+  const inheritedCultivarPhotos = ((records ?? []).find((record) => record.id !== initial?.id && varietyKey(record) === varietyKey(form) && record.cultivarPhotos?.length)?.cultivarPhotos ?? []).filter((photo) => !deletedInheritedCultivarUrls.includes(photo.imageUrl))
   const recordPhotos = photosWithLegacy(form, 'record')
-  const cultivarPhotos = photosWithLegacy({ ...form, cultivarPhotos: form.cultivarPhotos?.length ? form.cultivarPhotos : inheritedCultivarPhotos }, 'cultivar')
+  const cultivarPhotos = photosWithLegacy({ ...form, cultivarPhotos: uniquePhotos([...(form.cultivarPhotos ?? []), ...inheritedCultivarPhotos]) }, 'cultivar')
   const resolvedRecordDefaultPhotoId = resolvedDefaultPhotoId(recordPhotos, form.defaultRecordPhotoId, form.imageUrl)
   const resolvedCultivarDefaultPhotoId = resolvedDefaultPhotoId(cultivarPhotos, form.defaultCultivarPhotoId, form.cultivarImageUrl)
   const currentResolvedPhoto = resolvedScopedCurrentPhoto(recordPhotos, cultivarPhotos, resolvedRecordDefaultPhotoId, resolvedCultivarDefaultPhotoId, form.defaultPhotoScope)
@@ -1063,11 +1247,36 @@ export function RecordModal({
     setPhotoLoadError(false)
   }, [currentPhoto])
   const linkedOrderItemIds = form.tuber.linkedOrderItemIds ?? []
+  const allAssignedOrderItemIds = useMemo(() => {
+    const ids = new Set<string>(linkedOrderItemIds)
+    for (const record of [...(recordSummaries ?? []), ...(records ?? [])]) {
+      if (record.id === initial?.id) continue
+      for (const id of record.tuber?.linkedOrderItemIds ?? []) {
+        ids.add(id)
+      }
+    }
+    return ids
+  }, [linkedOrderItemIds, recordSummaries, records, initial?.id])
   const linkedOrderRows = orders.flatMap((order) =>
     order.items
       .filter((item) => linkedOrderItemIds.includes(item.id))
       .map((item) => ({ order, item })),
   )
+  const invoiceItemCompanyFilter = selectedSourceCompany ? normalizeCompanyKey(selectedSourceCompany) : ''
+  const availableInvoiceItems = orders.flatMap((order) =>
+    order.items
+      .filter((item) =>
+        (!item.gardenId || !gardenId || item.gardenId === gardenId) &&
+        !allAssignedOrderItemIds.has(item.id) &&
+        (!invoiceItemCompanyFilter || normalizeCompanyKey(order.company?.name ?? '') === invoiceItemCompanyFilter)
+      )
+      .map((item) => ({
+        value: item.id,
+        label: `${order.company?.name ?? 'Company'}${order.invoiceNumber ? ` - ${order.invoiceNumber}` : ''} - ${item.flowerName}`,
+      }))
+  )
+  const invoiceItemsCompanyFiltered = Boolean(invoiceItemCompanyFilter)
+  const invoiceItemsEmpty = invoiceItemsCompanyFiltered && availableInvoiceItems.length === 0
   const relatedVarietyRecords = useMemo(() => {
     if (!initial) return []
     const key = varietyKey(form)
@@ -1091,16 +1300,33 @@ export function RecordModal({
       </div>
 
       <div className="modalBody">
-        <div className="grid2">
-          <Field
-            label="Record Number"
-            hint="Auto-generated identifier assigned when a new record is saved."
-            type="number"
-            value={form.recordNumber === undefined ? 'Auto-generated on save' : String(form.recordNumber)}
-            readOnly
-          />
-          <Field label="Season" hint="The growing season year for this record." required type="number" value={String(form.seasonYearStart)} onChange={setSeasonYearStart} />
-          <Field label="Flower Name" hint="The primary display name for this dahlia record." required value={form.flowerName} onChange={(v) => setForm((p) => ({ ...p, flowerName: v }))} placeholder="e.g. Cafe au Lait" />
+        <div className="grid4">
+          <div className="gridSpan2">
+            <FlowerNameField
+              label="Flower Name"
+              hint="The primary display name for this dahlia record."
+              required
+              value={form.flowerName}
+              knownFlowerNames={knownFlowerNames}
+              onChange={(v) => setForm((p) => ({
+                ...p,
+                flowerName: v,
+                core: {
+                  ...p.core,
+                  cultivar: p.core.cultivar === p.flowerName ? v : p.core.cultivar,
+                },
+              }))}
+              placeholder="e.g. Cafe au Lait"
+              labelAction={onOpenFlowerNames ? (
+                <button className="labelLink" type="button" onClick={onOpenFlowerNames}>
+                  Flower Name
+                </button>
+              ) : undefined}
+            />
+          </div>
+          <div className="gridSpan2">
+            <Field label="Season" hint="The growing season year for this record." required type="number" value={String(form.seasonYearStart)} onChange={setSeasonYearStart} />
+          </div>
           <SelectField label="Planting State" hint="Where this specific tuber or plant is currently being tracked." required value={plantingState} options={plantingStateOptions()} onChange={setPlantingState} />
           {plantingState === 'not_planted' ? (
             <div className="field gridSpanFull">
@@ -1142,48 +1368,51 @@ export function RecordModal({
           ) : null}
           {plantingState === 'in_garden' ? (
             <>
-              <div className="gardenLocationFields gridSpanFull">
-                <SelectField
-                  label="Garden Area"
-                  hint="The physical garden section where this dahlia is planted."
-                  required
-                  value={gardenArea}
-                  options={gardenOptions.gardenAreas}
-                  onChange={setGardenArea}
-                  labelAction={onOpenGardenOptions ? (
-                    <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenAreas')}>
-                      Garden Area
-                    </button>
-                  ) : undefined}
-                />
-                <SelectField
-                  label="Garden Row"
-                  hint="Garden row labels available for planted records."
-                  required
-                  value={gardenRow}
-                  options={gardenOptions.gardenRows}
-                  onChange={setGardenRow}
-                  labelAction={onOpenGardenOptions ? (
-                    <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenRows')}>
-                      Garden Row
-                    </button>
-                  ) : undefined}
-                />
-                <SelectField
-                  label="Garden Position"
-                  hint="Position labels available inside each row."
-                  required
-                  value={gardenPosition}
-                  options={gardenOptions.gardenPositions}
-                  disabledOptions={gardenOptions.gardenPositions.filter((position) => isGardenOptionInUse(gardenRow, Number(position)))}
-                  onChange={setGardenPosition}
-                  labelAction={onOpenGardenOptions ? (
-                    <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenPositions')}>
-                      Garden Position
-                    </button>
-                  ) : undefined}
-                />
-              </div>
+              <DahliaPickerField
+                label="Zone"
+                hint="The zone or section where this dahlia is planted."
+                required
+                value={gardenArea || undefined}
+                options={gardenOptions.gardenAreas}
+                onChange={setGardenArea}
+                labelAction={onOpenGardenOptions ? (
+                  <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenAreas')}>
+                    Zone
+                  </button>
+                ) : undefined}
+              />
+              <DahliaPickerField
+                label="Row/Bed"
+                hint="Row or bed labels available for planted records."
+                required
+                value={gardenRow || undefined}
+                options={availableGardenRows}
+                disabled={!gardenArea}
+                onChange={setGardenRow}
+                labelAction={onOpenGardenOptions ? (
+                  <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenRows')}>
+                    Row/Bed
+                  </button>
+                ) : undefined}
+              />
+              <DahliaPickerField
+                label="Position"
+                hint="Position labels available inside each row or bed."
+                required
+                value={gardenPosition || undefined}
+                options={gardenOptions.gardenPositions.map((position) => ({
+                  value: position,
+                  label: position,
+                  disabled: isGardenOptionInUse(gardenRow, Number(position)),
+                }))}
+                disabled={!gardenRow}
+                onChange={setGardenPosition}
+                labelAction={onOpenGardenOptions ? (
+                  <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenPositions')}>
+                    Position
+                  </button>
+                ) : undefined}
+              />
               {gardenLocationInUse ? <div className="error inlineError gridSpanFull">That garden location is already assigned to another record.</div> : null}
             </>
           ) : null}
@@ -1212,12 +1441,12 @@ export function RecordModal({
             }}
             onDrop={(e) => {
               e.preventDefault()
-              selectPhoto(e.dataTransfer.files[0])
+              void selectPhoto(e.dataTransfer.files[0])
             }}
           >
             {currentPhoto && !photoLoadError ? (
               <div className="photoPreviewFrame">
-                <img key={currentPhoto} className="photoPreview" src={currentPhoto} alt="Selected dahlia" loading="lazy" decoding="async" onError={() => setPhotoLoadError(true)} />
+                <img key={currentPhoto} className="photoPreview" src={currentPhoto} alt="Selected dahlia" loading="lazy" decoding="async" width={PHOTO_PREVIEW_SIZE} height={PHOTO_PREVIEW_SIZE} onError={() => setPhotoLoadError(true)} />
                 <button className="photoPreviewOverlayButton" type="button" onClick={() => { setViewerPhotoUrl(currentViewerPhoto); setPhotoViewerOpen(true) }} aria-label="View larger flower photo" />
               </div>
             ) : (
@@ -1239,18 +1468,18 @@ export function RecordModal({
                 <button
                   className={photoFile ? 'btn' : 'btn ghost'}
                   type="button"
-                  disabled={photoFile ? !canSave || saving : false}
+                  disabled={photoFile ? !canSave || saving || photoConverting : photoConverting}
                   onClick={() => photoFile ? void handleSave({ keepOpen: true }) : fileInputRef.current?.click()}
                 >
-                  {photoFile ? saving ? 'Saving...' : 'Save Photo' : 'Add Photo'}
+                  {photoConverting ? 'Converting...' : photoFile ? saving ? 'Saving...' : 'Save Photo' : 'Add Photo'}
                 </button>
               </div>
               <input
                 ref={fileInputRef}
                 className="fileInput"
                 type="file"
-                accept="image/*"
-                onChange={(e) => selectPhoto(e.target.files?.[0])}
+                accept="image/*,.heic,.heif"
+                onChange={(e) => void selectPhoto(e.target.files?.[0])}
               />
             </div>
           </div>
@@ -1327,8 +1556,19 @@ export function RecordModal({
                       <div className="grid2">
                         <Field label="Cultivar" hint="The cultivar name. If blank, Flower Name is used when saving." value={form.core.cultivar ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, cultivar: v } }))} />
                         <Field label="Planted Date" hint="Date planted. This may be earlier than the current season year for overwintered or moved plants." type="date" value={form.core.plantedDate ?? plantedDateForYear(form.seasonYearStart)} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, plantedDate: v } }))} />
-                        <Field label="Color" hint="Main bloom color or color description." value={form.core.color ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, color: v } }))} />
-                        <SelectField label="Form" hint="Bloom form, such as decorative, ball, cactus, or anemone." value={form.core.form} options={DAHLIA_FORM_OPTIONS} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, form: v } }))} />
+                        <ColorField
+                          label="Color"
+                          hint="Main bloom color or color description."
+                          value={form.core.color ?? ''}
+                          knownColors={knownColors}
+                          onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, color: v } }))}
+                          labelAction={onOpenColors ? (
+                            <button className="labelLink" type="button" onClick={onOpenColors}>
+                              Color
+                            </button>
+                          ) : undefined}
+                        />
+                        <DahliaPickerField label="Form" title="Bloom Form" hint="Bloom form, such as decorative, ball, cactus, or anemone." options={DAHLIA_FORM_OPTIONS} value={form.core.form} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, form: v } }))} />
                       </div>
                       <TextArea label="Notes" hint="General notes about the dahlia, bloom, or record." value={form.core.notes ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, notes: v } }))} />
                     </>
@@ -1337,9 +1577,9 @@ export function RecordModal({
                   {k === 'growth' ? (
                     <div className="grid2">
                       <Field label="Height (in feet)" hint="Expected or observed plant height in feet." value={form.growth.height ?? ''} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, height: v } }))} />
-                      <Field label="Bloom Width (in inches)" hint="Expected or observed bloom diameter in inches." value={form.core.size ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, size: v } }))} />
+                      <DahliaPickerField label="Bloom Width" hint="Expected or observed bloom diameter category." options={BLOOM_WIDTH_OPTIONS} value={form.core.size} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, size: v } }))} />
                       <Field label="Bloom Time" hint="When this dahlia typically blooms, such as early, mid, late, or a month range." value={form.growth.bloomTime ?? ''} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, bloomTime: v } }))} />
-                      <Field label="Habit" hint="Growth habit or plant shape, such as upright, compact, bushy, or spreading." value={form.growth.habit ?? ''} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, habit: v } }))} />
+                      <DahliaPickerField label="Habit" hint="Growth habit or plant shape." options={DAHLIA_HABIT_OPTIONS} value={form.growth.habit || undefined} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, habit: v } }))} />
                     </div>
                   ) : null}
 
@@ -1355,33 +1595,32 @@ export function RecordModal({
 
                   {k === 'tuber' ? (
                     <>
-                      <label className="field linkedOrderSelect">
-                        <FieldLabel label="Link Order Item" hint="Associate one or more saved invoice order items with this dahlia record." />
-                        <select
-                          className="select"
-                          value=""
-                          onChange={(e) => {
-                            const value = e.target.value
-                            if (!value) return
-                            setForm((p) => ({
-                              ...p,
-                              tuber: {
-                                ...p.tuber,
-                                linkedOrderItemIds: Array.from(new Set([...(p.tuber.linkedOrderItemIds ?? []), value])),
-                              },
-                            }))
-                          }}
-                        >
-                          <option value="">Select...</option>
-                          {orders.flatMap((order) =>
-                            order.items.map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {order.company?.name ?? 'Company'} {order.invoiceNumber ? `- ${order.invoiceNumber}` : ''} - {item.flowerName}
-                              </option>
-                            )),
-                          )}
-                        </select>
-                      </label>
+                      <DahliaPickerField
+                        label="Invoice Item"
+                        hint="Associate one saved invoice order item with this dahlia record. Remove the current item to assign a different one."
+                        layout="list"
+                        clearable={false}
+                        placeholder="Select Invoice Item..."
+                        disabled={linkedOrderItemIds.length >= 1 || invoiceItemsEmpty}
+                        options={availableInvoiceItems}
+                        value={undefined}
+                        onChange={(value) => {
+                          if (!value) return
+                          const matchingOrder = orders.find((order) => order.items.some((item) => item.id === value))
+                          const companyName = matchingOrder?.company?.name
+                          setForm((p) => ({
+                            ...p,
+                            tuber: {
+                              ...p.tuber,
+                              linkedOrderItemIds: [value],
+                              ...(!p.tuber.source && companyName ? { source: companyName } : {}),
+                            },
+                          }))
+                        }}
+                      />
+                      {invoiceItemsEmpty ? (
+                        <div className="fieldMessage">No invoice items match &ldquo;{selectedSourceCompany}&rdquo;.</div>
+                      ) : null}
                       {linkedOrderRows.length ? (
                         <div className="tableWrap miniTable">
                           <table className="table">
@@ -1391,7 +1630,7 @@ export function RecordModal({
                                 <th>Company</th>
                                 <th>Item</th>
                                 <th>Cost</th>
-                                <th>Files</th>
+                                <th>View File(s)</th>
                                 <th />
                               </tr>
                             </thead>
@@ -1402,7 +1641,22 @@ export function RecordModal({
                                   <td>{order.company?.name ?? ''}</td>
                                   <td>{item.flowerName}</td>
                                   <td>{item.itemCost === undefined ? '' : `$${item.itemCost.toFixed(2)}`}</td>
-                                  <td>{order.files.map((file) => <a key={file.id} href={file.fileUrl} target="_blank" rel="noreferrer">View</a>)}</td>
+                                  <td>
+                                    {order.files.length > 0 ? (
+                                      <DropdownField
+                                        label="View file"
+                                        value=""
+                                        portal
+                                        options={[
+                                          { value: '', label: 'Select...' },
+                                          ...[...order.files]
+                                            .sort((a, b) => a.originalFileName.localeCompare(b.originalFileName))
+                                            .map((file, i) => ({ value: file.fileUrl, label: `Doc ${i + 1}` })),
+                                        ]}
+                                        onChange={(url) => { if (url) window.open(url, '_blank', 'noreferrer') }}
+                                      />
+                                    ) : null}
+                                  </td>
                                   <td>
                                     <button
                                       className="btn ghost compact"
@@ -1427,11 +1681,12 @@ export function RecordModal({
                         <FieldLabel label="Custom Entry" hint="Optional manual source details for gifts, trades, historical records, or sources without an invoice record." />
                         <div className="customEntryBox">
                           <div className="grid2">
-                            <SelectField
+                            <DahliaPickerField
                               label="Company"
                               hint="Manual company or source name when no invoice record is linked. Add new companies from the Companies modal."
-                              value={selectedSourceCompany}
+                              layout="list"
                               options={companies.map((company) => company.name)}
+                              value={selectedSourceCompany || undefined}
                               onChange={setSourceCompany}
                               labelAction={onOpenCompanies ? (
                                 <button className="labelLink" type="button" onClick={onOpenCompanies}>
@@ -1455,18 +1710,18 @@ export function RecordModal({
                   {k === 'storage' ? (
                     <>
                       <div className="grid2">
-                        <SelectField
+                        <DahliaPickerField
                           label="Container Type"
                           hint="The container used to store the tuber."
-                          value={form.tuber.containerType}
                           options={['Cardboard Box', 'Mesh Bag', 'Paper Bag', 'Plastic Bin', 'Ventilated Plastic Bin', 'Wooden Crate']}
+                          value={form.tuber.containerType}
                           onChange={(v) => setForm((p) => ({ ...p, tuber: { ...p.tuber, containerType: v } }))}
                         />
-                        <SelectField
+                        <DahliaPickerField
                           label="Container Fill Type"
                           hint="The material packed around the stored tuber."
-                          value={form.tuber.containerFillType}
                           options={['Peat Moss', 'Sawdust', 'Vermiculite', 'Wood Shavings']}
+                          value={form.tuber.containerFillType}
                           onChange={(v) => setForm((p) => ({ ...p, tuber: { ...p.tuber, containerFillType: v } }))}
                         />
                       </div>
@@ -1564,8 +1819,15 @@ export function RecordModal({
 
                   {k === 'meta' ? (
                     <div className="grid2">
-                      <Field label="Created At" hint="Timestamp generated when this record is first saved." value={form.meta.createdAt ?? 'Auto-generated on save'} readOnly />
-                      <Field label="Updated At" hint="Timestamp updated when this record is saved again." value={form.meta.updatedAt ?? 'Auto-generated on save'} readOnly />
+                      <Field
+                        label="Record Number"
+                        value={form.recordNumber === undefined ? 'DRAFT' : String(form.recordNumber)}
+                        inputClassName={`recordNumberInput${form.recordNumber === undefined ? ' draftRecordNumber' : ''}`}
+                        tabIndex={-1}
+                        readOnly
+                      />
+                      <Field label="Created At" value={form.meta.createdAt ?? 'Auto-generated on save'} readOnly />
+                      <Field label="Updated At" value={form.meta.updatedAt ?? 'Auto-generated on save'} readOnly />
                     </div>
                   ) : null}
                 </div>
@@ -1751,7 +2013,7 @@ function PhotoGallery({ title, empty, photos, defaultPhotoId, overallDefaultPhot
             return (
               <div key={photo.id} className={`photoTile${isDefault ? ' default' : ''}${isSelected ? ' selected' : ''}`}>
                 <button className="photoTileImageButton" type="button" onClick={() => onView(viewerUrl)}>
-                  <img src={thumbnailUrl} alt="Dahlia gallery item" loading="lazy" decoding="async" />
+                  <img src={thumbnailUrl} alt="Dahlia gallery item" loading="lazy" decoding="async" width={PHOTO_GALLERY_THUMB_SIZE} height={PHOTO_GALLERY_THUMB_SIZE} />
                 </button>
                 <label className="photoTileSelect" aria-label={`Select ${title} photo`}>
                   <input type="checkbox" checked={isSelected} onChange={(event) => toggleSelected(photo.id, event.target.checked)} />

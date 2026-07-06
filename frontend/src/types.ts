@@ -1,6 +1,7 @@
 export type DahliaRecord = {
   id: string
   recordNumber: number
+  gardenId?: string
   flowerName: string
   gardenLocation: string
   seasonYearStart: number
@@ -59,6 +60,9 @@ export type DahliaRecord = {
     gardenArea?: string
     gardenRow?: string
     gardenPosition?: number
+    gardenZone?: string
+    rowOrBed?: string
+    position?: number
     plantingState?: PlantingState
     notPlantedReason?: NotPlantedReason
     notViableReason?: NotViableReason
@@ -85,9 +89,110 @@ export type NotViableReason = 'no_longer_present' | 'removed' | 'unused'
 
 export type GardenOptionKey = 'gardenAreas' | 'gardenRows' | 'gardenPositions'
 
-export type GardenOptions = Record<GardenOptionKey, string[]>
+export type GardenRowOption = {
+  id: string
+  name: string
+}
+
+export type GardenZoneOption = {
+  id: string
+  name: string
+  rows: GardenRowOption[]
+}
+
+export type GardenOptions = {
+  gardenAreas: string[]
+  gardenRows: string[]
+  gardenPositions: string[]
+  gardenZones: GardenZoneOption[]
+}
+
+export type GardenRole = 'owner' | 'admin' | 'editor' | 'viewer'
+
+export type KnownUser = {
+  id: string
+  userId: string
+  email?: string
+  displayName?: string
+  photoUrl?: string
+  provider?: string
+  createdAt?: string
+  updatedAt?: string
+  lastSeenAt?: string
+}
+
+export type CurrentUserProfile = {
+  uid: string
+  email?: string
+  displayName?: string
+  globalAdmin: boolean
+}
+
+export type Garden = {
+  id: string
+  name: string
+  ownershipType: 'personal'
+  ownerUserId?: string
+  organizationName?: string
+  locationName?: string
+  address?: string
+  notes?: string
+  gardenOptions?: GardenOptions
+  createdByUserId?: string
+  isDefault?: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type GardenMember = {
+  id: string
+  gardenId: string
+  userId: string
+  email?: string
+  displayName?: string
+  role: GardenRole
+  invitedByUserId?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type Invite = {
+  id: string
+  token: string
+  gardenId?: string
+  email?: string
+  role: string
+  createdByUserId?: string
+  resentAt?: string
+  resentByUserId?: string
+  acceptedAt?: string
+  acceptedByUserId?: string
+  expiresAt?: string
+  createdAt?: string
+  updatedAt?: string
+}
 
 export type DahliaRecordInput = Omit<DahliaRecord, 'id' | 'recordNumber'> & { id?: string; recordNumber?: number }
+
+export type DahliaRecordSummary = Pick<
+  DahliaRecord,
+  | 'id'
+  | 'recordNumber'
+  | 'gardenId'
+  | 'flowerName'
+  | 'gardenLocation'
+  | 'seasonYearStart'
+  | 'thumbnailUrl'
+  | 'imageUrl'
+  | 'cultivarThumbnailUrl'
+  | 'cultivarImageUrl'
+  | 'defaultPhotoScope'
+> & {
+  core: Pick<DahliaRecord['core'], 'color' | 'size' | 'cultivar'>
+  growth: Pick<DahliaRecord['growth'], 'height'>
+  tuber: Pick<DahliaRecord['tuber'], 'source' | 'linkedOrderItemIds'>
+  meta: Pick<DahliaRecord['meta'], 'gardenArea' | 'gardenRow' | 'gardenPosition' | 'gardenZone' | 'rowOrBed' | 'position' | 'plantingState'>
+}
 
 export type AgentReviewFinding = {
   severity: 'low' | 'medium' | 'high'
@@ -127,11 +232,18 @@ export type AgentCorrectionResult = {
 
 export type MaintenanceReminder = {
   id: string
+  gardenId?: string
   title: string
   notes?: string
   dueDate?: string
   relatedRecordIds?: string[]
   source?: 'user' | 'agent'
+  createdByUserId?: string
+  ownerUserId?: string
+  assignedToUserId?: string
+  completedByUserId?: string
+  visibility?: 'private' | 'garden'
+  priority?: 'normal' | 'high'
   createdAt?: string
   updatedAt?: string
   completedAt?: string
@@ -141,6 +253,8 @@ export type MaintenanceReminderInput = Omit<MaintenanceReminder, 'id' | 'created
 
 export type Company = {
   id: string
+  ownerUserId?: string
+  gardenId?: string
   name: string
   website?: string
   email?: string
@@ -150,8 +264,10 @@ export type Company = {
     orderCount?: number
     flowerRecordCount?: number
     orders?: Array<{ id: string; invoiceNumber?: string | null; orderDate?: string | null; totalCost?: number | null }>
-    flowerRecords?: Array<{ id: string; recordNumber?: number | null; flowerName?: string; seasonYearStart?: number | null }>
+    flowerRecords?: Array<{ id: string; gardenId?: string | null; recordNumber?: number | null; flowerName?: string; seasonYearStart?: number | null; meta?: { gardenArea?: string | null; gardenZone?: string | null } }>
   }
+  canUpdate?: boolean
+  canDelete?: boolean
   createdAt?: string
   updatedAt?: string
 }
@@ -159,6 +275,8 @@ export type Company = {
 export type OrderItem = {
   id: string
   orderId: string
+  gardenId?: string
+  itemNo?: string
   flowerName: string
   cultivarName?: string
   itemCost?: number
@@ -182,6 +300,7 @@ export type OrderFile = {
 
 export type Order = {
   id: string
+  ownerUserId?: string
   companyId: string
   company?: Company | null
   invoiceNumber?: string
@@ -194,9 +313,42 @@ export type Order = {
   updatedAt?: string
 }
 
-export type CompanyInput = Omit<Company, 'id' | 'createdAt' | 'updatedAt'>
+export type CompanyInput = Omit<Company, 'id' | 'usage' | 'canUpdate' | 'canDelete' | 'createdAt' | 'updatedAt'>
 export type OrderItemInput = Omit<OrderItem, 'id' | 'orderId' | 'createdAt' | 'updatedAt'>
 export type OrderInput = Omit<Order, 'id' | 'company' | 'items' | 'files' | 'createdAt' | 'updatedAt'> & { items: OrderItemInput[] }
+
+export type AssetFile = {
+  id: string
+  assetId: string
+  originalFileName: string
+  storedFileName: string
+  mimeType: string
+  fileSize: number
+  fileUrl: string
+  sourceType: 'uploaded_pdf' | 'image_converted_to_pdf'
+  createdAt?: string
+}
+
+export type Asset = {
+  id: string
+  ownerUserId?: string
+  companyId?: string
+  company?: Company | null
+  asset: string
+  category?: string
+  quantity?: number
+  totalCost?: number
+  purchaseDate?: string
+  notes?: string
+  linkedOrderItemIds?: string[]
+  invoiceNumber?: string
+  invoiceTotal?: number
+  files: AssetFile[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type AssetInput = Omit<Asset, 'id' | 'company' | 'files' | 'createdAt' | 'updatedAt'>
 
 export type ExcelImportEntry = {
   excelName: string

@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { jsPDF } from 'jspdf'
-import type { Company, CompanyInput, Order, OrderFile, OrderInput } from '../types'
+import type { Company, CompanyInput, Garden, Order, OrderFile, OrderInput } from '../types'
+import { DropdownField } from './DropdownField'
+import { FlowerNameField } from './FlowerNameField'
 
 type OrderItemForm = {
   id?: string
   orderId?: string
+  gardenId?: string
+  itemNo?: string
   flowerName: string
   cultivarName?: string
   itemCost?: string
@@ -16,8 +20,7 @@ type OrderItemForm = {
 
 type InvoiceView =
   | { mode: 'companies' }
-  | { mode: 'years'; companyId: string }
-  | { mode: 'invoices'; companyId: string; year: string }
+  | { mode: 'invoices'; companyId: string }
   | { mode: 'detail'; orderId: string }
   | { mode: 'form'; orderId?: string }
 
@@ -25,6 +28,21 @@ type ConfirmAction = { type: 'deleteFile'; fileId: string } | { type: 'deleteOrd
 
 const EMPTY_ITEM: OrderItemForm = { flowerName: '', cultivarName: '', quantity: 1 }
 const UNKNOWN_YEAR = 'No Date'
+const CURRENT_YEAR = String(new Date().getFullYear())
+
+const ORDER_FIELD_HINTS = {
+  company: 'Select the company associated with this invoice record.',
+  newCompany: 'Enter a company name when the invoice is from a company that is not already listed.',
+  invoiceNumber: 'Enter the invoice, receipt, or order number from the vendor.',
+  orderDate: 'Enter the date shown on the invoice or the date the order was placed.',
+  totalCost: 'Enter the total invoice cost across all items.',
+  orderNotes: 'Add optional notes about this invoice, shipment, or order.',
+  itemNo: 'Enter the line item number as shown on the invoice.',
+  flowerName: 'Enter the flower or item name from the invoice line item.',
+  quantity: 'Enter the number of units for this invoice item.',
+  itemCost: 'Enter the cost for this individual invoice item.',
+  gardenAssignment: 'Assign this invoice item to a garden, or leave it unassigned for later placement.',
+}
 
 function Overlay({ children, onCancelConfirm }: { children: React.ReactNode; onCancelConfirm: () => void }) {
   return (
@@ -36,19 +54,59 @@ function Overlay({ children, onCancelConfirm }: { children: React.ReactNode; onC
   )
 }
 
-function Field({ label, value, onChange, type }: { label: string; value: string; onChange: (v: string) => void; type?: 'text' | 'number' | 'date' }) {
+function FieldLabel({ label, hint }: { label: string; hint?: string }) {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (!visible) return
+    const timeout = window.setTimeout(() => setVisible(false), 3000)
+    return () => window.clearTimeout(timeout)
+  }, [visible])
+
+  function showHint() {
+    setVisible(false)
+    window.requestAnimationFrame(() => setVisible(true))
+  }
+
+  function hideHint() {
+    setVisible(false)
+  }
+
+  return (
+    <div className="label fieldLabel">
+      <span>{label}</span>
+      {hint ? (
+        <button
+          className={`helpIcon${visible ? ' show' : ''}`}
+          type="button"
+          aria-label={`${label} hint`}
+          onMouseEnter={showHint}
+          onMouseLeave={hideHint}
+          onFocus={showHint}
+          onBlur={hideHint}
+          onClick={showHint}
+        >
+          ?
+          {visible ? <span className="helpTooltip" role="tooltip">{hint}</span> : null}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+function Field({ label, hint, value, onChange, type, onBlur, disabled }: { label: string; hint?: string; value: string; onChange: (v: string) => void; type?: 'text' | 'number' | 'date'; onBlur?: () => void; disabled?: boolean }) {
   return (
     <label className="field">
-      <div className="label">{label}</div>
-      <input className="input" value={value} type={type ?? 'text'} onChange={(e) => onChange(e.target.value)} />
+      <FieldLabel label={label} hint={hint} />
+      <input className="input" value={value} type={type ?? 'text'} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} disabled={disabled} />
     </label>
   )
 }
 
-function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function TextArea({ label, hint, value, onChange }: { label: string; hint?: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className="field">
-      <div className="label">{label}</div>
+      <FieldLabel label={label} hint={hint} />
       <textarea className="textarea" value={value} onChange={(e) => onChange(e.target.value)} />
     </label>
   )
@@ -108,12 +166,28 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function formatUploadDate(iso?: string) {
+  if (!iso) return 'Unknown date'
+  return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+}
+
 function invoiceYear(order: Order) {
   return order.orderDate?.slice(0, 4) || UNKNOWN_YEAR
 }
 
 function formatMoney(value?: number) {
   return value === undefined ? '' : `$${value.toFixed(2)}`
+}
+
+function formatMoneyInput(value: string) {
+  const numericValue = Number(value.replace(/[$,]/g, ''))
+  return Number.isFinite(numericValue) ? `$${numericValue.toFixed(2)}` : value
+}
+
+function moneyInputValue(value: string) {
+  const cleaned = value.replace(/[$,]/g, '')
+  if (!/^\d*(\.\d*)?$/.test(cleaned)) return null
+  return cleaned
 }
 
 function sortInvoices(a: Order, b: Order) {
@@ -124,7 +198,9 @@ function sortInvoices(a: Order, b: Order) {
 
 export function OrderModal({
   companies,
+  gardens = [],
   orders,
+  flowerNames = [],
   initialOrderId,
   onClose,
   onCreateCompany,
@@ -133,9 +209,13 @@ export function OrderModal({
   onDeleteOrder,
   onUploadInvoice,
   onDeleteInvoiceFile,
+  onOpenFlowerNames,
+  flowerNameRename,
 }: {
   companies: Company[]
+  gardens?: Garden[]
   orders: Order[]
+  flowerNames?: string[]
   initialOrderId?: string | null
   onClose: () => void
   onCreateCompany: (input: CompanyInput) => Promise<Company>
@@ -144,6 +224,8 @@ export function OrderModal({
   onDeleteOrder: (id: string) => Promise<void>
   onUploadInvoice: (orderId: string, file: File, sourceType: 'uploaded_pdf' | 'image_converted_to_pdf') => Promise<void>
   onDeleteInvoiceFile: (orderId: string, fileId: string) => Promise<void>
+  onOpenFlowerNames?: () => void
+  flowerNameRename?: { oldName: string; newName: string } | null
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const cameraInputRef = useRef<HTMLInputElement | null>(null)
@@ -159,11 +241,18 @@ export function OrderModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
+  const [selectedFilterCompanyId, setSelectedFilterCompanyId] = useState('')
+  const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR)
 
   const orderById = useMemo(() => new Map(orders.map((order) => [order.id, order])), [orders])
+  const knownFlowerNames = useMemo(() => {
+    const fromOrders = orders.flatMap((order) => order.items.map((item) => item.flowerName))
+    const merged = new Set([...flowerNames, ...fromOrders].filter(Boolean))
+    return [...merged].sort((a, b) => a.localeCompare(b))
+  }, [flowerNames, orders])
   const selectedOrder = view.mode === 'detail' ? orderById.get(view.orderId) ?? null : null
   const formOrder = view.mode === 'form' && view.orderId ? orderById.get(view.orderId) ?? null : null
-  const canSave = companyId || newCompanyName.trim()
+  const canSave = (companyId || newCompanyName.trim()) && invoiceNumber.trim() && totalCost.trim() && orderDate.trim()
 
   const companySummaries = useMemo(() => {
     return companies
@@ -183,33 +272,25 @@ export function OrderModal({
       .sort((a, b) => a.company.name.localeCompare(b.company.name))
   }, [companies, orders])
 
-  const currentCompany = view.mode === 'years' || view.mode === 'invoices'
+  const currentCompany = view.mode === 'invoices'
     ? companies.find((company) => company.id === view.companyId) ?? null
     : selectedOrder?.company ?? formOrder?.company ?? null
-
-  const yearSummaries = useMemo(() => {
-    if (view.mode !== 'years') return []
-    const byYear = new Map<string, Order[]>()
-    for (const order of orders.filter((order) => order.companyId === view.companyId)) {
-      const year = invoiceYear(order)
-      byYear.set(year, [...(byYear.get(year) ?? []), order])
-    }
-    return Array.from(byYear.entries())
-      .map(([year, yearOrders]) => ({
-        year,
-        count: yearOrders.length,
-        total: yearOrders.reduce((sum, order) => sum + (order.totalCost ?? 0), 0),
-        docs: yearOrders.reduce((sum, order) => sum + order.files.length, 0),
-      }))
-      .sort((a, b) => b.year.localeCompare(a.year))
-  }, [orders, view])
 
   const invoiceList = useMemo(() => {
     if (view.mode !== 'invoices') return []
     return orders
-      .filter((order) => order.companyId === view.companyId && invoiceYear(order) === view.year)
+      .filter((order) => order.companyId === view.companyId)
       .sort(sortInvoices)
   }, [orders, view])
+
+  const availableYears = useMemo(() => {
+    return Array.from(new Set(invoiceList.map(invoiceYear))).sort((a, b) => b.localeCompare(a))
+  }, [invoiceList])
+
+  const filteredInvoiceList = useMemo(() => {
+    if (selectedYear === 'All') return invoiceList
+    return invoiceList.filter((order) => invoiceYear(order) === selectedYear)
+  }, [invoiceList, selectedYear])
 
   useEffect(() => {
     if (!selectedOrder && view.mode === 'detail') setView({ mode: 'companies' })
@@ -219,8 +300,27 @@ export function OrderModal({
     if (initialOrderId && orderById.has(initialOrderId)) setView({ mode: 'detail', orderId: initialOrderId })
   }, [initialOrderId, orderById])
 
+  useEffect(() => {
+    if (!flowerNameRename) return
+    const { oldName, newName } = flowerNameRename
+    setItems((prev) => prev.map((item) => {
+      if (item.flowerName !== oldName) return item
+      return {
+        ...item,
+        flowerName: newName,
+        cultivarName: item.cultivarName === oldName ? newName : item.cultivarName,
+      }
+    }))
+  }, [flowerNameRename])
+
   function cancelConfirm() {
     setConfirmAction(null)
+  }
+
+  function openInvoices(companyId: string, year?: string) {
+    cancelConfirm()
+    setSelectedYear(year ?? CURRENT_YEAR)
+    setView({ mode: 'invoices', companyId })
   }
 
   function resetForm() {
@@ -247,16 +347,18 @@ export function OrderModal({
     setNewCompanyName('')
     setInvoiceNumber(order.invoiceNumber ?? '')
     setOrderDate(order.orderDate ?? '')
-    setTotalCost(order.totalCost === undefined ? '' : order.totalCost.toFixed(2))
+    setTotalCost(order.totalCost === undefined ? '' : formatMoneyInput(String(order.totalCost)))
     setNotes(order.notes ?? '')
     setItems(
       order.items.length
         ? order.items.map((item) => ({
             id: item.id,
             orderId: item.orderId,
+            gardenId: item.gardenId,
+            itemNo: item.itemNo,
             flowerName: item.flowerName,
             cultivarName: item.cultivarName,
-            itemCost: item.itemCost === undefined ? '' : item.itemCost.toFixed(2),
+            itemCost: item.itemCost === undefined ? '' : formatMoneyInput(String(item.itemCost)),
             quantity: item.quantity,
             notes: item.notes,
             createdAt: item.createdAt,
@@ -322,9 +424,9 @@ export function OrderModal({
         companyId: nextCompanyId,
         invoiceNumber: invoiceNumber || undefined,
         orderDate: orderDate || undefined,
-        totalCost: toNumber(totalCost),
+        totalCost: toNumber(totalCost.replace(/[$,]/g, '')),
         notes: notes || undefined,
-        items: items.filter((item) => item.flowerName.trim()).map((item) => ({ ...item, flowerName: toTitleCase(item.flowerName), cultivarName: toTitleCase(item.cultivarName || item.flowerName), itemCost: item.itemCost === undefined ? undefined : toNumber(item.itemCost), quantity: item.quantity ?? undefined })),
+        items: items.filter((item) => item.flowerName.trim()).map((item) => ({ ...item, itemNo: item.itemNo?.trim() || undefined, gardenId: item.gardenId || undefined, flowerName: item.flowerName.trim(), cultivarName: (item.cultivarName || item.flowerName).trim(), itemCost: item.itemCost === undefined ? undefined : toNumber(item.itemCost.replace(/[$,]/g, '')), quantity: item.quantity ?? undefined })),
       }
       const order = formOrder ? await onUpdateOrder(formOrder.id, input) : await onCreateOrder(input)
       resetForm()
@@ -391,8 +493,7 @@ export function OrderModal({
     setError(null)
     try {
       await onDeleteOrder(selectedOrder.id)
-      cancelConfirm()
-      setView({ mode: 'invoices', companyId: selectedOrder.companyId, year: invoiceYear(selectedOrder) })
+      openInvoices(selectedOrder.companyId, invoiceYear(selectedOrder))
     } catch (e: any) {
       setError(e?.message ?? String(e))
     } finally {
@@ -404,12 +505,8 @@ export function OrderModal({
     if (view.mode === 'companies') return null
 
     const crumbs = [{ label: 'Companies', onClick: () => setView({ mode: 'companies' }) }]
-    if (currentCompany && (view.mode === 'years' || view.mode === 'invoices' || view.mode === 'detail')) {
-      crumbs.push({ label: currentCompany.name, onClick: () => setView({ mode: 'years', companyId: currentCompany.id }) })
-    }
-    if (view.mode === 'invoices' || view.mode === 'detail') {
-      const year = view.mode === 'invoices' ? view.year : selectedOrder ? invoiceYear(selectedOrder) : ''
-      if (currentCompany && year) crumbs.push({ label: year, onClick: () => setView({ mode: 'invoices', companyId: currentCompany.id, year }) })
+    if (currentCompany && (view.mode === 'invoices' || view.mode === 'detail')) {
+      crumbs.push({ label: currentCompany.name, onClick: () => openInvoices(currentCompany.id, selectedOrder ? invoiceYear(selectedOrder) : CURRENT_YEAR) })
     }
     if (view.mode === 'detail' && selectedOrder) crumbs.push({ label: selectedOrder.invoiceNumber ? `Invoice #${selectedOrder.invoiceNumber}` : 'Invoice Detail', onClick: () => undefined })
     if (view.mode === 'form') crumbs.push({ label: formOrder ? 'Edit Invoice' : 'New Invoice', onClick: () => undefined })
@@ -426,63 +523,58 @@ export function OrderModal({
   }
 
   function renderCompanies() {
+    const companyInvoices = selectedFilterCompanyId
+      ? orders.filter((order) => order.companyId === selectedFilterCompanyId).sort(sortInvoices)
+      : []
+
     return (
       <div className="sectionBody invoiceBrowser">
-        {companySummaries.length ? (
+        <div className="invoiceSearchWrap">
+          <DropdownField
+            label="Company"
+            value={selectedFilterCompanyId}
+            options={[{ value: '', label: 'Select...' }, ...companySummaries.map((s) => ({ value: s.company.id, label: s.company.name }))]}
+            onChange={setSelectedFilterCompanyId}
+          />
+        </div>
+        {selectedFilterCompanyId ? (
           <div className="tableWrap">
             <table className="table invoiceBrowseTable">
-              <thead><tr><th>Company</th><th>Records</th><th>Years</th><th>Total Spend</th><th>Docs</th><th>Last Updated</th></tr></thead>
+              <thead><tr><th>Invoice</th><th>Date</th><th>Total</th><th>Items</th><th>Docs</th></tr></thead>
               <tbody>
-                {companySummaries.map((summary) => (
-                  <tr key={summary.company.id} className="clickableRow" onClick={() => { cancelConfirm(); setView({ mode: 'years', companyId: summary.company.id }) }}>
-                    <td>{summary.company.name}</td>
-                    <td>{summary.count}</td>
-                    <td>{summary.years.join(', ')}</td>
-                    <td>{formatMoney(summary.total)}</td>
-                    <td>{summary.docs}</td>
-                    <td>{summary.updatedAt ? summary.updatedAt.slice(0, 10) : ''}</td>
+                {companyInvoices.length ? companyInvoices.map((order) => (
+                  <tr key={order.id} className="clickableRow" onClick={() => { cancelConfirm(); setView({ mode: 'detail', orderId: order.id }) }}>
+                    <td>{order.invoiceNumber ? `#${order.invoiceNumber}` : 'No invoice number'}</td>
+                    <td>{order.orderDate || ''}</td>
+                    <td>{formatMoney(order.totalCost)}</td>
+                    <td>{order.items.length}</td>
+                    <td>{order.files.length}</td>
                   </tr>
-                ))}
+                )) : <tr><td colSpan={5} className="muted">No invoices for this company.</td></tr>}
               </tbody>
             </table>
           </div>
-        ) : <div className="muted">No invoice records saved yet.</div>}
-      </div>
-    )
-  }
-
-  function renderYears() {
-    return (
-      <div className="sectionBody invoiceBrowser">
-        <div className="subTitle">{currentCompany?.name ?? 'Company'} Purchase Years</div>
-        <div className="tableWrap">
-          <table className="table invoiceBrowseTable">
-            <thead><tr><th>Year</th><th>Invoices</th><th>Total Spend</th><th>Docs</th></tr></thead>
-            <tbody>
-              {yearSummaries.map((summary) => (
-                <tr key={summary.year} className="clickableRow" onClick={() => { cancelConfirm(); setView({ mode: 'invoices', companyId: view.mode === 'years' ? view.companyId : '', year: summary.year }) }}>
-                  <td>{summary.year}</td>
-                  <td>{summary.count}</td>
-                  <td>{formatMoney(summary.total)}</td>
-                  <td>{summary.docs}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        ) : <div className="muted">{companySummaries.length ? 'Select a company to view its invoices.' : 'No invoice records saved yet.'}</div>}
       </div>
     )
   }
 
   function renderInvoices() {
+    const activeYear = availableYears.includes(selectedYear) ? selectedYear : 'All'
     return (
       <div className="sectionBody invoiceBrowser">
-        <div className="subTitle">{currentCompany?.name ?? 'Company'} Invoices - {view.mode === 'invoices' ? view.year : ''}</div>
+        <div className="subTitle">{currentCompany?.name ?? 'Company'} Invoices</div>
+        <div className="invoiceYearPills" role="group" aria-label="Filter by year">
+          <button className={`invoiceYearPill${activeYear === 'All' ? ' active' : ''}`} type="button" onClick={() => setSelectedYear('All')}>All</button>
+          {availableYears.map((year) => (
+            <button key={year} className={`invoiceYearPill${activeYear === year ? ' active' : ''}`} type="button" onClick={() => setSelectedYear(year)}>{year}</button>
+          ))}
+        </div>
         <div className="tableWrap">
           <table className="table invoiceBrowseTable">
             <thead><tr><th>Invoice</th><th>Date</th><th>Total</th><th>Items</th><th>Docs</th></tr></thead>
             <tbody>
-              {invoiceList.map((order) => (
+              {filteredInvoiceList.length ? filteredInvoiceList.map((order) => (
                 <tr key={order.id} className="clickableRow" onClick={() => { cancelConfirm(); setView({ mode: 'detail', orderId: order.id }) }}>
                   <td>{order.invoiceNumber ? `#${order.invoiceNumber}` : 'No invoice number'}</td>
                   <td>{order.orderDate || ''}</td>
@@ -490,7 +582,7 @@ export function OrderModal({
                   <td>{order.items.length}</td>
                   <td>{order.files.length}</td>
                 </tr>
-              ))}
+              )) : <tr><td colSpan={5} className="muted">No invoices for {activeYear === 'All' ? 'this company' : activeYear}.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -513,14 +605,14 @@ export function OrderModal({
         {confirmAction?.type === 'deleteFile' ? <div className="callout warn invoiceConfirmMessage">Click the highlighted action again to confirm.</div> : null}
         {order.files.length ? (
           <div ref={confirmAreaRef} className="fileList" aria-label="Uploaded invoice files">
-            {order.files.map((file) => (
+            {[...order.files].sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? ''))).map((file) => (
               <div className="fileCard" key={file.id}>
                 <a className="fileCardLink" href={file.fileUrl} target="_blank" rel="noreferrer">
                   <span className="fileBadge">PDF</span>
                   <span className="fileCardBody">
                     <span className="fileCardName">{file.originalFileName}</span>
                     <span className="fileCardMeta">
-                      {file.sourceType === 'image_converted_to_pdf' ? 'Photo converted to PDF' : 'Uploaded PDF'} · {formatFileSize(file.fileSize)}
+                      {formatUploadDate(file.createdAt)} · {formatFileSize(file.fileSize)}
                     </span>
                   </span>
                 </a>
@@ -560,9 +652,24 @@ export function OrderModal({
         <div className="subTitle">Order Items</div>
         <div className="tableWrap miniTable">
           <table className="table">
-            <thead><tr><th>Item</th><th>Cost</th></tr></thead>
+            <thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Cost</th><th>Garden</th></tr></thead>
             <tbody>
-              {selectedOrder.items.length ? selectedOrder.items.map((item) => <tr key={item.id}><td>{item.flowerName}</td><td>{formatMoney(item.itemCost)}</td></tr>) : <tr><td colSpan={2}>No items entered.</td></tr>}
+              {selectedOrder.items.length ? [...selectedOrder.items].sort((a, b) => {
+                const aNo = a.itemNo?.trim()
+                const bNo = b.itemNo?.trim()
+                if (aNo && bNo) return aNo.localeCompare(bNo, undefined, { numeric: true })
+                if (aNo) return -1
+                if (bNo) return 1
+                return a.flowerName.localeCompare(b.flowerName)
+              }).map((item) => (
+                <tr key={item.id}>
+                  <td>{item.itemNo ?? ''}</td>
+                  <td>{item.flowerName}</td>
+                  <td>{item.quantity ?? ''}</td>
+                  <td>{formatMoney(item.itemCost)}</td>
+                  <td>{gardens.find((garden) => garden.id === item.gardenId)?.name ?? 'Unassigned'}</td>
+                </tr>
+              )) : <tr><td colSpan={5}>No items entered.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -575,27 +682,63 @@ export function OrderModal({
   function renderForm() {
     return (
       <div className="sectionBody orderForm">
-        <div className="subTitle">{formOrder ? 'Edit Invoice Record' : 'New Invoice Record'}</div>
         <div className="grid2">
           <label className="field">
-            <div className="label">Company</div>
-            <select className="select" value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
-              <option value="">Select...</option>
-              {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
-            </select>
+            <FieldLabel label="Company" hint={ORDER_FIELD_HINTS.company} />
+            <DropdownField label="Company" value={companyId} options={[{ value: '', label: 'Use new company...' }, ...companies.map((company) => ({ value: company.id, label: company.name }))]} onChange={(value) => { setCompanyId(value); if (value) setNewCompanyName('') }} />
           </label>
-          <Field label="New Company" value={newCompanyName} onChange={setNewCompanyName} />
-          <Field label="Invoice Number" value={invoiceNumber} onChange={setInvoiceNumber} />
-          <Field label="Order Date" type="date" value={orderDate} onChange={setOrderDate} />
-          <Field label="Total Cost" type="number" value={totalCost} onChange={setTotalCost} />
         </div>
-        <TextArea label="Order Notes" value={notes} onChange={setNotes} />
-        <div className="subTitle">Order Items</div>
+        <div className="subTitle">{formOrder ? 'Edit Invoice Record' : 'Invoice Details'}</div>
+        <div className="grid2">
+          <Field label="New Company" hint={ORDER_FIELD_HINTS.newCompany} value={newCompanyName} onChange={setNewCompanyName} disabled={Boolean(companyId)} />
+          <Field label="Invoice No." hint={ORDER_FIELD_HINTS.invoiceNumber} value={invoiceNumber} onChange={setInvoiceNumber} />
+          <Field
+            label="Total Cost"
+            hint={ORDER_FIELD_HINTS.totalCost}
+            value={totalCost}
+            onChange={(value) => {
+              const next = moneyInputValue(value)
+              if (next !== null) setTotalCost(next)
+            }}
+            onBlur={() => setTotalCost((current) => current.trim() ? formatMoneyInput(current) : '')}
+          />
+          <Field label="Order Date" hint={ORDER_FIELD_HINTS.orderDate} type="date" value={orderDate} onChange={setOrderDate} />
+        </div>
+        <TextArea label="Order Notes" hint={ORDER_FIELD_HINTS.orderNotes} value={notes} onChange={setNotes} />
+        <div className="subTitle orderItemsTitle">Order Items</div>
         <div className="orderItems">
           {items.map((item, index) => (
-            <div className="grid2" key={index}>
-              <Field label="Flower Name" value={item.flowerName} onChange={(v) => setItems((p) => p.map((row, i) => (i === index ? { ...row, flowerName: v, cultivarName: v } : row)))} />
-              <Field label="Item Cost" type="number" value={item.itemCost ?? ''} onChange={(v) => setItems((p) => p.map((row, i) => (i === index ? { ...row, itemCost: v } : row)))} />
+            <div className="orderItemRow" key={index}>
+              <FlowerNameField
+                label="Flower Name"
+                hint={ORDER_FIELD_HINTS.flowerName}
+                value={item.flowerName}
+                knownFlowerNames={knownFlowerNames}
+                onChange={(v) => setItems((p) => p.map((row, i) => (i === index ? { ...row, flowerName: v, cultivarName: v } : row)))}
+                labelAction={onOpenFlowerNames ? <button className="labelLink" type="button" onClick={onOpenFlowerNames}>Flower Name</button> : undefined}
+              />
+              <Field label="Item No." hint={ORDER_FIELD_HINTS.itemNo} value={item.itemNo ?? ''} onChange={(v) => setItems((p) => p.map((row, i) => (i === index ? { ...row, itemNo: v } : row)))} />
+              <Field
+                label="Qty"
+                hint={ORDER_FIELD_HINTS.quantity}
+                type="number"
+                value={item.quantity === undefined ? '' : String(item.quantity)}
+                onChange={(v) => setItems((p) => p.map((row, i) => (i === index ? { ...row, quantity: v.trim() ? Math.max(1, parseInt(v, 10) || 1) : undefined } : row)))}
+              />
+              <Field
+                label="Item Cost"
+                hint={ORDER_FIELD_HINTS.itemCost}
+                value={item.itemCost ?? ''}
+                onChange={(value) => {
+                  const next = moneyInputValue(value)
+                  if (next !== null) setItems((p) => p.map((row, i) => (i === index ? { ...row, itemCost: next } : row)))
+                }}
+                onBlur={() => setItems((p) => p.map((row, i) => (i === index ? { ...row, itemCost: row.itemCost?.trim() ? formatMoneyInput(row.itemCost) : '' } : row)))}
+              />
+              <label className="field">
+                <FieldLabel label="Garden" hint={ORDER_FIELD_HINTS.gardenAssignment} />
+                <DropdownField label="Garden" value={item.gardenId ?? ''} options={[{ value: '', label: 'Unassigned' }, ...gardens.map((garden) => ({ value: garden.id, label: garden.name }))]} onChange={(value) => setItems((p) => p.map((row, i) => (i === index ? { ...row, gardenId: value || undefined } : row)))} />
+              </label>
             </div>
           ))}
         </div>
@@ -612,8 +755,6 @@ export function OrderModal({
     switch (view.mode) {
       case 'companies':
         return renderCompanies()
-      case 'years':
-        return renderYears()
       case 'invoices':
         return renderInvoices()
       case 'detail':

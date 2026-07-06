@@ -1,0 +1,4 @@
+{
+  "appService.defaultWebAppToDeploy": "/subscriptions/c4dfdf71-1cca-4bb4-8b21-2d24819f71f5/resourceGroups/appsvc_linux_westus2/providers/Microsoft.Web/sites/dahlia-ledger",
+  "appService.deploySubpath": "."
+}

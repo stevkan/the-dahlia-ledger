@@ -88,6 +88,48 @@ body {
   height: 100%;
 }
 
+.orientationOverlay {
+  display: none;
+}
+
+.orientationCard {
+  width: min(100%, 380px);
+  padding: 28px;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
+  border-radius: 28px;
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-modal);
+  text-align: center;
+}
+
+.orientationIcon {
+  width: 58px;
+  height: 58px;
+  display: inline-grid;
+  place-items: center;
+  margin-bottom: 16px;
+  border: 1px solid var(--accent-border);
+  border-radius: 18px;
+  color: var(--accent);
+  font-size: 34px;
+  font-weight: 800;
+}
+
+.orientationCard h1 {
+  margin: 0 0 10px;
+  color: var(--text-strong);
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.orientationCard p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
 .appShell {
   height: 100vh;
   display: flex;
@@ -201,13 +243,22 @@ body {
 }
 
 .topBar {
-  display: flex;
-  justify-content: space-between;
+  position: relative;
+  z-index: 100;
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: center;
   padding: 16px 18px;
   border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(8px);
   background: var(--bar-bg);
+}
+
+.topBar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  backdrop-filter: blur(8px);
 }
 
 .brandTitle {
@@ -216,10 +267,34 @@ body {
   letter-spacing: 0.2px;
 }
 
+.brandVersion {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  letter-spacing: 0;
+  margin-left: 6px;
+}
+
 .brandSub {
   margin-top: 2px;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.topPriorityMessage {
+  grid-column: 1 / -1;
+  white-space: nowrap;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: 0;
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 204, 102, 0.42);
+  border-radius: 999px;
+  background: rgba(255, 204, 102, 0.1);
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 750;
+  text-align: center;
 }
 
 .mainGrid {
@@ -230,6 +305,19 @@ body {
   gap: 16px;
   padding: 16px;
   overflow: hidden;
+}
+
+@media (orientation: portrait) and (max-width: 768px) {
+  .orientationOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    box-sizing: border-box;
+    background: var(--app-bg);
+  }
 }
 
 @media (max-width: 980px) {
@@ -329,6 +417,10 @@ body {
   flex-wrap: wrap;
 }
 
+.topActions {
+  justify-self: end;
+}
+
 .signedInAs {
   min-width: 0;
   overflow: hidden;
@@ -342,6 +434,15 @@ body {
 .actionAccordion {
   position: relative;
   width: fit-content;
+}
+
+.gardenToggleName {
+  display: inline-block;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--accent);
+  white-space: nowrap;
 }
 
 .accordionToggle {
@@ -368,9 +469,9 @@ body {
 
 .accordionPanel {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 2px);
   right: 0;
-  z-index: 10;
+  z-index: 200;
   min-width: 100%;
   box-sizing: border-box;
   display: grid;
@@ -468,22 +569,76 @@ body {
   white-space: nowrap;
 }
 
-@media (max-width: 560px) {
-  .topActions {
-    align-items: stretch;
+.hamburgerGroup {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.hamburgerToggle {
+  display: none;
+}
+
+.hamburgerPanel {
+  display: contents;
+}
+
+.navDrawerBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 299;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.navDrawerClose {
+  display: none;
+  align-self: flex-end;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 980px) {
+  .hamburgerToggle {
+    display: flex;
   }
 
-  .actionAccordion,
-  .topActions > .btn {
+  .navDrawerClose {
+    display: flex;
+  }
+
+  .hamburgerPanel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 300;
+    width: min(300px, 85vw);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px;
+    overflow-y: auto;
+    background: var(--surface-menu);
+    border-left: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-modal);
+    backdrop-filter: blur(12px);
+    transform: translateX(100%);
+    transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .hamburgerPanel.open {
+    transform: translateX(0);
+  }
+
+  .hamburgerPanel .actionAccordion {
     width: 100%;
   }
 
-  .accordionToggle {
+  .hamburgerPanel .accordionToggle {
     width: 100%;
     justify-content: space-between;
   }
 
-  .accordionPanel {
+  .hamburgerPanel .accordionPanel {
     position: static;
     margin-top: 8px;
     min-width: 0;
@@ -504,6 +659,13 @@ body {
 
 .recordsTableStack .tableWrap {
   flex: 1;
+}
+
+.recordsTableStack .table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-strong);
 }
 
 .tableToolbar {
@@ -579,11 +741,22 @@ body {
   font-size: 13px;
 }
 
+.tableToolbarRightControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+.recordsRefreshStatus {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .pageSizeControl {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
 }
 
 .pageSizeLabel {
@@ -780,6 +953,11 @@ th.sortable {
   background: var(--surface-hover);
 }
 
+.virtualTableSpacer {
+  padding: 0;
+  border-bottom: 0;
+}
+
 .thumb {
   width: 42px;
   height: 42px;
@@ -801,13 +979,20 @@ th.sortable {
 .modalOverlay {
   position: fixed;
   inset: 0;
+  z-index: 1000;
   background: var(--modal-overlay);
   display: grid;
   place-items: center;
   padding: 16px;
 }
 
+.stackedModalOverlay {
+  z-index: 1100;
+}
+
 .modal {
+  position: relative;
+  z-index: 1;
   width: min(980px, 100%);
   max-height: min(92vh, 980px);
   overflow: hidden;
@@ -817,6 +1002,10 @@ th.sortable {
   box-shadow: var(--shadow-modal);
   display: flex;
   flex-direction: column;
+}
+
+.modalNarrow {
+  width: min(480px, 100%);
 }
 
 .modalHeader {
@@ -841,6 +1030,7 @@ th.sortable {
 .modalBody {
   padding: 14px;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .metricsQueryModal {
@@ -873,8 +1063,31 @@ th.sortable {
   background: var(--surface-raised);
 }
 
+.reminderComposer .grid2 {
+  align-items: start;
+}
+
 .reminderComposerActions {
   justify-content: flex-start;
+}
+
+.collapsibleTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.collapsibleTitle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
 }
 
 .inlineError {
@@ -1013,6 +1226,11 @@ th.sortable {
   border-color: var(--accent-border);
 }
 
+.reminderBadge.priority {
+  border-color: rgba(255, 204, 102, 0.58);
+  background: rgba(255, 204, 102, 0.12);
+}
+
 .reminderMeta,
 .reminderNotes,
 .reminderRecords {
@@ -1033,6 +1251,17 @@ th.sortable {
   row-gap: 12px;
 }
 
+.grid4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  column-gap: 10px;
+  row-gap: 12px;
+}
+
+.gridSpan2 {
+  grid-column: span 2;
+}
+
 .healthGrid {
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr);
@@ -1051,6 +1280,14 @@ th.sortable {
   grid-column: 1 / -1;
 }
 
+.orderItemRow {
+  display: grid;
+  grid-template-columns: 3fr 3fr 2fr 2fr 2fr;
+  column-gap: 10px;
+  row-gap: 12px;
+  align-items: start;
+}
+
 .stateSummary {
   padding: 10px 12px;
   border: 1px solid var(--border-soft);
@@ -1061,9 +1298,9 @@ th.sortable {
 }
 
 .radioRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
   padding: 10px 12px;
   border: 1px solid var(--border-soft);
   border-radius: 12px;
@@ -1074,13 +1311,252 @@ th.sortable {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  min-width: 0;
   color: var(--text);
   font-size: 13px;
+}
+
+.reminderPriorityOption {
+  align-self: end;
+  min-height: 42px;
+}
+
+.dropdownField {
+  position: relative;
+  display: grid;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.field > .dropdownField {
+  width: 100%;
+}
+
+.dropdownSizer {
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.dropdownSizerOption {
+  padding: 0 34px 0 10px;
+  white-space: nowrap;
+}
+
+.reminderDropdown {
+  position: relative;
+}
+
+.dropdownButton,
+.reminderDropdownButton {
+  display: block;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dropdownButton:focus-visible,
+.reminderDropdownButton:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.dropdownOptions,
+.reminderDropdownOptions {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: grid;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface-menu);
+  box-shadow: var(--shadow-menu);
+}
+
+.dropdownOption,
+.reminderDropdownOption {
+  padding: 9px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dropdownOption:first-child,
+.reminderDropdownOption:first-child {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.dropdownOption:last-child,
+.reminderDropdownOption:last-child {
+  border-bottom: 0;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.dropdownSeparator {
+  border: none;
+  border-top: 1px solid var(--accent-border);
+  margin: 4px 0;
+}
+
+.dropdownOption:disabled {
+  color: var(--text-soft);
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.dropdownOption:hover:not(:disabled),
+.dropdownOption[aria-selected="true"],
+.reminderDropdownOption:hover,
+.reminderDropdownOption[aria-selected="true"] {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+
+.relatedRecordField {
+  display: grid;
+  gap: 0;
+}
+
+.reminderComposer .field > .fieldLabel {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+.relatedRecordHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.relatedRecordHeader div.fieldLabel {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+.seasonFilterControl {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.seasonFilterLabel {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.seasonFilterSwitch .switchTrack {
+  width: 92px;
+}
+
+.relatedRecordSearchWrap {
+  position: relative;
+}
+
+.relatedRecordSearchWrap .input {
+  padding-right: 34px;
+}
+
+.relatedRecordClear {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.relatedRecordClear:hover {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+
+.relatedRecordOptions {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: grid;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface-menu);
+  box-shadow: var(--shadow-menu);
+}
+
+.relatedRecordOption {
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--border-soft);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.relatedRecordOption:last-child {
+  border-bottom: 0;
+}
+
+.relatedRecordOption:first-child {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.relatedRecordOption:last-child {
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.relatedRecordOption:hover,
+.relatedRecordOption[aria-selected="true"] {
+  background: var(--surface-hover);
+}
+
+.relatedRecordOptionName {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.relatedRecordOptionMeta {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 @media (max-width: 720px) {
   .grid2 {
     grid-template-columns: 1fr;
+  }
+
+  .grid4 {
+    grid-template-columns: 1fr 1fr;
   }
 
   .healthGrid {
@@ -1091,12 +1567,180 @@ th.sortable {
     grid-template-columns: 1fr;
     row-gap: 12px;
   }
+
+  .orderItemRow {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .field .label {
   font-size: 11px;
   color: var(--text-muted);
   margin-bottom: 6px;
+}
+
+.fieldMessage,
+.fieldWarning {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.fieldMessage {
+  color: var(--text-muted);
+}
+
+.fieldWarning {
+  color: #ffd36a;
+  font-weight: 650;
+}
+
+.memberActionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.memberActionRow .btn:first-child {
+  justify-self: start;
+}
+
+.memberActionRow .btn:last-child {
+  justify-self: end;
+}
+
+.gardenMemberListSection {
+  margin-left: 18px;
+}
+
+.gardenDetailsActionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.gardenDetailsActionRow > .btn:last-child {
+  justify-self: end;
+}
+
+.advancedMemberSection {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.advancedMemberSection > .btn {
+  justify-self: start;
+}
+
+.advancedMemberFields {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-subtle);
+}
+
+.advancedMemberHint {
+  align-self: end;
+  padding: 0;
+}
+
+.memberCardGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+@media (max-width: 980px) {
+  .memberCardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .memberCardGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.memberCard {
+  position: relative;
+  min-height: 76px;
+  box-sizing: border-box;
+  padding: 12px 38px 12px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+
+.memberCard.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-control);
+}
+
+.memberCardBody {
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  justify-items: center;
+  text-align: center;
+}
+
+.knownUserCard {
+  padding-right: 12px;
+}
+
+.memberMeta {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knownUserIdButton {
+  max-width: 100%;
+  padding: 3px 8px;
+  border-style: dashed;
+  cursor: copy;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+
+.knownUserIdButton:hover,
+.knownUserIdButton:focus-visible {
+  border-color: var(--accent-border);
+  background: var(--surface-active);
+  color: var(--text-strong);
+}
+
+.knownUserIdButton:active {
+  transform: translateY(1px);
+}
+
+.memberName {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-strong);
+  font-weight: 750;
+}
+
+.memberRoleBadge {
+  justify-self: center;
+  width: fit-content;
+  min-height: 30px;
+  box-sizing: border-box;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 204, 102, 0.42);
+  border-radius: 10px;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.1;
 }
 
 .sectionBody > * + * {
@@ -1109,6 +1753,7 @@ th.sortable {
   align-items: center;
   gap: 6px;
   position: relative;
+  z-index: 10;
   align-self: flex-start;
   max-width: fit-content;
 }
@@ -1151,8 +1796,8 @@ th.sortable {
 .helpTooltip {
   position: absolute;
   left: 0;
-  bottom: calc(100% + 8px);
-  z-index: 5;
+  top: calc(100% + 8px);
+  z-index: 20;
   width: 220px;
   max-width: 240px;
   padding: 8px 10px;
@@ -1166,6 +1811,16 @@ th.sortable {
   line-height: 1.35;
   pointer-events: none;
   animation: tooltipFade 3s ease forwards;
+}
+
+.companyFieldTooltip {
+  width: 140px;
+  max-width: 140px;
+}
+
+.recordFieldTooltip {
+  width: 187px;
+  max-width: 204px;
 }
 
 .helpIcon:focus-visible {
@@ -1188,6 +1843,7 @@ th.sortable {
 .textarea,
 .select {
   width: 100%;
+  min-height: 42px;
   box-sizing: border-box;
   border-radius: 12px;
   border: 1px solid var(--border-strong);
@@ -1196,14 +1852,46 @@ th.sortable {
   padding: 10px 10px;
 }
 
+.input.orphanedField,
+.textarea.orphanedField,
+.select.orphanedField {
+  border-color: #f0c24a;
+  box-shadow: 0 0 0 3px rgba(240, 194, 74, 0.22);
+}
+
+.input.draftRecordNumber {
+  color: rgba(231, 237, 247, 0.5);
+  font-style: italic;
+}
+
+.input.recordNumberInput {
+  pointer-events: none;
+  user-select: none;
+}
+
+:root[data-theme="light"] .input.draftRecordNumber {
+  color: rgba(37, 49, 67, 0.5);
+}
+
 .select {
+  appearance: none;
   color-scheme: inherit;
-  font: inherit;
+  line-height: 1.2;
+  padding-right: 34px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text) 50%), linear-gradient(135deg, var(--text) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+  background-repeat: no-repeat;
+  background-size: 5px 5px, 5px 5px;
 }
 
 .select option {
   background: var(--input-option-bg);
   color: var(--text);
+}
+
+.remindersModal .settingsSelect,
+.remindersModal .settingsSelect option {
+  border-radius: 12px;
 }
 
 .photoField {
@@ -1373,9 +2061,10 @@ th.sortable {
 }
 
 .photoUploadTarget {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
+  width: 100%;
 }
 
 .photoActionButtons {
@@ -1622,7 +2311,7 @@ th.sortable {
 
 .switchTrack {
   position: relative;
-  width: 62px;
+  width: 74px;
   height: 28px;
   border-radius: 999px;
   border: 1px solid var(--border-strong);
@@ -1654,7 +2343,7 @@ th.sortable {
 }
 
 .switchToggle.on .switchThumb {
-  transform: translateX(34px);
+  transform: translateX(46px);
 }
 
 .switchToggle:focus-visible .switchTrack {
@@ -1717,6 +2406,46 @@ th.sortable {
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface-subtle);
+}
+
+.invoiceSearchWrap {
+  margin-bottom: 10px;
+}
+
+.invoiceSearchWrap .input,
+.invoiceSearchWrap .select {
+  width: 100%;
+  max-width: 320px;
+}
+
+.invoiceYearPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.invoiceYearPill {
+  padding: 5px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.invoiceYearPill:hover {
+  border-color: var(--accent-border);
+  color: var(--text);
+}
+
+.invoiceYearPill.active {
+  border-color: var(--accent-border);
+  background: var(--accent-control);
+  color: var(--text-strong);
 }
 
 .invoiceBrowseTable .clickableRow {
@@ -1988,7 +2717,6 @@ th.sortable {
   display: grid;
   gap: 4px;
   width: 100%;
-  margin-top: 8px;
   padding: 10px 12px;
   border: 1px solid var(--border-strong);
   border-radius: 12px;
@@ -1996,6 +2724,42 @@ th.sortable {
   color: var(--text);
   text-align: left;
   cursor: pointer;
+}
+
+.companyCardRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.companyCardRow:has(.companySelectCheckbox) {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.companySelectCheckbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.companyAdminPanel {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+
+.inlineSuccess {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--accent-border);
+  color: var(--text-strong);
+  background: var(--surface-active);
 }
 
 .companyCard span:first-child {
@@ -2015,6 +2779,20 @@ th.sortable {
 
 .companyActions {
   margin-top: 10px;
+}
+
+.gardenOptionValueActions {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: space-between;
+  align-items: start;
+}
+
+.gardenOptionPrimaryActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .companyDeleteButton {
@@ -2040,12 +2818,111 @@ th.sortable {
   padding-left: 18px;
 }
 
-.gardenOptionsDescription {
+.gardenOptionsDescriptionRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
   margin-bottom: 10px;
+  min-height: 58px;
+}
+
+.gardenOptionsDescriptionContent {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 auto;
+}
+
+.gardenOptionsDescription {
+  min-width: 0;
+}
+
+.gardenOptionsLayout.hasUsagePanel {
+  grid-template-columns: minmax(200px, 0.7fr) minmax(0, 1.05fr) minmax(240px, 0.75fr);
+}
+
+.gardenOptionUsagePanel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-subtle);
+}
+
+.gardenOptionUsageSummary {
+  margin-top: 6px;
+}
+
+.gardenOptionUsageList {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.gardenOptionUsageList li + li {
+  margin-top: 6px;
+}
+
+.gardenOptionMoveActions {
+  display: flex;
+  align-self: stretch;
+  justify-content: center;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gardenOptionMoveButton {
+  min-width: 34px;
+  min-height: 34px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.gardenOptionValueListArea {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.gardenOptionDeleteControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.gardenOptionDeleteAllRow {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.gardenOptionDeleteAllRow .gardenOptionDeleteAll {
+  grid-column: 2;
+}
+
+.gardenOptionRestoreDefaults {
+  margin-left: auto;
+}
+
+.gardenOptionDeleteAll {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .gardenOptionValueList {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
   gap: 8px;
   max-height: 240px;
@@ -2083,6 +2960,10 @@ th.sortable {
   .companiesLayout {
     grid-template-columns: 1fr;
     overflow: auto;
+  }
+
+  .gardenOptionsLayout.hasUsagePanel {
+    grid-template-columns: 1fr;
   }
 
   .modalBody.companiesLayout {
@@ -2213,6 +3094,37 @@ th.sortable {
 .agent {
   padding: 12px 14px;
 }
+
+.agentCapabilities {
+  margin-top: 10px;
+}
+
+.agentCapabilitiesSummary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  user-select: none;
+}
+
+.agentCapabilitiesSummary::-webkit-details-marker {
+  display: none;
+}
+
+.agentCapabilitiesSummary::before {
+  content: '▸';
+  display: inline-block;
+  font-size: 11px;
+  transition: transform 0.15s;
+}
+
+.agentCapabilities[open] > .agentCapabilitiesSummary::before {
+  transform: rotate(90deg);
+}
+
 
 .agentInput {
   margin-top: 10px;
@@ -2529,3 +3441,192 @@ th.sortable {
   border-color: rgba(255, 90, 90, 0.35);
   background: rgba(255, 90, 90, 0.08);
 }
+
+.flowerNamesModalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.flowerNamesList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.flowerNameRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  min-height: 40px;
+}
+
+.flowerNameRow:has(.flowerNameEditInput) {
+  border-color: var(--border);
+  background: var(--surface-raised);
+}
+
+.flowerNameText {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-strong);
+}
+
+.flowerNameEditInput {
+  flex: 1;
+}
+
+.flowerNameEditArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flowerNameEditRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.flowerNameMergeWarning {
+  font-size: 13px;
+  color: var(--text-strong);
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 204, 102, 0.42);
+  border-radius: 8px;
+  background: rgba(255, 204, 102, 0.1);
+}
+
+/* DahliaFormField */
+.dahliaFormTrigger {
+  display: block;
+  text-align: left;
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: inherit;
+  line-height: 1.35;
+}
+
+.dahliaFormTrigger:hover {
+  background: var(--surface-hover);
+}
+
+.dahliaFormTrigger:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.dahliaFormTrigger:disabled .dahliaFormPlaceholder {
+  color: var(--text-muted);
+}
+
+.dahliaFormPlaceholder {
+  color: var(--text);
+}
+
+.dahliaFormOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.dahliaFormPicker {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  box-shadow: var(--shadow-modal);
+  width: min(640px, 100%);
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dahliaFormPickerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.dahliaFormPickerTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  color: var(--text-strong);
+}
+
+.dahliaFormPickerGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.dahliaFormPickerList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dahliaFormPickerList .dahliaFormOption {
+  white-space: normal;
+  word-break: break-word;
+  text-align: left;
+}
+
+.dahliaFormOption {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.dahliaFormOption:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.dahliaFormOption:disabled,
+.dahliaFormOption:disabled:hover {
+  opacity: 0.4;
+  cursor: default;
+  background: var(--surface-raised);
+  border-color: var(--border);
+}
+
+.dahliaFormOption.selected {
+  border-color: var(--accent-border);
+  background: var(--accent-control);
+  color: var(--text-strong);
+}
+
+.dahliaFormPickerFooter {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 24px 20px;
+}
+
