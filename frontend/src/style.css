@@ -308,6 +308,9 @@ body {
 }
 
 @media (orientation: portrait) and (max-width: 768px) {
+  body {
+    overscroll-behavior: none;
+  }
   .orientationOverlay {
     position: fixed;
     inset: 0;
@@ -317,6 +320,8 @@ body {
     padding: 24px;
     box-sizing: border-box;
     background: var(--app-bg);
+    touch-action: none;
+    overscroll-behavior: none;
   }
 }
 

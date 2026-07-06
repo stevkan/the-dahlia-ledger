@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.1 - 2026-07-06
+
+- Disabled overscroll bounce and touch-action on the orientation overlay and body in portrait mobile view to prevent scroll bleed-through.
+
 ## 0.22.0 - 2026-07-04
 
 - Displays the app version number next to the title in the top bar.
