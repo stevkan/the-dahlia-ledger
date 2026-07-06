@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.22.2 - 2026-07-06
+
+- Updated the Azure deployment workflow to build the frontend and install backend production dependencies before uploading the artifact.
+- Removed a stale release workflow file.
+
 ## 0.22.1 - 2026-07-06
 
 - Disabled overscroll bounce and touch-action on the orientation overlay and body in portrait mobile view to prevent scroll bleed-through.
