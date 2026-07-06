@@ -10,7 +10,8 @@ import {
 import type { AgentCorrectionResult, AgentReviewResult, Asset, AssetInput, Company, CompanyInput, CurrentUserProfile, DahliaPhoto, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, ExcelImportResult, ExcelImportRevertResult, Garden, GardenMember, GardenRole, Invite, KnownUser, MaintenanceReminder, MaintenanceReminderInput, Order, OrderInput } from '../types'
 import type { GardenOptionKey, GardenOptions } from '../types'
 import { DEFAULT_GARDEN_OPTIONS, GARDEN_OPTIONS_STORAGE_KEY, normalizeGardenOptions, normalizeStoredGardenOptions } from '../gardenOptions'
-import { apiHeaders, auth, authHeaders, hasFirebaseConfig, initializeAuthPersistence } from '../firebase'
+import { auth, authHeaders, hasFirebaseConfig, initializeAuthPersistence } from '../firebase'
+import { api, API_BASE } from '../api'
 import { RecordsTable } from './RecordsTable'
 import { RecordModal } from './RecordModal'
 import { AgentPanel } from './AgentPanel'
@@ -24,7 +25,6 @@ import { GardenManagementModal } from './GardenManagementModal'
 import { FlowerNamesModal } from './FlowerNamesModal'
 import { ColorsModal } from './ColorsModal'
 
-const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? ''
 const THEME_STORAGE_KEY = 'dahlia-tracker-theme'
 const RECORDS_REFRESH_INTERVAL_STORAGE_KEY = 'dahlia-records-refresh-interval-ms'
 const gardensQueryKey = ['gardens'] as const
@@ -325,34 +325,6 @@ function highPriorityReminderMessage(count: number) {
 
 function fallbackGarden(gardens: Garden[]) {
   return [...gardens].sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? '')) || a.id.localeCompare(b.id))[0] ?? null
-}
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(await apiHeaders(init?.headers)),
-    },
-    ...init,
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    let message = text || `Request failed: ${res.status}`
-    let details: unknown
-    try {
-      const parsed = text ? JSON.parse(text) : null
-      if (parsed && typeof parsed === 'object') {
-        message = typeof parsed.message === 'string' ? parsed.message : message
-        details = parsed
-      }
-    } catch {
-      // Keep the raw response text when the server returns plain text.
-    }
-    const error = new Error(message) as Error & { details?: unknown }
-    error.details = details
-    throw error
-  }
-  return (await res.json()) as T
 }
 
 async function uploadPhoto(file: File): Promise<{ imageUrl: string; thumbnailUrl?: string }> {

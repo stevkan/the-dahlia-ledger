@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.22.3 - 2026-07-06
+
+- Extracted the shared `api` helper and `API_BASE` constant into `frontend/src/api.ts`, removing the duplicated copies from `App.tsx`, `AgentPanel.tsx`, and `AnalyticsModal.tsx`.
+
 ## 0.22.2 - 2026-07-06
 
 - Updated the Azure deployment workflow to build the frontend and install backend production dependencies before uploading the artifact.

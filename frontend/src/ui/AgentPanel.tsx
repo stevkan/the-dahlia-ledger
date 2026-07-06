@@ -1,29 +1,12 @@
 import { lazy, Suspense, useState } from 'react'
 import type { AgentReviewResult, AgentVisualization, MaintenanceReminderInput } from '../types'
 import agentHelperCapabilities from '../agentHelperCapabilities.json'
-import { apiHeaders } from '../firebase'
+import { api } from '../api'
 
 const AgentVisualizationView = lazy(async () => {
   const module = await import('./AgentVisualizationView')
   return { default: module.AgentVisualizationView }
 })
-
-const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? ''
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(await apiHeaders(init?.headers)),
-    },
-    ...init,
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `Request failed: ${res.status}`)
-  }
-  return (await res.json()) as T
-}
 
 type AgentResult =
   | {

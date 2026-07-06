@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "0.22.2",
+  "version": "0.22.3",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
