@@ -1,4 +1,4 @@
-import { apiHeaders } from './firebase'
+import { apiHeaders, authHeaders } from '../firebase'
 
 export const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? ''
 
@@ -28,4 +28,20 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     throw error
   }
   return (await res.json()) as T
+}
+
+export async function uploadPhoto(file: File): Promise<{ imageUrl: string; thumbnailUrl?: string }> {
+  const body = new FormData()
+  body.append('file', file)
+
+  const res = await fetch(`${API_BASE}/api/upload`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body,
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `Upload failed: ${res.status}`)
+  }
+  return (await res.json()) as { imageUrl: string; thumbnailUrl?: string }
 }

@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { jsPDF } from 'jspdf'
 import type { AgentVisualization, Company, DahliaRecord } from '../types'
-import { api } from '../api'
+import { api } from '../api/client'
 import { DropdownField } from './DropdownField'
 
 const AgentVisualizationView = lazy(async () => {

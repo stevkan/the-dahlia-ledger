@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from 'react'
 import type { AgentReviewResult, AgentVisualization, MaintenanceReminderInput } from '../types'
 import agentHelperCapabilities from '../agentHelperCapabilities.json'
-import { api } from '../api'
+import { api } from '../api/client'
 
 const AgentVisualizationView = lazy(async () => {
   const module = await import('./AgentVisualizationView')

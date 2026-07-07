@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.23.2 - 2026-07-06
+
+- Moved `frontend/src/api.ts` into `frontend/src/api/client.ts`.
+- Extracted garden query logic (options, members, query keys) from `App.tsx` into a new `frontend/src/hooks/useGardens.ts` custom hook.
+- Extracted records query logic (summaries, flower names, colors, infinite scroll) from `App.tsx` into a new `frontend/src/hooks/useRecords.ts` custom hook.
+
 ## 0.23.1 - 2026-07-06
 
 - Extracted HTTP helper functions (`bearerToken`, `forbidden`, `requireGlobalAdmin`, `requireGlobalAdminRoute`) from `server.js` into a new `backend/src/httpHelpers.js` module.
