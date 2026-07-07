@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.23.7 - 2026-07-07
+
+- In `RecordModal.tsx`, moved the Not Planted Reason / Not Viable Reason fields onto the same row as Planting State (25%/75% split) via a new `.gridSpan3` CSS class.
+- Removed the "Location details stop at..." summary message and its now-unused `getPlantingStateLabel` helper and `.stateSummary` style.
+
 ## 0.23.6 - 2026-07-07
 
 - Replaced the local `SelectField` component and `plantingStateOptions` helper in `RecordModal.tsx` with the shared `DahliaPickerField` component for the Planting State field.

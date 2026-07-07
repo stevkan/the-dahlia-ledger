@@ -232,10 +232,6 @@ function getGardenKey(row?: string | null, position?: number | null) {
   return row && position ? `${row}${position}` : undefined
 }
 
-function getPlantingStateLabel(state?: PlantingState | null) {
-  return PLANTING_STATES.find((option) => option.value === state)?.label ?? 'Selected state'
-}
-
 function inputWithGardenLocation(input: DahliaRecordInput) {
   const plantingState = input.meta.plantingState
   const gardenZone = input.meta.gardenZone ?? input.meta.gardenArea
@@ -1267,7 +1263,7 @@ export function RecordModal({
             onChange={setPlantingState}
           />
           {plantingState === 'not_planted' ? (
-            <div className="field gridSpanFull">
+            <div className="field gridSpan3">
               <FieldLabel label="Not Planted Reason" hint="Why this dahlia is tracked but not planted." />
               <div className="radioRow">
                 {NOT_PLANTED_REASONS.map((option) => (
@@ -1286,7 +1282,7 @@ export function RecordModal({
             </div>
           ) : null}
           {plantingState === 'not_viable' ? (
-            <div className="field gridSpanFull">
+            <div className="field gridSpan3">
               <FieldLabel label="Not Viable Reason" hint="Why this dahlia is no longer viable." />
               <div className="radioRow">
                 {NOT_VIABLE_REASONS.map((option) => (
@@ -1354,7 +1350,6 @@ export function RecordModal({
               {gardenLocationInUse ? <div className="error inlineError gridSpanFull">That garden location is already assigned to another record.</div> : null}
             </>
           ) : null}
-          {plantingState && plantingState !== 'in_garden' && plantingState !== 'garden_tray' ? <div className="stateSummary gridSpanFull">Location details stop at {getPlantingStateLabel(plantingState)}.</div> : null}
         </div>
 
         <div className="photoField photosSection">

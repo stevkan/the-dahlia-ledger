@@ -1267,6 +1267,10 @@ th.sortable {
   grid-column: span 2;
 }
 
+.gridSpan3 {
+  grid-column: span 3;
+}
+
 .healthGrid {
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr);
@@ -1291,15 +1295,6 @@ th.sortable {
   column-gap: 10px;
   row-gap: 12px;
   align-items: start;
-}
-
-.stateSummary {
-  padding: 10px 12px;
-  border: 1px solid var(--border-soft);
-  border-radius: 12px;
-  color: var(--text-muted);
-  background: var(--surface-subtle);
-  font-size: 13px;
 }
 
 .radioRow {
@@ -1562,6 +1557,10 @@ th.sortable {
 
   .grid4 {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .gridSpan3 {
+    grid-column: 1 / -1;
   }
 
   .healthGrid {
