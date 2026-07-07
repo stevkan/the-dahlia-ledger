@@ -142,3 +142,48 @@ export const AssetInputSchema = z.object({
   invoiceNumber: z.string().optional().nullable(),
   invoiceTotal: z.number().nonnegative().optional().nullable(),
 })
+
+export const GardenInputSchema = z.object({
+  name: z.string().trim().min(1),
+  organizationName: z.string().optional().nullable(),
+  locationName: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  gardenOptions: z.object({
+    gardenAreas: z.array(z.string().trim().min(1)),
+    gardenRows: z.array(z.string().trim().min(1)),
+    gardenPositions: z.array(z.string().trim().min(1)),
+  }).optional(),
+})
+
+export const MemberInputSchema = z.object({
+  userId: z.string().trim().min(1),
+  email: z.string().trim().optional().nullable(),
+  displayName: z.string().trim().optional().nullable(),
+  role: z.string().trim().min(1),
+})
+
+export const InviteInputSchema = z.object({
+  gardenId: z.string().optional().nullable(),
+  email: z.string().trim().optional().nullable(),
+  role: z.string().trim().min(1),
+  expiresAt: z.string().optional().nullable(),
+})
+
+export const CompanyReassignmentSchema = z.object({
+  companyIds: z.array(z.string().trim().min(1)).min(1),
+  ownerUserId: z.string().trim().min(1),
+})
+
+export const MaintenanceReminderInputSchema = z.object({
+  title: z.string().trim().min(1),
+  notes: z.string().optional(),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
+  relatedRecordIds: z.array(z.string()).optional(),
+  source: z.enum(['user', 'agent']).optional(),
+  gardenId: z.string().optional().nullable(),
+  ownerUserId: z.string().optional().nullable(),
+  assignedToUserId: z.string().optional().nullable(),
+  visibility: z.enum(['private', 'garden']).optional(),
+  priority: z.enum(['normal', 'high']).optional(),
+})

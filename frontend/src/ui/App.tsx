@@ -12,6 +12,7 @@ import type { GardenOptionKey, GardenOptions } from '../types'
 import { DEFAULT_GARDEN_OPTIONS, GARDEN_OPTIONS_STORAGE_KEY, normalizeGardenOptions, normalizeStoredGardenOptions } from '../gardenOptions'
 import { auth, authHeaders, hasFirebaseConfig, initializeAuthPersistence } from '../firebase'
 import { api, API_BASE } from '../api'
+import { type InfiniteRecordsData, type RecordsPage, patchRecords, patchRecordSummaries, recordToSummary } from '../recordUtils'
 import { RecordsTable } from './RecordsTable'
 import { RecordModal } from './RecordModal'
 import { AgentPanel } from './AgentPanel'
@@ -65,115 +66,8 @@ function recordSummariesQueryKey(gardenId?: string) {
   return ['records', gardenId ?? 'default', 'summary'] as const
 }
 
-function patchRecords(records: DahliaRecord[] | undefined, changedRecords: DahliaRecord[]) {
-  if (!records || changedRecords.length === 0) return records
-
-  const changedById = new Map(changedRecords.map((record) => [record.id, record]))
-  let changed = false
-  const next = records.map((record) => {
-    const replacement = changedById.get(record.id)
-    if (!replacement) return record
-    changed = true
-    return replacement
-  })
-
-  return changed ? next : records
-}
-
 function appendGardenQueryParam(gardenQuery: string, param: string) {
   return gardenQuery ? `${gardenQuery}&${param}` : `?${param}`
-}
-
-type RecordsPage<T> = {
-  records: T[]
-  nextCursor?: number
-}
-
-type InfiniteRecordsData<T> = {
-  pages: RecordsPage<T>[]
-  pageParams: unknown[]
-}
-
-function recordToSummary(record: DahliaRecord): DahliaRecordSummary {
-  return {
-    id: record.id,
-    recordNumber: record.recordNumber,
-    gardenId: record.gardenId,
-    flowerName: record.flowerName,
-    gardenLocation: record.gardenLocation,
-    seasonYearStart: record.seasonYearStart,
-    thumbnailUrl: record.thumbnailUrl,
-    imageUrl: record.imageUrl,
-    cultivarThumbnailUrl: record.cultivarThumbnailUrl,
-    cultivarImageUrl: record.cultivarImageUrl,
-    defaultPhotoScope: record.defaultPhotoScope,
-    core: {
-      color: record.core.color,
-      size: record.core.size,
-    },
-    growth: {
-      height: record.growth.height,
-    },
-    tuber: {
-      source: record.tuber.source,
-      linkedOrderItemIds: record.tuber.linkedOrderItemIds,
-    },
-    meta: {
-      gardenArea: record.meta.gardenArea,
-      gardenRow: record.meta.gardenRow,
-      gardenPosition: record.meta.gardenPosition,
-      gardenZone: record.meta.gardenZone,
-      rowOrBed: record.meta.rowOrBed,
-      position: record.meta.position,
-      plantingState: record.meta.plantingState,
-    },
-  }
-}
-
-function patchRecordSummaries(
-  data: InfiniteRecordsData<DahliaRecordSummary> | undefined,
-  changedRecords: DahliaRecord[],
-  deletedRecordIds: string[] = [],
-) {
-  if (!data || (changedRecords.length === 0 && deletedRecordIds.length === 0)) return data
-
-  const changedById = new Map(changedRecords.map((record) => [record.id, recordToSummary(record)]))
-  const deletedIds = new Set(deletedRecordIds)
-  const seenIds = new Set<string>()
-  let changed = false
-
-  const pages = data.pages.map((page, pageIndex) => {
-    const records: DahliaRecordSummary[] = []
-    for (const record of page.records) {
-      if (deletedIds.has(record.id)) {
-        changed = true
-        continue
-      }
-
-      const replacement = changedById.get(record.id)
-      if (replacement) {
-        records.push(replacement)
-        seenIds.add(record.id)
-        changed = true
-      } else {
-        records.push(record)
-      }
-    }
-
-    if (pageIndex === 0) {
-      for (const [id, record] of changedById) {
-        if (!seenIds.has(id)) {
-          records.unshift(record)
-          seenIds.add(id)
-          changed = true
-        }
-      }
-    }
-
-    return records === page.records ? page : { ...page, records }
-  })
-
-  return changed ? { ...data, pages } : data
 }
 
 function maintenanceRemindersQueryKey(gardenId?: string) {

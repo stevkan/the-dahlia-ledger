@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.23.1 - 2026-07-06
+
+- Extracted HTTP helper functions (`bearerToken`, `forbidden`, `requireGlobalAdmin`, `requireGlobalAdminRoute`) from `server.js` into a new `backend/src/httpHelpers.js` module.
+- Moved inline Zod schemas (`GardenInputSchema`, `MemberInputSchema`, `InviteInputSchema`, `CompanyReassignmentSchema`, `MaintenanceReminderInputSchema`) from `server.js` into `backend/src/schema.js`.
+- Extracted record utility functions and types (`patchRecords`, `patchRecordSummaries`, `recordToSummary`, `RecordsPage`, `InfiniteRecordsData`) from `App.tsx` into a new `frontend/src/recordUtils.ts` module.
+- Added vitest testing infrastructure to both backend and frontend, with `test` and `test:watch` scripts.
+
 ## 0.23.0 - 2026-07-06
 
 - Added Azure Application Insights telemetry to the backend: auto-collects requests, exceptions, and dependencies when `APPLICATIONINSIGHTS_CONNECTION_STRING` is set, and tracks exceptions from agent routes and the global error handler.

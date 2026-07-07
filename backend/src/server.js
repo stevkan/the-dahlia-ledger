@@ -7,7 +7,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import './env.js'
-import { AssetInputSchema, CompanyInputSchema, DahliaPhotoSchema, DahliaRecordInputSchema, OrderInputSchema } from './schema.js'
+import { AssetInputSchema, CompanyInputSchema, CompanyReassignmentSchema, DahliaPhotoSchema, DahliaRecordInputSchema, GardenInputSchema, InviteInputSchema, MaintenanceReminderInputSchema, MemberInputSchema, OrderInputSchema } from './schema.js'
 import { listRecords, listRecordsPage, listRecordSummaries, listRecordSummariesPage, getRecord, createRecord, updateRecord, updateCultivarPhoto, updateCultivarPhotoDefault, updateRecordPhotoDefault, deleteCultivarPhoto, deleteRecord } from './records.js'
 import { addOrderFile, countOrderFiles, createCompany, createOrder, deleteCompany, deleteOrder, deleteOrderFile, ensureCompany, listCompaniesWithUsage, listOrders, normalizeCompanyKey, reassignCompanies, updateCompany, updateOrder } from './orders.js'
 import { addAssetFile, countAssetFiles, createAsset, deleteAsset, deleteAssetFile, listAssets, updateAsset } from './assets.js'
@@ -22,6 +22,7 @@ import { importExcelLocations } from './excelImport.js'
 import { createExcelImportHistory, getLatestActiveExcelImportHistory, markExcelImportHistoryReverted } from './excelImportHistory.js'
 import { toTitleCase } from './textFormat.js'
 import { deleteKnownUser, getKnownUser, isGlobalAdmin, listKnownUsers, upsertKnownUser } from './users.js'
+import { bearerToken, forbidden, requireGlobalAdmin, requireGlobalAdminRoute } from './httpHelpers.js'
 import { listFlowerNames, renameFlowerName } from './flowerNames.js'
 import { listColors, renameColor } from './colors.js'
 import { trackException, trackTrace } from './telemetry.js'
@@ -43,12 +44,6 @@ app.get('/api/health', (req, res) => {
 })
 
 const requireAppCheck = process.env.REQUIRE_FIREBASE_APP_CHECK === 'true'
-
-function bearerToken(req) {
-  const value = req.get('authorization') ?? ''
-  const match = value.match(/^Bearer\s+(.+)$/i)
-  return match?.[1]
-}
 
 app.use('/api', async (req, res, next) => {
   if (req.path === '/health') return next()
@@ -75,83 +70,6 @@ app.use('/api', async (req, res, next) => {
     res.status(401).json({ error: 'app_check_failed', message: 'Invalid Firebase App Check token.' })
   }
 })
-
-const GardenInputSchema = z.object({
-  name: z.string().trim().min(1),
-  organizationName: z.string().optional().nullable(),
-  locationName: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
-  gardenOptions: z.object({
-    gardenAreas: z.array(z.string().trim().min(1)),
-    gardenRows: z.array(z.string().trim().min(1)),
-    gardenPositions: z.array(z.string().trim().min(1)),
-  }).optional(),
-})
-
-const MemberInputSchema = z.object({
-  userId: z.string().trim().min(1),
-  email: z.string().trim().optional().nullable(),
-  displayName: z.string().trim().optional().nullable(),
-  role: z.string().trim().min(1),
-})
-
-const InviteInputSchema = z.object({
-  gardenId: z.string().optional().nullable(),
-  email: z.string().trim().optional().nullable(),
-  role: z.string().trim().min(1),
-  expiresAt: z.string().optional().nullable(),
-})
-
-const CompanyReassignmentSchema = z.object({
-  companyIds: z.array(z.string().trim().min(1)).min(1),
-  ownerUserId: z.string().trim().min(1),
-})
-
-function forbidden(res, e) {
-  if (e?.code === 'global_admin_required') {
-    res.status(403).json({ error: e.code, message: e.message })
-    return true
-  }
-  if (e?.code === 'garden_access_denied' || e?.code === 'garden_write_denied') {
-    res.status(403).json({ error: e.code, message: e.message })
-    return true
-  }
-  if (e?.code === 'last_owner') {
-    res.status(409).json({ error: e.code, message: e.message })
-    return true
-  }
-  if (e?.code === 'duplicate_member') {
-    res.status(409).json({ error: e.code, message: e.message })
-    return true
-  }
-  if (e?.code === 'garden_in_use') {
-    res.status(409).json({ error: e.code, message: e.message, counts: e.counts })
-    return true
-  }
-  if (e?.code === 'last_garden') {
-    res.status(409).json({ error: e.code, message: e.message })
-    return true
-  }
-  return false
-}
-
-function requireGlobalAdmin(req) {
-  if (isGlobalAdmin(req.user)) return
-  const error = new Error('This action requires global admin access.')
-  error.code = 'global_admin_required'
-  throw error
-}
-
-function requireGlobalAdminRoute(req, res, next) {
-  try {
-    requireGlobalAdmin(req)
-    next()
-  } catch (e) {
-    if (forbidden(res, e)) return
-    next(e)
-  }
-}
 
 app.get('/api/me', async (req, res) => {
   res.json({ user: { uid: req.user.uid, email: req.user.email, displayName: req.user.name || req.user.displayName, globalAdmin: isGlobalAdmin(req.user) } })
@@ -450,19 +368,6 @@ app.delete('/api/records/:id', async (req, res) => {
     if (forbidden(res, e)) return
     throw e
   }
-})
-
-const MaintenanceReminderInputSchema = z.object({
-  title: z.string().trim().min(1),
-  notes: z.string().optional(),
-  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
-  relatedRecordIds: z.array(z.string()).optional(),
-  source: z.enum(['user', 'agent']).optional(),
-  gardenId: z.string().optional().nullable(),
-  ownerUserId: z.string().optional().nullable(),
-  assignedToUserId: z.string().optional().nullable(),
-  visibility: z.enum(['private', 'garden']).optional(),
-  priority: z.enum(['normal', 'high']).optional(),
 })
 
 app.get('/api/maintenance-reminders', async (req, res) => {
