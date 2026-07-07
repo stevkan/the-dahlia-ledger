@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.23.0 - 2026-07-06
+
+- Added Azure Application Insights telemetry to the backend: auto-collects requests, exceptions, and dependencies when `APPLICATIONINSIGHTS_CONNECTION_STRING` is set, and tracks exceptions from agent routes and the global error handler.
+
 ## 0.22.3 - 2026-07-06
 
 - Extracted the shared `api` helper and `API_BASE` constant into `frontend/src/api.ts`, removing the duplicated copies from `App.tsx`, `AgentPanel.tsx`, and `AnalyticsModal.tsx`.

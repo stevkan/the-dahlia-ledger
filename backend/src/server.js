@@ -24,6 +24,7 @@ import { toTitleCase } from './textFormat.js'
 import { deleteKnownUser, getKnownUser, isGlobalAdmin, listKnownUsers, upsertKnownUser } from './users.js'
 import { listFlowerNames, renameFlowerName } from './flowerNames.js'
 import { listColors, renameColor } from './colors.js'
+import { trackException, trackTrace } from './telemetry.js'
 
 const app = express()
 const __filename = fileURLToPath(import.meta.url)
@@ -889,6 +890,7 @@ app.post('/api/agent/ingest', async (req, res) => {
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     console.error('Agent ingest failed:', message)
+    trackException(e, { operation: 'agent-ingest' })
     res.status(503).json({ status: 'needs_clarification', message: `Agent unavailable: ${message}` })
   }
 })
@@ -946,6 +948,7 @@ app.post('/api/agent/metrics', async (req, res) => {
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     console.error('Agent metrics failed:', message)
+    trackException(e, { operation: 'agent-metrics' })
     res.status(503).json({ status: 'needs_clarification', message: `Analytics unavailable: ${message}` })
   }
 })
@@ -998,6 +1001,7 @@ app.post('/api/agent/metrics/drilldown', async (req, res) => {
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     console.error('Agent metrics drilldown failed:', message)
+    trackException(e, { operation: 'agent-metrics-drilldown' })
     res.status(503).json({ title: 'Drilldown unavailable', records: [], error: message })
   }
 })
@@ -1029,6 +1033,7 @@ app.post('/api/agent/review', async (req, res) => {
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     console.error('Agent review failed:', message)
+    trackException(e, { operation: 'agent-review' })
     res.status(503).json({ error: `Agent review unavailable: ${message}` })
   }
 })
@@ -1050,6 +1055,7 @@ app.post('/api/agent/correction', async (req, res) => {
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     console.error('Agent correction failed:', message)
+    trackException(e, { operation: 'agent-correction' })
     res.status(503).json({ error: `Agent correction unavailable: ${message}` })
   }
 })
@@ -1066,10 +1072,12 @@ app.use((err, req, res, next) => {
     return res.status(413).send('Uploaded file is too large for this import.')
   }
 
+  trackException(err, { url: req.originalUrl, method: req.method })
   next(err)
 })
 
 const port = Number(process.env.PORT ?? 8787)
 app.listen(port, () => {
   console.log(`Backend listening on http://localhost:${port}`)
+  trackTrace('Backend started', 1, { port: String(port) })
 })

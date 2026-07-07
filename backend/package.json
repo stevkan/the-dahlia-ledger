@@ -1,11 +1,11 @@
 {
   "name": "backend",
-  "version": "0.22.3",
+  "version": "0.23.0",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "start": "node --require ./src/appinsights.cjs src/server.js",
+    "dev": "nodemon",
     "backfill:thumbnails": "node scripts/backfill-photo-thumbnails.js",
     "backfill:thumbnails:dry-run": "node scripts/backfill-photo-thumbnails.js --dry-run",
     "normalize:bloom-widths": "node scripts/normalize-record-bloom-widths.js",
@@ -19,7 +19,11 @@
   "author": "",
   "license": "ISC",
   "description": "",
+  "nodemonConfig": {
+    "exec": "node --require ./src/appinsights.cjs src/server.js"
+  },
   "dependencies": {
+    "applicationinsights": "^3.15.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
