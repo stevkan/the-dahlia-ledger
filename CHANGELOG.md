@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.23.4 - 2026-07-06
+
+- Added `frontend/src/vite-env.d.ts` to declare `ImportMetaEnv` and `ImportMeta` types for `VITE_API_BASE`, enabling proper TypeScript typing of `import.meta.env` in the frontend.
+- Removed the `as any` cast and optional chaining from the `API_BASE` constant in `frontend/src/api/client.ts`.
+
 ## 0.23.3 - 2026-07-06
 
 - Extracted all route handlers from `backend/src/server.js` into dedicated router modules under `backend/src/routes/` (gardens, users, records, maintenance reminders, companies, orders, assets, upload, imports, flower names, colors, agent, settings).
