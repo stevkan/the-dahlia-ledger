@@ -38,6 +38,7 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
+        globIgnores: ['**/heic-to*.js'],
       },
     }),
   ],

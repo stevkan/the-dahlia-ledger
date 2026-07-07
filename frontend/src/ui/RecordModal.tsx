@@ -812,9 +812,8 @@ export function RecordModal({
     if (isHeic) {
       setPhotoConverting(true)
       try {
-        const heic2any = (await import('heic2any')).default
-        const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 })
-        const jpeg = Array.isArray(converted) ? converted[0] : converted
+        const { heicTo } = await import('heic-to')
+        const jpeg = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.92 })
         const convertedName = file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg')
         const convertedFile = new File([jpeg], convertedName, { type: 'image/jpeg' })
         setPhotoFile(convertedFile)

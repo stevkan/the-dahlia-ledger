@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.23.5 - 2026-07-06
+
+- Replaced `heic2any` with `heic-to` for HEIC/HEIF image conversion in photo upload, and excluded `heic-to` from the Workbox service worker precache.
+
 ## 0.23.4 - 2026-07-06
 
 - Added `frontend/src/vite-env.d.ts` to declare `ImportMetaEnv` and `ImportMeta` types for `VITE_API_BASE`, enabling proper TypeScript typing of `import.meta.env` in the frontend.
