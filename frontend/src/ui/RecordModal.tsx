@@ -236,10 +236,6 @@ function getPlantingStateLabel(state?: PlantingState | null) {
   return PLANTING_STATES.find((option) => option.value === state)?.label ?? 'Selected state'
 }
 
-function plantingStateOptions() {
-  return PLANTING_STATES.map((option) => `${option.value}|${option.label}`)
-}
-
 function inputWithGardenLocation(input: DahliaRecordInput) {
   const plantingState = input.meta.plantingState
   const gardenZone = input.meta.gardenZone ?? input.meta.gardenArea
@@ -513,71 +509,6 @@ function TextArea({
     <label className="field">
       <FieldLabel label={label} hint={hint} />
       <textarea className="textarea" value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-    </label>
-  )
-}
-
-function SelectField({
-  label,
-  hint,
-  required,
-  value,
-  options,
-  disabledOptions,
-  onChange,
-  labelAction,
-  message,
-  disabled: disabledField = false,
-  portal = false,
-}: {
-  label: string
-  hint?: string
-  required?: boolean
-  value: string | undefined
-  options: string[]
-  disabledOptions?: string[]
-  onChange: (v: string | undefined) => void
-  labelAction?: React.ReactNode
-  message?: string
-  disabled?: boolean
-  portal?: boolean
-}) {
-  const disabled = new Set(disabledOptions ?? [])
-  const hasSelectedOption = options.some((option) => (option.includes('|') ? option.split('|')[0] : option) === value)
-  const select = (
-    <DropdownField
-      label={label}
-      value={value ?? ''}
-      options={[
-        { value: '', label: 'Select...' },
-        ...(value && !hasSelectedOption ? [{ value, label: value }] : []),
-        ...options.map((option) => ({
-          value: option.includes('|') ? option.split('|')[0] : option,
-          label: option.includes('|') ? option.split('|')[1] : option,
-          disabled: disabled.has(option),
-        })),
-      ]}
-      onChange={(nextValue) => onChange(nextValue || undefined)}
-      disabled={disabledField}
-      portal={portal}
-    />
-  )
-
-  if (labelAction) {
-    return (
-      <div className="field">
-        <FieldLabel label={label} hint={hint} required={required} action={labelAction} />
-        {select}
-        {message ? <div className="fieldMessage">{message}</div> : null}
-      </div>
-    )
-  }
-
-  return (
-      <label className="field">
-      <FieldLabel label={label} hint={hint} required={required} action={labelAction} />
-      {select}
-      {message ? <div className="fieldMessage">{message}</div> : null}
     </label>
   )
 }
@@ -1326,7 +1257,15 @@ export function RecordModal({
           <div className="gridSpan2">
             <Field label="Season" hint="The growing season year for this record." required type="number" value={String(form.seasonYearStart)} onChange={setSeasonYearStart} />
           </div>
-          <SelectField label="Planting State" hint="Where this specific tuber or plant is currently being tracked." required value={plantingState} options={plantingStateOptions()} onChange={setPlantingState} />
+          <DahliaPickerField
+            label="Planting State"
+            hint="Where this specific tuber or plant is currently being tracked."
+            required
+            clearable={false}
+            options={PLANTING_STATES}
+            value={plantingState}
+            onChange={setPlantingState}
+          />
           {plantingState === 'not_planted' ? (
             <div className="field gridSpanFull">
               <FieldLabel label="Not Planted Reason" hint="Why this dahlia is tracked but not planted." />

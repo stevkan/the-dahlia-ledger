@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.23.6 - 2026-07-07
+
+- Replaced the local `SelectField` component and `plantingStateOptions` helper in `RecordModal.tsx` with the shared `DahliaPickerField` component for the Planting State field.
+- Added Claude Code run and ship skills under `.claude/skills/`.
+
 ## 0.23.5 - 2026-07-06
 
 - Replaced `heic2any` with `heic-to` for HEIC/HEIF image conversion in photo upload, and excluded `heic-to` from the Workbox service worker precache.
