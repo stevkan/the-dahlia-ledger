@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.23.3 - 2026-07-06
+
+- Extracted all route handlers from `backend/src/server.js` into dedicated router modules under `backend/src/routes/` (gardens, users, records, maintenance reminders, companies, orders, assets, upload, imports, flower names, colors, agent, settings).
+
 ## 0.23.2 - 2026-07-06
 
 - Moved `frontend/src/api.ts` into `frontend/src/api/client.ts`.
