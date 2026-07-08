@@ -23,14 +23,25 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: npm install and build
+      - name: Build frontend
         run: npm run build
+
+      - name: Install backend production dependencies
+        run: npm --prefix backend ci --omit=dev
+
+      - name: Assemble deploy package
+        run: |
+          mkdir deploy
+          cp package.json deploy/
+          cp -r backend deploy/backend
+          mkdir -p deploy/frontend
+          cp -r frontend/dist deploy/frontend/dist
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: deploy
 
   deploy:
     runs-on: ubuntu-latest
@@ -44,7 +55,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-app
-      
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -59,4 +70,3 @@ jobs:
           app-name: 'dahlia-ledger'
           slot-name: 'dahlia'
           package: .
-          
