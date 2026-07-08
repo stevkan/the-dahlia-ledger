@@ -1903,18 +1903,32 @@ th.sortable {
 }
 
 .photosSection {
-  padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--surface-subtle);
+  border-radius: 14px;
+  overflow: hidden;
 }
 
 .photosSectionHeader {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--surface-subtle);
+  border: 0;
+  color: var(--text);
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.photosSectionHeader:focus {
+  outline: none;
+}
+
+.photosSectionHeader:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--focus);
 }
 
 .photosCollapseButton {
@@ -1922,9 +1936,15 @@ th.sortable {
 }
 
 .photosSectionTitle {
-  color: var(--text-strong);
-  font-size: 18px;
-  font-weight: 750;
+  color: inherit;
+  font: inherit;
+}
+
+.photosSectionBody {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .photoSubhead {
@@ -1933,7 +1953,7 @@ th.sortable {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: capitalize
 }
 
 .photoField .label {
@@ -1952,6 +1972,21 @@ th.sortable {
   border: 1px dashed var(--border-strong);
   border-radius: 14px;
   background: var(--surface-subtle);
+}
+
+.photosCollapseColumn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: flex-start;
+  width: fit-content;
+}
+
+.photosCollapseButtonRow {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 14px;
 }
 
 .photoPreview,
@@ -2025,7 +2060,7 @@ th.sortable {
 
 .photoViewerHeader {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   box-sizing: border-box;
@@ -2091,6 +2126,16 @@ th.sortable {
   grid-template-columns: 1fr 1fr;
   gap: 14px;
   margin-top: 14px;
+}
+
+.photoGalleriesModal {
+  width: min(920px, calc(100vw - 32px));
+}
+
+.photoGalleriesBody {
+  display: block;
+  align-items: initial;
+  justify-items: initial;
 }
 
 .photoGalleryGroup {

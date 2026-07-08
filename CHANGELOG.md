@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.24.0 - 2026-07-07
+
+- Added a dev-only `-AuthBypass` mode to the `run-the-dahlia-ledger` driver script that signs in a throwaway user against a local Firebase Auth Emulator, so authenticated UI can be screenshotted without a real Microsoft OAuth popup; gated behind `import.meta.env.DEV` and compiled out of production builds.
+- Added `firebase-tools` as a root dev dependency and a Firebase Auth Emulator config in `firebase.json` to support the new auth bypass flow.
+- Reworked the Photos section in `RecordModal.tsx`: the section header is now a collapsible toggle button showing just the assigned photo, and "Show Galleries" now opens a dedicated modal with the upload dropzone, scope picker, and Record/Cultivar photo galleries instead of expanding inline.
+- Changed the default photo upload scope in `RecordModal.tsx` from "This record only" to "All ... records" (cultivar).
+- Fixed `Start-Process -FilePath "npm"` resolving to `npm.ps1` and failing in the driver script by calling `npm.cmd` explicitly.
+
 ## 0.23.7 - 2026-07-07
 
 - In `RecordModal.tsx`, moved the Not Planted Reason / Not Viable Reason fields onto the same row as Planting State (25%/75% split) via a new `.gridSpan3` CSS class.

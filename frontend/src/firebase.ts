@@ -2,6 +2,7 @@ import { initializeApp, type FirebaseOptions } from 'firebase/app'
 import { getToken, initializeAppCheck, ReCaptchaV3Provider, type AppCheck } from 'firebase/app-check'
 import {
   browserLocalPersistence,
+  connectAuthEmulator,
   getAuth,
   setPersistence,
   type Auth,
@@ -26,6 +27,16 @@ if (appCheckDebugToken) {
 }
 
 export const auth: Auth | null = app ? getAuth(app) : null
+
+if (auth && import.meta.env.DEV && import.meta.env.VITE_USE_AUTH_EMULATOR === 'true') {
+  try {
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to connect to the Firebase Auth Emulator:', e)
+  }
+}
+
 export const appCheck: AppCheck | null = app && appCheckSiteKey
   ? initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider(appCheckSiteKey),

@@ -609,6 +609,7 @@ export function RecordModal({
   gardenId?: string
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const galleriesFileInputRef = useRef<HTMLInputElement | null>(null)
   const confirmAreaRef = useRef<HTMLDivElement | null>(null)
   const [open, setOpen] = useState<Record<SectionKey, boolean>>({
     core: true,
@@ -630,9 +631,10 @@ export function RecordModal({
   const [photoConverting, setPhotoConverting] = useState(false)
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false)
   const [viewerPhotoUrl, setViewerPhotoUrl] = useState<string | null>(null)
+  const [galleriesOpen, setGalleriesOpen] = useState(false)
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [photoLoadError, setPhotoLoadError] = useState(false)
-  const [photoScope, setPhotoScope] = useState<'cultivar' | 'record'>('record')
+  const [photoScope, setPhotoScope] = useState<'cultivar' | 'record'>('cultivar')
   const [dirtyPhotoSection, setDirtyPhotoSection] = useState<'record' | 'cultivar' | null>(null)
   const [closeError, setCloseError] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
@@ -761,6 +763,17 @@ export function RecordModal({
       if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous)
       return URL.createObjectURL(file)
     })
+  }
+
+  function cancelPhotoSelection() {
+    setPhotoFile(null)
+    setPhotoPreview((previous) => {
+      if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous)
+      return null
+    })
+    setPhotoError(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (galleriesFileInputRef.current) galleriesFileInputRef.current.value = ''
   }
 
   function setGardenArea(value: string | undefined) {
@@ -1161,13 +1174,6 @@ export function RecordModal({
   const overallCultivarDefaultPhotoId = form.defaultPhotoScope === 'cultivar' ? currentResolvedPhoto?.id : undefined
   const currentPhoto = photoPreview ?? (photoUrl(currentResolvedPhoto) || form.thumbnailUrl || form.imageUrl || form.cultivarThumbnailUrl || form.cultivarImageUrl || inheritedCultivarPhoto)
   const currentViewerPhoto = photoPreview ?? (fullPhotoUrl(currentResolvedPhoto) || form.imageUrl || form.thumbnailUrl || form.cultivarImageUrl || form.cultivarThumbnailUrl || inheritedCultivarPhoto)
-  const currentPhotoSource = photoPreview
-    ? 'Selected photo preview'
-    : currentResolvedPhoto?.scope === 'record' || (form.thumbnailUrl || form.imageUrl) && form.defaultPhotoScope !== 'cultivar'
-      ? 'Using record photo'
-      : currentResolvedPhoto?.scope === 'cultivar' || form.cultivarThumbnailUrl || form.cultivarImageUrl || inheritedCultivarPhoto
-        ? 'Using cultivar photo'
-        : ''
 
   useEffect(() => {
     setPhotoLoadError(false)
@@ -1353,114 +1359,37 @@ export function RecordModal({
         </div>
 
         <div className="photoField photosSection">
-          <div className="photosSectionHeader">
-            <div>
-              <div className="photosSectionTitle">Photos</div>
-              <div className="photoHint">Record photos are specific to this plant. Cultivar photos are shared across matching records.</div>
-            </div>
-            <button
-              className="btn ghost compact photosCollapseButton"
-              type="button"
-              onClick={() => setOpen((previous) => ({ ...previous, photos: !previous.photos }))}
-            >
-              {open.photos ? 'Hide Galleries' : 'Show Galleries'} <span className="chev">{open.photos ? '▾' : '▸'}</span>
-            </button>
-          </div>
-          <div className="photoSubhead">Current Default Image</div>
-          <div
-            className="photoDropzone"
-            onDragOver={(e) => {
-              e.preventDefault()
-            }}
-            onDrop={(e) => {
-              e.preventDefault()
-              void selectPhoto(e.dataTransfer.files[0])
-            }}
+          <button
+            className="photosSectionHeader"
+            type="button"
+            onClick={() => setOpen((previous) => ({ ...previous, photos: !previous.photos }))}
           >
-            {currentPhoto && !photoLoadError ? (
-              <div className="photoPreviewFrame">
-                <img key={currentPhoto} className="photoPreview" src={currentPhoto} alt="Selected dahlia" loading="lazy" decoding="async" width={PHOTO_PREVIEW_SIZE} height={PHOTO_PREVIEW_SIZE} onError={() => setPhotoLoadError(true)} />
-                <button className="photoPreviewOverlayButton" type="button" onClick={() => { setViewerPhotoUrl(currentViewerPhoto); setPhotoViewerOpen(true) }} aria-label="View larger flower photo" />
-              </div>
-            ) : (
-              <div className="photoPlaceholder">{photoLoadError ? 'Photo failed to load' : 'Drop a photo here'}</div>
-            )}
-            <div className="photoActions">
-              <div className="photoHint">Add a new image by dragging it here, or choose one from your device.</div>
-              <div className="photoUploadTarget" role="radiogroup" aria-label="Photo upload target">
-                <label className="radioOption">
-                  <input type="radio" name="photoScope" value="record" checked={photoScope === 'record'} onChange={() => setPhotoScope('record')} />
-                  <span>This record only</span>
-                </label>
-                <label className="radioOption">
-                  <input type="radio" name="photoScope" value="cultivar" checked={photoScope === 'cultivar'} onChange={() => setPhotoScope('cultivar')} />
-                  <span>All {form.core.cultivar || form.flowerName || 'cultivar'} records</span>
-                </label>
-              </div>
-              <div className="photoActionButtons">
-                <button
-                  className={photoFile ? 'btn' : 'btn ghost'}
-                  type="button"
-                  disabled={photoFile ? !canSave || saving || photoConverting : photoConverting}
-                  onClick={() => photoFile ? void handleSave({ keepOpen: true }) : fileInputRef.current?.click()}
-                >
-                  {photoConverting ? 'Converting...' : photoFile ? saving ? 'Saving...' : 'Save Photo' : 'Add Photo'}
-                </button>
-              </div>
-              <input
-                ref={fileInputRef}
-                className="fileInput"
-                type="file"
-                accept="image/*,.heic,.heif"
-                onChange={(e) => void selectPhoto(e.target.files?.[0])}
-              />
-            </div>
-          </div>
-          {photoFile ? <div className="photoFileName">Selected: {photoFile.name}</div> : null}
-          {photoFile ? <div className="photoFileName">Will upload to: {photoScope === 'record' ? 'Record Photos' : 'Cultivar Photos'}</div> : null}
-          {currentPhotoSource ? <div className="photoFileName">{currentPhotoSource}</div> : null}
-          {currentViewerPhoto ? <a className="photoFileName" href={currentViewerPhoto} target="_blank" rel="noreferrer">Open photo</a> : null}
-          {photoLoadError ? <div className="error inlineError">The photo URL is saved but the browser could not load it in the preview.</div> : null}
-          {photoError ? <div className="error inlineError">{photoError}</div> : null}
+            <div className="photosSectionTitle">Photos</div>
+            <span className="chev">{open.photos ? '▾' : '▸'}</span>
+          </button>
           {open.photos ? (
-            <div className="photoGalleryGroups">
-              <PhotoGallery
-                title="Record Photos"
-                empty="No record-specific photos yet."
-                photos={recordPhotos}
-                defaultPhotoId={resolvedRecordDefaultPhotoId}
-                overallDefaultPhotoId={overallRecordDefaultPhotoId}
-                onView={(url) => { setViewerPhotoUrl(url); setPhotoViewerOpen(true) }}
-                onSetDefault={(photo) => void setRecordDefault(photo)}
-                onDelete={(photos) => void deletePhotos(photos, 'record')}
-                onCopy={(photos) => void copyPhotosToScope(photos, 'cultivar')}
-                copyLabel="Copy to Cultivar"
-                onSave={() => void handleSave({ keepOpen: true, dirtyPhotoSection: 'record' })}
-                showSave={dirtyPhotoSection === 'record'}
-                saveDisabled={!canSave || !hasChanges || saving}
-                saving={saving}
-              />
-              <PhotoGallery
-                title="Cultivar Photos"
-                empty="No shared cultivar photos yet."
-                photos={cultivarPhotos}
-                defaultPhotoId={resolvedCultivarDefaultPhotoId}
-                overallDefaultPhotoId={overallCultivarDefaultPhotoId}
-                onView={(url) => { setViewerPhotoUrl(url); setPhotoViewerOpen(true) }}
-                onSetDefault={(photo) => {
-                  setDirtyPhotoSection('cultivar')
-                  setForm((previous) => withResolvedPhotoFields({ ...previous, cultivarPhotos, defaultCultivarPhotoId: photo.id, defaultPhotoScope: 'cultivar' }))
-                }}
-                onSetDefaultForAll={(photo) => void setCultivarDefault(photo, true)}
-                applyDefaultToAllLabel="All related records"
-                onDelete={(photos) => void deletePhotos(photos, 'cultivar')}
-                onCopy={(photos) => void copyPhotosToScope(photos, 'record')}
-                copyLabel="Copy to Record"
-                onSave={() => void handleSave({ keepOpen: true, dirtyPhotoSection: 'cultivar' })}
-                showSave={dirtyPhotoSection === 'cultivar'}
-                saveDisabled={!canSave || !hasChanges || saving}
-                saving={saving}
-              />
+            <div className="photosSectionBody">
+              <div className="photosCollapseColumn">
+                {currentPhoto && !photoLoadError ? (
+                  <div className="photoPreviewFrame">
+                    <img key={currentPhoto} className="photoPreview" src={currentPhoto} alt="Selected dahlia" loading="lazy" decoding="async" width={PHOTO_PREVIEW_SIZE} height={PHOTO_PREVIEW_SIZE} onError={() => setPhotoLoadError(true)} />
+                    <button className="photoPreviewOverlayButton" type="button" onClick={() => { setViewerPhotoUrl(currentViewerPhoto); setPhotoViewerOpen(true) }} aria-label="View larger flower photo" />
+                  </div>
+                ) : (
+                  <div className="photoPlaceholder">{photoLoadError ? 'Photo failed to load' : 'No photo yet'}</div>
+                )}
+                <div className="photosCollapseButtonRow">
+                  <button
+                    className="btn ghost compact photosCollapseButton"
+                    type="button"
+                    onClick={() => setGalleriesOpen(true)}
+                  >
+                    Show Galleries
+                  </button>
+                </div>
+              </div>
+              {photoLoadError ? <div className="error inlineError">The photo URL is saved but the browser could not load it in the preview.</div> : null}
+              {photoError ? <div className="error inlineError">{photoError}</div> : null}
             </div>
           ) : null}
         </div>
@@ -1847,6 +1776,133 @@ export function RecordModal({
           </div>
         </div>
       </div>
+      {galleriesOpen ? (
+        <div className="photoViewerOverlay" role="dialog" aria-modal="true" aria-label="Photo galleries">
+          <div className="photoViewerModal photoGalleriesModal">
+            <div className="photoViewerHeader">
+              <div>
+                <div className="modalTitle">Photo Galleries</div>
+                <div className="photoHint">Record photos are specific to this plant. Cultivar photos are shared across matching records.</div>
+              </div>
+              <button className="btn ghost" type="button" onClick={() => setGalleriesOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="photoViewerBody photoGalleriesBody">
+              <div className="photoSubhead">Assigned Image</div>
+              <div
+                className="photoDropzone"
+                onDragOver={(e) => {
+                  e.preventDefault()
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  void selectPhoto(e.dataTransfer.files[0])
+                }}
+              >
+                {currentPhoto && !photoLoadError ? (
+                  <div className="photoPreviewFrame">
+                    <img key={currentPhoto} className="photoPreview" src={currentPhoto} alt="Selected dahlia" loading="lazy" decoding="async" width={PHOTO_PREVIEW_SIZE} height={PHOTO_PREVIEW_SIZE} onError={() => setPhotoLoadError(true)} />
+                  </div>
+                ) : (
+                  <div className="photoPlaceholder">{photoLoadError ? 'Photo failed to load' : 'Drop a photo here'}</div>
+                )}
+                <div className="photoActions">
+                  <div className="photoHint">Add a new image by dragging it here, or choose one from your device.</div>
+                  <div className="photoUploadTarget" role="radiogroup" aria-label="Photo upload target">
+                    <label className="radioOption">
+                      <input type="radio" name="galleriesPhotoScope" value="cultivar" checked={photoScope === 'cultivar'} onChange={() => setPhotoScope('cultivar')} />
+                      <span>All {form.core.cultivar || form.flowerName || 'cultivar'} records</span>
+                    </label>
+                    <label className="radioOption">
+                      <input type="radio" name="galleriesPhotoScope" value="record" checked={photoScope === 'record'} onChange={() => setPhotoScope('record')} />
+                      <span>This record only</span>
+                    </label>
+                  </div>
+                  <div className="photoActionButtons">
+                    <button
+                      className={photoFile ? 'btn' : 'btn ghost'}
+                      type="button"
+                      disabled={photoFile ? !canSave || saving || photoConverting : photoConverting}
+                      onClick={() => photoFile ? void handleSave({ keepOpen: true }) : galleriesFileInputRef.current?.click()}
+                    >
+                      {photoConverting ? 'Converting...' : photoFile ? saving ? 'Saving...' : 'Save Photo' : 'Add Photo'}
+                    </button>
+                    {photoFile ? (
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        disabled={saving || photoConverting}
+                        onClick={() => galleriesFileInputRef.current?.click()}
+                      >
+                        Choose Different Photo
+                      </button>
+                    ) : null}
+                    {photoFile ? (
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        disabled={saving || photoConverting}
+                        onClick={cancelPhotoSelection}
+                      >
+                        Cancel
+                      </button>
+                    ) : null}
+                  </div>
+                  <input
+                    ref={galleriesFileInputRef}
+                    className="fileInput"
+                    type="file"
+                    accept="image/*,.heic,.heif"
+                    onChange={(e) => void selectPhoto(e.target.files?.[0])}
+                  />
+                </div>
+              </div>
+              {photoLoadError ? <div className="error inlineError">The photo URL is saved but the browser could not load it in the preview.</div> : null}
+              {photoError ? <div className="error inlineError">{photoError}</div> : null}
+              <div className="photoGalleryGroups">
+                <PhotoGallery
+                  title="Record Photos"
+                  empty="No record-specific photos yet."
+                  photos={recordPhotos}
+                  defaultPhotoId={resolvedRecordDefaultPhotoId}
+                  overallDefaultPhotoId={overallRecordDefaultPhotoId}
+                  onView={(url) => { setViewerPhotoUrl(url); setPhotoViewerOpen(true) }}
+                  onSetDefault={(photo) => void setRecordDefault(photo)}
+                  onDelete={(photos) => void deletePhotos(photos, 'record')}
+                  onCopy={(photos) => void copyPhotosToScope(photos, 'cultivar')}
+                  copyLabel="Copy to Cultivar"
+                  onSave={() => void handleSave({ keepOpen: true, dirtyPhotoSection: 'record' })}
+                  showSave={dirtyPhotoSection === 'record'}
+                  saveDisabled={!canSave || !hasChanges || saving}
+                  saving={saving}
+                />
+                <PhotoGallery
+                  title="Cultivar Photos"
+                  empty="No shared cultivar photos yet."
+                  photos={cultivarPhotos}
+                  defaultPhotoId={resolvedCultivarDefaultPhotoId}
+                  overallDefaultPhotoId={overallCultivarDefaultPhotoId}
+                  onView={(url) => { setViewerPhotoUrl(url); setPhotoViewerOpen(true) }}
+                  onSetDefault={(photo) => {
+                    setDirtyPhotoSection('cultivar')
+                    setForm((previous) => withResolvedPhotoFields({ ...previous, cultivarPhotos, defaultCultivarPhotoId: photo.id, defaultPhotoScope: 'cultivar' }))
+                  }}
+                  onSetDefaultForAll={(photo) => void setCultivarDefault(photo, true)}
+                  applyDefaultToAllLabel="All related records"
+                  onDelete={(photos) => void deletePhotos(photos, 'cultivar')}
+                  onCopy={(photos) => void copyPhotosToScope(photos, 'record')}
+                  copyLabel="Copy to Record"
+                  onSave={() => void handleSave({ keepOpen: true, dirtyPhotoSection: 'cultivar' })}
+                  showSave={dirtyPhotoSection === 'cultivar'}
+                  saveDisabled={!canSave || !hasChanges || saving}
+                  saving={saving}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {photoViewerOpen && (viewerPhotoUrl || currentPhoto) ? (
         <div className="photoViewerOverlay" role="dialog" aria-modal="true" aria-label="Flower photo viewer" onMouseDown={() => setPhotoViewerOpen(false)}>
           <div className="photoViewerModal" onMouseDown={(e) => e.stopPropagation()}>

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  createUserWithEmailAndPassword,
   onAuthStateChanged,
   OAuthProvider,
+  signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
   type User,
@@ -54,6 +56,19 @@ function maintenanceRemindersQueryKey(gardenId?: string) {
 }
 
 const microsoftProvider = new OAuthProvider('microsoft.com')
+
+const AUTH_BYPASS_ENABLED = import.meta.env.DEV && import.meta.env.VITE_USE_AUTH_EMULATOR === 'true'
+const AUTH_BYPASS_EMAIL = 'dev-bypass@dahlialedger.local'
+const AUTH_BYPASS_PASSWORD = 'dev-bypass-password-not-real'
+
+async function signInBypassUser() {
+  if (!auth) return
+  try {
+    await signInWithEmailAndPassword(auth, AUTH_BYPASS_EMAIL, AUTH_BYPASS_PASSWORD)
+  } catch {
+    await createUserWithEmailAndPassword(auth, AUTH_BYPASS_EMAIL, AUTH_BYPASS_PASSWORD)
+  }
+}
 
 function authErrorMessage(error: unknown) {
   if (typeof error !== 'object' || error === null) return String(error)
@@ -406,6 +421,7 @@ export default function App() {
     }
 
     let cancelled = false
+    const resolvedRef = { current: false }
 
     async function initializeAuth() {
       try {
@@ -413,10 +429,23 @@ export default function App() {
       } catch (e: unknown) {
         if (!cancelled) setAuthError(authErrorMessage(e))
       }
+      if (AUTH_BYPASS_ENABLED) {
+        try {
+          await signInBypassUser()
+        } catch (e: unknown) {
+          if (!cancelled) setAuthError(authErrorMessage(e))
+        }
+      }
+      if (!cancelled && !resolvedRef.current) {
+        resolvedRef.current = true
+        setAuthLoading(false)
+      }
     }
 
     void initializeAuth()
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (AUTH_BYPASS_ENABLED && !resolvedRef.current && currentUser === null) return
+      resolvedRef.current = true
       setUser(currentUser)
       setAuthLoading(false)
     })

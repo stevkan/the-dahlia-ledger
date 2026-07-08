@@ -119,6 +119,10 @@ dist
 # Firebase cache directory
 .firebase/
 
+# Firebase Emulator Suite logs
+firebase-debug.log
+ui-debug.log
+
 # TernJS port file
 .tern-port
 
