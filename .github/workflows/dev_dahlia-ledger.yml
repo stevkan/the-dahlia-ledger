@@ -6,7 +6,7 @@ name: Build and deploy Node.js app to Azure Web App - dahlia-ledger
 on:
   push:
     branches:
-      - release/0.24.0
+      - release/0.24.1
   workflow_dispatch:
 
 jobs:
