@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.24.1 - 2026-07-08
+
+- In `RecordModal.tsx`, moved the Core Details section above Photos as the first section, and moved Flower Name/Season and Planting State (with its conditional reason and garden-location fields) into Core Details above Cultivar and Planted Date.
+
 ## 0.24.0 - 2026-07-07
 
 - Added a dev-only `-AuthBypass` mode to the `run-the-dahlia-ledger` driver script that signs in a throwaway user against a local Firebase Auth Emulator, so authenticated UI can be screenshotted without a real Microsoft OAuth popup; gated behind `import.meta.env.DEV` and compiled out of production builds.

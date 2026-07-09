@@ -1232,130 +1232,165 @@ export function RecordModal({
       </div>
 
       <div className="modalBody">
-        <div className="grid4">
-          <div className="gridSpan2">
-            <FlowerNameField
-              label="Flower Name"
-              hint="The primary display name for this dahlia record."
-              required
-              value={form.flowerName}
-              knownFlowerNames={knownFlowerNames}
-              onChange={(v) => setForm((p) => ({
-                ...p,
-                flowerName: v,
-                core: {
-                  ...p.core,
-                  cultivar: p.core.cultivar === p.flowerName ? v : p.core.cultivar,
-                },
-              }))}
-              placeholder="e.g. Cafe au Lait"
-              labelAction={onOpenFlowerNames ? (
-                <button className="labelLink" type="button" onClick={onOpenFlowerNames}>
-                  Flower Name
-                </button>
-              ) : undefined}
-            />
-          </div>
-          <div className="gridSpan2">
-            <Field label="Season" hint="The growing season year for this record." required type="number" value={String(form.seasonYearStart)} onChange={setSeasonYearStart} />
-          </div>
-          <DahliaPickerField
-            label="Planting State"
-            hint="Where this specific tuber or plant is currently being tracked."
-            required
-            clearable={false}
-            options={PLANTING_STATES}
-            value={plantingState}
-            onChange={setPlantingState}
-          />
-          {plantingState === 'not_planted' ? (
-            <div className="field gridSpan3">
-              <FieldLabel label="Not Planted Reason" hint="Why this dahlia is tracked but not planted." />
-              <div className="radioRow">
-                {NOT_PLANTED_REASONS.map((option) => (
-                  <label key={option.value} className="radioOption">
-                    <input
-                      type="radio"
-                      name="notPlantedState"
-                      value={option.value}
-                      checked={notPlantedReason === option.value}
-                      onChange={() => setNotPlantedReason(option.value)}
+        <div className="sections">
+          <div className="section">
+            <button
+              className="sectionHead"
+              onClick={() => setOpen((p) => ({ ...p, core: !p.core }))}
+              type="button"
+            >
+              <span>{sectionTitle('core')}</span>
+              <span className="chev">{open.core ? '▾' : '▸'}</span>
+            </button>
+
+            {open.core ? (
+              <div className="sectionBody">
+                <div className="grid4">
+                  <div className="gridSpan2">
+                    <FlowerNameField
+                      label="Flower Name"
+                      hint="The primary display name for this dahlia record."
+                      required
+                      value={form.flowerName}
+                      knownFlowerNames={knownFlowerNames}
+                      onChange={(v) => setForm((p) => ({
+                        ...p,
+                        flowerName: v,
+                        core: {
+                          ...p.core,
+                          cultivar: p.core.cultivar === p.flowerName ? v : p.core.cultivar,
+                        },
+                      }))}
+                      placeholder="e.g. Cafe au Lait"
+                      labelAction={onOpenFlowerNames ? (
+                        <button className="labelLink" type="button" onClick={onOpenFlowerNames}>
+                          Flower Name
+                        </button>
+                      ) : undefined}
                     />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
+                  </div>
+                  <div className="gridSpan2">
+                    <Field label="Season" hint="The growing season year for this record." required type="number" value={String(form.seasonYearStart)} onChange={setSeasonYearStart} />
+                  </div>
+                  <DahliaPickerField
+                    label="Planting State"
+                    hint="Where this specific tuber or plant is currently being tracked."
+                    required
+                    clearable={false}
+                    options={PLANTING_STATES}
+                    value={plantingState}
+                    onChange={setPlantingState}
+                  />
+                  {plantingState === 'not_planted' ? (
+                    <div className="field gridSpan3">
+                      <FieldLabel label="Not Planted Reason" hint="Why this dahlia is tracked but not planted." />
+                      <div className="radioRow">
+                        {NOT_PLANTED_REASONS.map((option) => (
+                          <label key={option.value} className="radioOption">
+                            <input
+                              type="radio"
+                              name="notPlantedState"
+                              value={option.value}
+                              checked={notPlantedReason === option.value}
+                              onChange={() => setNotPlantedReason(option.value)}
+                            />
+                            <span>{option.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {plantingState === 'not_viable' ? (
+                    <div className="field gridSpan3">
+                      <FieldLabel label="Not Viable Reason" hint="Why this dahlia is no longer viable." />
+                      <div className="radioRow">
+                        {NOT_VIABLE_REASONS.map((option) => (
+                          <label key={option.value} className="radioOption">
+                            <input
+                              type="radio"
+                              name="notViableState"
+                              value={option.value}
+                              checked={notViableReason === option.value}
+                              onChange={() => setNotViableReason(option.value)}
+                            />
+                            <span>{option.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {plantingState === 'in_garden' ? (
+                    <>
+                      <DahliaPickerField
+                        label="Zone"
+                        hint="The zone or section where this dahlia is planted."
+                        required
+                        value={gardenArea || undefined}
+                        options={gardenOptions.gardenAreas}
+                        onChange={setGardenArea}
+                        labelAction={onOpenGardenOptions ? (
+                          <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenAreas')}>
+                            Zone
+                          </button>
+                        ) : undefined}
+                      />
+                      <DahliaPickerField
+                        label="Row/Bed"
+                        hint="Row or bed labels available for planted records."
+                        required
+                        value={gardenRow || undefined}
+                        options={availableGardenRows}
+                        disabled={!gardenArea}
+                        onChange={setGardenRow}
+                        labelAction={onOpenGardenOptions ? (
+                          <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenRows')}>
+                            Row/Bed
+                          </button>
+                        ) : undefined}
+                      />
+                      <DahliaPickerField
+                        label="Position"
+                        hint="Position labels available inside each row or bed."
+                        required
+                        value={gardenPosition || undefined}
+                        options={gardenOptions.gardenPositions.map((position) => ({
+                          value: position,
+                          label: position,
+                          disabled: isGardenOptionInUse(gardenRow, Number(position)),
+                        }))}
+                        disabled={!gardenRow}
+                        onChange={setGardenPosition}
+                        labelAction={onOpenGardenOptions ? (
+                          <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenPositions')}>
+                            Position
+                          </button>
+                        ) : undefined}
+                      />
+                      {gardenLocationInUse ? <div className="error inlineError gridSpanFull">That garden location is already assigned to another record.</div> : null}
+                    </>
+                  ) : null}
+                </div>
+                <div className="grid2">
+                  <Field label="Cultivar" hint="The cultivar name. If blank, Flower Name is used when saving." value={form.core.cultivar ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, cultivar: v } }))} />
+                  <Field label="Planted Date" hint="Date planted. This may be earlier than the current season year for overwintered or moved plants." type="date" value={form.core.plantedDate ?? plantedDateForYear(form.seasonYearStart)} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, plantedDate: v } }))} />
+                  <ColorField
+                    label="Color"
+                    hint="Main bloom color or color description."
+                    value={form.core.color ?? ''}
+                    knownColors={knownColors}
+                    onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, color: v } }))}
+                    labelAction={onOpenColors ? (
+                      <button className="labelLink" type="button" onClick={onOpenColors}>
+                        Color
+                      </button>
+                    ) : undefined}
+                  />
+                  <DahliaPickerField label="Form" title="Bloom Form" hint="Bloom form, such as decorative, ball, cactus, or anemone." options={DAHLIA_FORM_OPTIONS} value={form.core.form} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, form: v } }))} />
+                </div>
+                <TextArea label="Notes" hint="General notes about the dahlia, bloom, or record." value={form.core.notes ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, notes: v } }))} />
               </div>
-            </div>
-          ) : null}
-          {plantingState === 'not_viable' ? (
-            <div className="field gridSpan3">
-              <FieldLabel label="Not Viable Reason" hint="Why this dahlia is no longer viable." />
-              <div className="radioRow">
-                {NOT_VIABLE_REASONS.map((option) => (
-                  <label key={option.value} className="radioOption">
-                    <input
-                      type="radio"
-                      name="notViableState"
-                      value={option.value}
-                      checked={notViableReason === option.value}
-                      onChange={() => setNotViableReason(option.value)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          {plantingState === 'in_garden' ? (
-            <>
-              <DahliaPickerField
-                label="Zone"
-                hint="The zone or section where this dahlia is planted."
-                required
-                value={gardenArea || undefined}
-                options={gardenOptions.gardenAreas}
-                onChange={setGardenArea}
-                labelAction={onOpenGardenOptions ? (
-                  <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenAreas')}>
-                    Zone
-                  </button>
-                ) : undefined}
-              />
-              <DahliaPickerField
-                label="Row/Bed"
-                hint="Row or bed labels available for planted records."
-                required
-                value={gardenRow || undefined}
-                options={availableGardenRows}
-                disabled={!gardenArea}
-                onChange={setGardenRow}
-                labelAction={onOpenGardenOptions ? (
-                  <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenRows')}>
-                    Row/Bed
-                  </button>
-                ) : undefined}
-              />
-              <DahliaPickerField
-                label="Position"
-                hint="Position labels available inside each row or bed."
-                required
-                value={gardenPosition || undefined}
-                options={gardenOptions.gardenPositions.map((position) => ({
-                  value: position,
-                  label: position,
-                  disabled: isGardenOptionInUse(gardenRow, Number(position)),
-                }))}
-                disabled={!gardenRow}
-                onChange={setGardenPosition}
-                labelAction={onOpenGardenOptions ? (
-                  <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenPositions')}>
-                    Position
-                  </button>
-                ) : undefined}
-              />
-              {gardenLocationInUse ? <div className="error inlineError gridSpanFull">That garden location is already assigned to another record.</div> : null}
-            </>
-          ) : null}
+            ) : null}
+          </div>
         </div>
 
         <div className="photoField photosSection">
@@ -1395,7 +1430,7 @@ export function RecordModal({
         </div>
 
         <div className="sections">
-          {(['core', 'growth', 'care', 'health', 'storage', 'varieties', 'tuber', 'meta'] as SectionKey[]).map((k) => (
+          {(['growth', 'care', 'health', 'storage', 'varieties', 'tuber', 'meta'] as SectionKey[]).map((k) => (
             <div key={k} className="section">
               <button
                 className="sectionHead"
@@ -1413,29 +1448,6 @@ export function RecordModal({
 
               {open[k] ? (
                 <div className="sectionBody">
-                  {k === 'core' ? (
-                    <>
-                      <div className="grid2">
-                        <Field label="Cultivar" hint="The cultivar name. If blank, Flower Name is used when saving." value={form.core.cultivar ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, cultivar: v } }))} />
-                        <Field label="Planted Date" hint="Date planted. This may be earlier than the current season year for overwintered or moved plants." type="date" value={form.core.plantedDate ?? plantedDateForYear(form.seasonYearStart)} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, plantedDate: v } }))} />
-                        <ColorField
-                          label="Color"
-                          hint="Main bloom color or color description."
-                          value={form.core.color ?? ''}
-                          knownColors={knownColors}
-                          onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, color: v } }))}
-                          labelAction={onOpenColors ? (
-                            <button className="labelLink" type="button" onClick={onOpenColors}>
-                              Color
-                            </button>
-                          ) : undefined}
-                        />
-                        <DahliaPickerField label="Form" title="Bloom Form" hint="Bloom form, such as decorative, ball, cactus, or anemone." options={DAHLIA_FORM_OPTIONS} value={form.core.form} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, form: v } }))} />
-                      </div>
-                      <TextArea label="Notes" hint="General notes about the dahlia, bloom, or record." value={form.core.notes ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, notes: v } }))} />
-                    </>
-                  ) : null}
-
                   {k === 'growth' ? (
                     <div className="grid2">
                       <Field label="Height (in feet)" hint="Expected or observed plant height in feet." value={form.growth.height ?? ''} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, height: v } }))} />
