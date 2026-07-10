@@ -1,16 +1,21 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  createUserWithEmailAndPassword,
   onAuthStateChanged,
   OAuthProvider,
+  signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
   type User,
 } from 'firebase/auth'
-import type { AgentCorrectionResult, AgentReviewResult, Asset, AssetInput, Company, CompanyInput, CurrentUserProfile, DahliaPhoto, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, ExcelImportResult, ExcelImportRevertResult, Garden, GardenMember, GardenRole, Invite, KnownUser, MaintenanceReminder, MaintenanceReminderInput, Order, OrderInput } from '../types'
-import type { GardenOptionKey, GardenOptions } from '../types'
-import { DEFAULT_GARDEN_OPTIONS, GARDEN_OPTIONS_STORAGE_KEY, normalizeGardenOptions, normalizeStoredGardenOptions } from '../gardenOptions'
-import { apiHeaders, auth, authHeaders, hasFirebaseConfig, initializeAuthPersistence } from '../firebase'
+import type { AgentCorrectionResult, AgentReviewResult, Asset, AssetInput, Company, CompanyInput, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, ExcelImportResult, ExcelImportRevertResult, Invite, MaintenanceReminder, MaintenanceReminderInput, Order, OrderInput } from '../types'
+import type { GardenOptionKey } from '../types'
+import { auth, authHeaders, hasFirebaseConfig, initializeAuthPersistence } from '../firebase'
+import { api, API_BASE, uploadPhoto } from '../api/client'
+import { type InfiniteRecordsData } from '../recordUtils'
+import { useGardens, gardenOptionLabel, gardensQueryKey } from '../hooks/useGardens'
+import { useRecords, recordsQueryKey, recordSummariesQueryKey, flowerNamesQueryKey, colorsQueryKey } from '../hooks/useRecords'
 import { RecordsTable } from './RecordsTable'
 import { RecordModal } from './RecordModal'
 import { AgentPanel } from './AgentPanel'
@@ -24,26 +29,15 @@ import { GardenManagementModal } from './GardenManagementModal'
 import { FlowerNamesModal } from './FlowerNamesModal'
 import { ColorsModal } from './ColorsModal'
 
-const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? ''
 const THEME_STORAGE_KEY = 'dahlia-tracker-theme'
 const RECORDS_REFRESH_INTERVAL_STORAGE_KEY = 'dahlia-records-refresh-interval-ms'
-const gardensQueryKey = ['gardens'] as const
-const usersQueryKey = ['users'] as const
-const KNOWN_USERS_REFRESH_INTERVAL_MS = 30_000
 const DEFAULT_RECORDS_REFRESH_INTERVAL_MS = 15 * 60_000
 const RECORDS_REFRESH_INTERVAL_OPTIONS = [0, 30_000, 60_000, 5 * 60_000, 15 * 60_000, 30 * 60_000, 60 * 60_000]
-const RECORD_SUMMARIES_PAGE_SIZE = 100
 const companiesQueryKey = ['companies'] as const
 const ordersQueryKey = ['orders'] as const
 const assetsQueryKey = ['assets'] as const
 const settingsQueryKey = ['settings'] as const
-function flowerNamesQueryKey(gardenId?: string) {
-  return ['flower-names', gardenId ?? 'default'] as const
-}
-
-function colorsQueryKey(gardenId?: string) {
-  return ['colors', gardenId ?? 'default'] as const
-}
+const KNOWN_USERS_REFRESH_INTERVAL_MS = 30_000
 
 function LandscapeOnlyOverlay() {
   return (
@@ -57,139 +51,24 @@ function LandscapeOnlyOverlay() {
   )
 }
 
-function recordsQueryKey(gardenId?: string) {
-  return ['records', gardenId ?? 'default'] as const
-}
-
-function recordSummariesQueryKey(gardenId?: string) {
-  return ['records', gardenId ?? 'default', 'summary'] as const
-}
-
-function patchRecords(records: DahliaRecord[] | undefined, changedRecords: DahliaRecord[]) {
-  if (!records || changedRecords.length === 0) return records
-
-  const changedById = new Map(changedRecords.map((record) => [record.id, record]))
-  let changed = false
-  const next = records.map((record) => {
-    const replacement = changedById.get(record.id)
-    if (!replacement) return record
-    changed = true
-    return replacement
-  })
-
-  return changed ? next : records
-}
-
-function appendGardenQueryParam(gardenQuery: string, param: string) {
-  return gardenQuery ? `${gardenQuery}&${param}` : `?${param}`
-}
-
-type RecordsPage<T> = {
-  records: T[]
-  nextCursor?: number
-}
-
-type InfiniteRecordsData<T> = {
-  pages: RecordsPage<T>[]
-  pageParams: unknown[]
-}
-
-function recordToSummary(record: DahliaRecord): DahliaRecordSummary {
-  return {
-    id: record.id,
-    recordNumber: record.recordNumber,
-    gardenId: record.gardenId,
-    flowerName: record.flowerName,
-    gardenLocation: record.gardenLocation,
-    seasonYearStart: record.seasonYearStart,
-    thumbnailUrl: record.thumbnailUrl,
-    imageUrl: record.imageUrl,
-    cultivarThumbnailUrl: record.cultivarThumbnailUrl,
-    cultivarImageUrl: record.cultivarImageUrl,
-    defaultPhotoScope: record.defaultPhotoScope,
-    core: {
-      color: record.core.color,
-      size: record.core.size,
-    },
-    growth: {
-      height: record.growth.height,
-    },
-    tuber: {
-      source: record.tuber.source,
-      linkedOrderItemIds: record.tuber.linkedOrderItemIds,
-    },
-    meta: {
-      gardenArea: record.meta.gardenArea,
-      gardenRow: record.meta.gardenRow,
-      gardenPosition: record.meta.gardenPosition,
-      gardenZone: record.meta.gardenZone,
-      rowOrBed: record.meta.rowOrBed,
-      position: record.meta.position,
-      plantingState: record.meta.plantingState,
-    },
-  }
-}
-
-function patchRecordSummaries(
-  data: InfiniteRecordsData<DahliaRecordSummary> | undefined,
-  changedRecords: DahliaRecord[],
-  deletedRecordIds: string[] = [],
-) {
-  if (!data || (changedRecords.length === 0 && deletedRecordIds.length === 0)) return data
-
-  const changedById = new Map(changedRecords.map((record) => [record.id, recordToSummary(record)]))
-  const deletedIds = new Set(deletedRecordIds)
-  const seenIds = new Set<string>()
-  let changed = false
-
-  const pages = data.pages.map((page, pageIndex) => {
-    const records: DahliaRecordSummary[] = []
-    for (const record of page.records) {
-      if (deletedIds.has(record.id)) {
-        changed = true
-        continue
-      }
-
-      const replacement = changedById.get(record.id)
-      if (replacement) {
-        records.push(replacement)
-        seenIds.add(record.id)
-        changed = true
-      } else {
-        records.push(record)
-      }
-    }
-
-    if (pageIndex === 0) {
-      for (const [id, record] of changedById) {
-        if (!seenIds.has(id)) {
-          records.unshift(record)
-          seenIds.add(id)
-          changed = true
-        }
-      }
-    }
-
-    return records === page.records ? page : { ...page, records }
-  })
-
-  return changed ? { ...data, pages } : data
-}
-
 function maintenanceRemindersQueryKey(gardenId?: string) {
   return ['maintenance-reminders', gardenId ?? 'default'] as const
 }
 
-function gardenMembersQueryKey(gardenId?: string) {
-  return ['garden-members', gardenId ?? 'default'] as const
-}
-
-function gardenOptionLabel(garden: Garden, gardens: Garden[]) {
-  const duplicateName = gardens.some((candidate) => candidate.id !== garden.id && candidate.name === garden.name)
-  return `${garden.name}${duplicateName ? ` [${garden.id.slice(0, 6)}]` : ''}`
-}
-
 const microsoftProvider = new OAuthProvider('microsoft.com')
+
+const AUTH_BYPASS_ENABLED = import.meta.env.DEV && import.meta.env.VITE_USE_AUTH_EMULATOR === 'true'
+const AUTH_BYPASS_EMAIL = 'dev-bypass@dahlialedger.local'
+const AUTH_BYPASS_PASSWORD = 'dev-bypass-password-not-real'
+
+async function signInBypassUser() {
+  if (!auth) return
+  try {
+    await signInWithEmailAndPassword(auth, AUTH_BYPASS_EMAIL, AUTH_BYPASS_PASSWORD)
+  } catch {
+    await createUserWithEmailAndPassword(auth, AUTH_BYPASS_EMAIL, AUTH_BYPASS_PASSWORD)
+  }
+}
 
 function authErrorMessage(error: unknown) {
   if (typeof error !== 'object' || error === null) return String(error)
@@ -198,22 +77,6 @@ function authErrorMessage(error: unknown) {
   const parts = [firebaseError.code, firebaseError.message].filter(Boolean)
   if (firebaseError.customData?.email) parts.push(`Email: ${firebaseError.customData.email}`)
   return parts.join(' - ') || 'Microsoft sign-in failed.'
-}
-
-function loadStoredGardenOptions(): GardenOptions | null {
-  if (typeof window === 'undefined') return null
-  const stored = window.localStorage.getItem(GARDEN_OPTIONS_STORAGE_KEY)
-  if (!stored) return null
-
-  try {
-    return normalizeStoredGardenOptions(JSON.parse(stored))
-  } catch {
-    return null
-  }
-}
-
-function gardenOptionsEqual(a: GardenOptions, b: GardenOptions) {
-  return JSON.stringify(normalizeGardenOptions(a)) === JSON.stringify(normalizeGardenOptions(b))
 }
 
 function recordWithRenamedGardenOption(record: DahliaRecord, key: GardenOptionKey, previousValue: string, nextValue: string, zoneName?: string): DahliaRecordInput | null {
@@ -323,54 +186,6 @@ function highPriorityReminderMessage(count: number) {
   return `You have ${count} high priority reminder${count === 1 ? '' : 's'} needing attention.`
 }
 
-function fallbackGarden(gardens: Garden[]) {
-  return [...gardens].sort((a, b) => String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? '')) || a.id.localeCompare(b.id))[0] ?? null
-}
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(await apiHeaders(init?.headers)),
-    },
-    ...init,
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    let message = text || `Request failed: ${res.status}`
-    let details: unknown
-    try {
-      const parsed = text ? JSON.parse(text) : null
-      if (parsed && typeof parsed === 'object') {
-        message = typeof parsed.message === 'string' ? parsed.message : message
-        details = parsed
-      }
-    } catch {
-      // Keep the raw response text when the server returns plain text.
-    }
-    const error = new Error(message) as Error & { details?: unknown }
-    error.details = details
-    throw error
-  }
-  return (await res.json()) as T
-}
-
-async function uploadPhoto(file: File): Promise<{ imageUrl: string; thumbnailUrl?: string }> {
-  const body = new FormData()
-  body.append('file', file)
-
-  const res = await fetch(`${API_BASE}/api/upload`, {
-    method: 'POST',
-    headers: await authHeaders(),
-    body,
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `Upload failed: ${res.status}`)
-  }
-  return (await res.json()) as { imageUrl: string; thumbnailUrl?: string }
-}
-
 export default function App() {
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'light'
@@ -380,8 +195,6 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
-  const [selectedGardenId, setSelectedGardenId] = useState<string>('')
-
   const [active, setActive] = useState<DahliaRecord | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [createDraft, setCreateDraft] = useState<DahliaRecordInput | null>(null)
@@ -409,9 +222,6 @@ export default function App() {
   const [colorsOpen, setColorsOpen] = useState(false)
   const [gardenManagementOpen, setGardenManagementOpen] = useState(false)
   const [gardenOptionsInitialGroup, setGardenOptionsInitialGroup] = useState<GardenOptionKey>('gardenAreas')
-  const [gardenOptionsDraft, setGardenOptionsDraft] = useState<GardenOptions | null>(null)
-  const [storedGardenOptionsForMigration] = useState(loadStoredGardenOptions)
-  const [migratedGardenOptionIds, setMigratedGardenOptionIds] = useState<string[]>([])
   const [recordsRefreshIntervalMs, setRecordsRefreshIntervalMs] = useState(loadRecordsRefreshInterval)
   const [gardenMenuOpen, setGardenMenuOpen] = useState(false)
   const [recordsManagementOpen, setRecordsManagementOpen] = useState(false)
@@ -427,57 +237,15 @@ export default function App() {
   const settingsMenuRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
 
-  const meQuery = useQuery({
-    queryKey: ['me'],
-    queryFn: async () => (await api<{ user: CurrentUserProfile }>('/api/me')).user,
-    enabled: Boolean(user),
-    staleTime: 5 * 60_000,
-  })
-  const gardensQuery = useQuery({
-    queryKey: gardensQueryKey,
-    queryFn: async () => (await api<{ gardens: Garden[] }>('/api/gardens')).gardens,
-    enabled: Boolean(user),
-    staleTime: 5 * 60_000,
-  })
-  const usersQuery = useQuery({
-    queryKey: usersQueryKey,
-    queryFn: async () => (await api<{ users: KnownUser[] }>('/api/users')).users,
-    enabled: Boolean(user),
-    refetchInterval: gardenManagementOpen ? KNOWN_USERS_REFRESH_INTERVAL_MS : false,
-    staleTime: 5 * 60_000,
-  })
-  const gardens = gardensQuery.data ?? []
-  const knownUsers = usersQuery.data ?? []
-  const globalAdmin = Boolean(user && meQuery.data?.globalAdmin)
-  const selectedGarden = gardens.find((garden) => garden.id === selectedGardenId) ?? fallbackGarden(gardens)
-  const activeGardenId = selectedGarden?.id ?? ''
-  const gardenQuery = activeGardenId ? `?gardenId=${encodeURIComponent(activeGardenId)}` : ''
-  const gardenOptions = gardenOptionsDraft ?? normalizeGardenOptions(selectedGarden?.gardenOptions)
+  const {
+    gardens, selectedGarden, activeGardenId, gardenQuery, gardenOptions,
+    gardenMembers, knownUsers, globalAdmin, setSelectedGardenId,
+    createGarden, updateGarden, deleteGarden,
+    listGardenMembers, saveGardenMember, deleteGardenMember, deleteKnownUser,
+    listInvites, createInvite, resendInvite, deleteInvite, updateGardenOptions,
+    invalidateGardenMembers,
+  } = useGardens({ user, gardenManagementOpen, setError })
 
-  const recordSummariesQuery = useInfiniteQuery({
-    queryKey: recordSummariesQueryKey(activeGardenId),
-    queryFn: async ({ pageParam }) => {
-      try {
-        const params = [`view=summary`, `limit=${RECORD_SUMMARIES_PAGE_SIZE}`]
-        if (pageParam != null) params.push(`startAfter=${encodeURIComponent(String(pageParam))}`)
-        return await api<RecordsPage<DahliaRecordSummary>>(`/api/records${appendGardenQueryParam(gardenQuery, params.join('&'))}`)
-      } catch (e: any) {
-        if (e?.details?.error === 'garden_access_denied' && selectedGardenId) setSelectedGardenId('')
-        throw e
-      }
-    },
-    initialPageParam: undefined as number | undefined,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
-    enabled: Boolean(user),
-    refetchInterval: recordsRefreshIntervalMs || false,
-    staleTime: 30_000,
-  })
-  const recordsQuery = useQuery({
-    queryKey: recordsQueryKey(activeGardenId),
-    queryFn: async () => (await api<{ records: DahliaRecord[] }>(`/api/records${gardenQuery}`)).records,
-    enabled: Boolean(user) && (analyticsOpen || maintenanceRemindersOpen || gardenOptionsOpen || createOpen),
-    staleTime: 30_000,
-  })
   const activeCompaniesQueryKey = [...companiesQueryKey, activeGardenId] as const
   const companiesQuery = useQuery({
     queryKey: activeCompaniesQueryKey,
@@ -498,18 +266,6 @@ export default function App() {
     enabled: Boolean(user),
     staleTime: 5 * 60_000,
   })
-  const flowerNamesQuery = useQuery({
-    queryKey: flowerNamesQueryKey(activeGardenId),
-    queryFn: async () => (await api<{ flowerNames: string[] }>(`/api/flower-names${gardenQuery}`)).flowerNames,
-    enabled: Boolean(user) && Boolean(activeGardenId),
-    staleTime: 5 * 60_000,
-  })
-  const colorsQuery = useQuery({
-    queryKey: colorsQueryKey(activeGardenId),
-    queryFn: async () => (await api<{ colors: string[] }>(`/api/colors${gardenQuery}`)).colors,
-    enabled: Boolean(user) && Boolean(activeGardenId),
-    staleTime: 5 * 60_000,
-  })
   const settingsQuery = useQuery({
     queryKey: settingsQueryKey,
     queryFn: async () => (await api<{ settings: AppSettings }>('/api/settings')).settings,
@@ -523,58 +279,37 @@ export default function App() {
     refetchInterval: KNOWN_USERS_REFRESH_INTERVAL_MS,
     staleTime: 30_000,
   })
-  const gardenMembersQuery = useQuery({
-    queryKey: gardenMembersQueryKey(activeGardenId),
-    queryFn: async () => activeGardenId ? (await api<{ members: GardenMember[] }>(`/api/gardens/${encodeURIComponent(activeGardenId)}/members`)).members : [],
-    enabled: Boolean(user && activeGardenId),
-    staleTime: 30_000,
-  })
 
-  const records = (recordsQuery.data ?? []).filter((record) => !activeGardenId || record.gardenId === activeGardenId)
-  const recordsById = useMemo(() => new Map(records.map((record) => [record.id, record])), [records])
-  const recordSummaries = (recordSummariesQuery.data?.pages.flatMap((page) => page.records) ?? [])
-    .filter((record) => !activeGardenId || record.gardenId === activeGardenId)
-    .map((summary) => {
-      const cachedRecord = recordsById.get(summary.id)
-      return cachedRecord ? recordToSummary(cachedRecord) : summary
-    })
   const companies = companiesQuery.data ?? []
   const orders = ordersQuery.data ?? []
   const assets = assetsQuery.data ?? []
-  const flowerNames = flowerNamesQuery.data ?? []
-  const colors = colorsQuery.data ?? []
   const settings = settingsQuery.data ?? { agentDebugReviewEnabled: false }
   const maintenanceReminders = maintenanceRemindersQuery.data ?? []
-  const gardenMembers = gardenMembersQuery.data ?? []
   const visibleIncompleteReminders = maintenanceReminders.filter((reminder) => !reminder.completedAt && canUserViewReminder(reminder, user?.uid))
   const visibleReminderCount = visibleIncompleteReminders.length
   const highPriorityIncompleteReminderCount = visibleIncompleteReminders.filter((reminder) => reminder.priority === 'high').length
-  const loading = recordSummariesQuery.isLoading
 
-  const tableRows = useMemo(() => recordSummaries, [recordSummaries])
+  const {
+    records, recordSummaries, flowerNames, colors, loading, recordSummariesQuery,
+    refreshRecords, refreshRecordSummaries, openRecordFromSummary,
+    onCreate, onUpdate, onDelete,
+    onUpdateCultivarPhoto, onSetRecordPhotoDefault, onSetCultivarPhotoDefault, onDeleteCultivarPhoto,
+  } = useRecords({
+    user, activeGardenId, gardenQuery,
+    analyticsOpen, maintenanceRemindersOpen, gardenOptionsOpen, createOpen,
+    recordsRefreshIntervalMs,
+    setActive: (r) => setActive(r),
+    setCreateDraft: (d) => setCreateDraft(d),
+    setCreateOpen: (o) => setCreateOpen(o),
+    onRefreshCompanies: refreshCompanies,
+    setError,
+  })
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     document.documentElement.style.colorScheme = theme
     window.localStorage.setItem(THEME_STORAGE_KEY, theme)
   }, [theme])
-
-  useEffect(() => {
-    setGardenOptionsDraft(null)
-  }, [activeGardenId])
-
-  useEffect(() => {
-    if (!activeGardenId || !selectedGarden || selectedGarden.gardenOptions || migratedGardenOptionIds.includes(activeGardenId)) return
-    const stored = storedGardenOptionsForMigration
-    if (!stored || gardenOptionsEqual(stored, DEFAULT_GARDEN_OPTIONS)) return
-
-    setMigratedGardenOptionIds((ids) => [...ids, activeGardenId])
-    void updateGarden(activeGardenId, { gardenOptions: stored })
-  }, [activeGardenId, migratedGardenOptionIds, selectedGarden, storedGardenOptionsForMigration])
-
-  useEffect(() => {
-    window.localStorage.setItem(GARDEN_OPTIONS_STORAGE_KEY, JSON.stringify(gardenOptions))
-  }, [gardenOptions])
 
   useEffect(() => {
     window.localStorage.setItem(RECORDS_REFRESH_INTERVAL_STORAGE_KEY, String(recordsRefreshIntervalMs))
@@ -590,13 +325,6 @@ export default function App() {
     document.body.style.overflow = anyModalOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [anyModalOpen])
-
-  useEffect(() => {
-    if (!gardens.length) return
-    if (!selectedGardenId || !gardens.some((garden) => garden.id === selectedGardenId)) {
-      setSelectedGardenId(fallbackGarden(gardens)?.id ?? '')
-    }
-  }, [gardens, selectedGardenId])
 
   useEffect(() => {
     if (!user || typeof window === 'undefined') return
@@ -673,62 +401,6 @@ export default function App() {
     return () => document.removeEventListener('pointerdown', closeOnOutsideClick)
   }, [insightsMenuOpen])
 
-  async function refreshRecords() {
-    setError(null)
-    return await queryClient.fetchQuery({
-      queryKey: recordsQueryKey(activeGardenId),
-      queryFn: async () => (await api<{ records: DahliaRecord[] }>(`/api/records${gardenQuery}`)).records,
-      staleTime: 0,
-    })
-  }
-
-  async function prepareRecordModalRecords() {
-    setError(null)
-    try {
-      await refreshRecords()
-    } catch (e: any) {
-      setError(e?.message ?? String(e))
-    }
-  }
-
-  async function refreshRecordSummaries() {
-    const data = await queryClient.fetchInfiniteQuery({
-      queryKey: recordSummariesQueryKey(activeGardenId),
-      queryFn: async ({ pageParam }) => {
-        const params = [`view=summary`, `limit=${RECORD_SUMMARIES_PAGE_SIZE}`]
-        if (pageParam != null) params.push(`startAfter=${encodeURIComponent(String(pageParam))}`)
-        return await api<RecordsPage<DahliaRecordSummary>>(`/api/records${appendGardenQueryParam(gardenQuery, params.join('&'))}`)
-      },
-      initialPageParam: undefined as number | undefined,
-      getNextPageParam: (lastPage: RecordsPage<DahliaRecordSummary>) => lastPage.nextCursor,
-      staleTime: 0,
-    })
-    return data.pages.flatMap((page) => page.records)
-  }
-
-  function patchRecordSummaryCache(changedRecords: DahliaRecord[], deletedRecordIds: string[] = []) {
-    queryClient.setQueryData<InfiniteRecordsData<DahliaRecordSummary>>(
-      recordSummariesQueryKey(activeGardenId),
-      (data) => patchRecordSummaries(data, changedRecords, deletedRecordIds),
-    )
-  }
-
-  async function openRecordFromSummary(summary: DahliaRecordSummary) {
-    setError(null)
-    const cachedRecord = records.find((record) => record.id === summary.id)
-    if (cachedRecord) {
-      setActive(cachedRecord)
-      return
-    }
-
-    const data = await api<{ record: DahliaRecord }>(`/api/records/${encodeURIComponent(summary.id)}${gardenQuery}`)
-    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (previous) => {
-      if (!previous) return previous
-      return previous.some((record) => record.id === data.record.id) ? previous.map((record) => record.id === data.record.id ? data.record : record) : [...previous, data.record]
-    })
-    setActive(data.record)
-  }
-
   async function refreshCompanies() {
     setCompaniesUsageRefreshing(true)
     try {
@@ -749,6 +421,7 @@ export default function App() {
     }
 
     let cancelled = false
+    const resolvedRef = { current: false }
 
     async function initializeAuth() {
       try {
@@ -756,10 +429,23 @@ export default function App() {
       } catch (e: unknown) {
         if (!cancelled) setAuthError(authErrorMessage(e))
       }
+      if (AUTH_BYPASS_ENABLED) {
+        try {
+          await signInBypassUser()
+        } catch (e: unknown) {
+          if (!cancelled) setAuthError(authErrorMessage(e))
+        }
+      }
+      if (!cancelled && !resolvedRef.current) {
+        resolvedRef.current = true
+        setAuthLoading(false)
+      }
     }
 
     void initializeAuth()
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (AUTH_BYPASS_ENABLED && !resolvedRef.current && currentUser === null) return
+      resolvedRef.current = true
       setUser(currentUser)
       setAuthLoading(false)
     })
@@ -887,166 +573,6 @@ export default function App() {
     await refreshMaintenanceReminders()
   }
 
-  async function onCreate(input: DahliaRecordInput) {
-    const data = await api<{ record: DahliaRecord }>(`/api/records${gardenQuery}`, {
-      method: 'POST',
-      body: JSON.stringify({ ...input, gardenId: activeGardenId || input.gardenId }),
-    })
-    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => records ? [data.record, ...records] : [data.record])
-    patchRecordSummaryCache([data.record])
-    setCreateDraft(null)
-    setCreateOpen(false)
-    await Promise.all([refreshRecordSummaries(), refreshCompanies()])
-  }
-
-  async function onUpdate(id: string, input: DahliaRecordInput, options?: { keepOpen?: boolean; skipRefresh?: boolean }) {
-    const data = await api<{ record: DahliaRecord }>(`/api/records/${encodeURIComponent(id)}${gardenQuery}`, {
-      method: 'PUT',
-      body: JSON.stringify({ ...input, gardenId: activeGardenId || input.gardenId }),
-    })
-    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => patchRecords(records, [data.record]) ?? [data.record])
-    patchRecordSummaryCache([data.record])
-    if (options?.keepOpen) setActive(data.record)
-    else setActive(null)
-    if (!options?.skipRefresh) {
-      const [refreshedRecords] = await Promise.all([refreshRecords(), queryClient.invalidateQueries({ queryKey: recordSummariesQueryKey(activeGardenId) }), refreshCompanies()])
-      if (options?.keepOpen) setActive(refreshedRecords.find((record) => record.id === id) ?? data.record)
-    }
-  }
-
-  async function onUpdateCultivarPhoto(id: string, photo: { cultivarImageUrl: string; cultivarThumbnailUrl?: string; photo?: DahliaPhoto }) {
-    const data = await api<{ updatedCount: number; records: DahliaRecord[] }>(`/api/records/${encodeURIComponent(id)}/cultivar-photo${gardenQuery}`, {
-      method: 'PUT',
-      body: JSON.stringify(photo),
-    })
-    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => patchRecords(records, data.records))
-    patchRecordSummaryCache(data.records)
-    await refreshRecordSummaries()
-    setActive(data.records.find((record) => record.id === id) ?? null)
-  }
-
-  async function onSetRecordPhotoDefault(id: string, photo: DahliaPhoto) {
-    const data = await api<{ record: DahliaRecord }>(`/api/records/${encodeURIComponent(id)}/record-photo-default${gardenQuery}`, {
-      method: 'PUT',
-      body: JSON.stringify({ photo }),
-    })
-    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => patchRecords(records, [data.record]))
-    patchRecordSummaryCache([data.record])
-    await refreshRecordSummaries()
-    setActive(data.record)
-  }
-
-  async function onSetCultivarPhotoDefault(id: string, photo: DahliaPhoto) {
-    const data = await api<{ updatedCount: number; records: DahliaRecord[] }>(`/api/records/${encodeURIComponent(id)}/cultivar-photo-default${gardenQuery}`, {
-      method: 'PUT',
-      body: JSON.stringify({ photo }),
-    })
-    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => patchRecords(records, data.records))
-    patchRecordSummaryCache(data.records)
-    await refreshRecordSummaries()
-    setActive(data.records.find((record) => record.id === id) ?? null)
-  }
-
-  async function onDeleteCultivarPhoto(id: string, imageUrl: string) {
-    const data = await api<{ updatedCount: number; records: DahliaRecord[] }>(`/api/records/${encodeURIComponent(id)}/cultivar-photo${gardenQuery}`, {
-      method: 'DELETE',
-      body: JSON.stringify({ imageUrl }),
-    })
-    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => patchRecords(records, data.records))
-    patchRecordSummaryCache(data.records)
-    await refreshRecordSummaries()
-    setActive(data.records.find((record) => record.id === id) ?? null)
-  }
-
-  async function onDelete(id: string) {
-    await api<{ ok: true }>(`/api/records/${encodeURIComponent(id)}${gardenQuery}`, {
-      method: 'DELETE',
-    })
-    queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (records) => records?.filter((record) => record.id !== id))
-    patchRecordSummaryCache([], [id])
-    setActive(null)
-    await Promise.all([refreshRecordSummaries(), refreshCompanies()])
-  }
-
-  async function createGarden(input: { name: string; organizationName?: string }) {
-    setError(null)
-    try {
-      const data = await api<{ garden: Garden }>('/api/gardens', {
-        method: 'POST',
-        body: JSON.stringify(input),
-      })
-      await queryClient.invalidateQueries({ queryKey: gardensQueryKey })
-      setSelectedGardenId(data.garden.id)
-      return data.garden
-    } catch (e: any) {
-      setError(e?.message ?? String(e))
-      throw e
-    }
-  }
-
-  async function updateGarden(gardenId: string, input: { name?: string; organizationName?: string; locationName?: string; address?: string; notes?: string; gardenOptions?: GardenOptions }) {
-    setError(null)
-    try {
-      const data = await api<{ garden: Garden }>(`/api/gardens/${encodeURIComponent(gardenId)}`, {
-        method: 'PUT',
-        body: JSON.stringify(input),
-      })
-      queryClient.setQueryData<Garden[]>(gardensQueryKey, (current) => current?.map((garden) => garden.id === gardenId ? data.garden : garden) ?? [data.garden])
-      await queryClient.invalidateQueries({ queryKey: gardensQueryKey })
-      return data.garden
-    } catch (e: any) {
-      setError(e?.message ?? String(e))
-      throw e
-    }
-  }
-
-  async function deleteGarden(gardenId: string) {
-    setError(null)
-    try {
-      await api<{ ok: true }>(`/api/gardens/${encodeURIComponent(gardenId)}`, { method: 'DELETE' })
-      if (selectedGardenId === gardenId) setSelectedGardenId('')
-      await queryClient.invalidateQueries({ queryKey: gardensQueryKey })
-    } catch (e: any) {
-      setError(e?.message ?? String(e))
-      throw e
-    }
-  }
-
-  async function listGardenMembers(gardenId: string) {
-    return (await api<{ members: GardenMember[] }>(`/api/gardens/${encodeURIComponent(gardenId)}/members`)).members
-  }
-
-  async function saveGardenMember(gardenId: string, input: { userId: string; email?: string; displayName?: string; role: GardenRole }) {
-    await api<{ member: GardenMember }>(`/api/gardens/${encodeURIComponent(gardenId)}/members`, { method: 'POST', body: JSON.stringify(input) })
-  }
-
-  async function deleteGardenMember(gardenId: string, memberId: string) {
-    await api<{ ok: true }>(`/api/gardens/${encodeURIComponent(gardenId)}/members/${encodeURIComponent(memberId)}`, { method: 'DELETE' })
-  }
-
-  async function deleteKnownUser(userId: string) {
-    await api<{ ok: true }>(`/api/users/${encodeURIComponent(userId)}`, { method: 'DELETE' })
-    await queryClient.invalidateQueries({ queryKey: usersQueryKey })
-  }
-
-  async function listInvites(input: { gardenId?: string }) {
-    const params = new URLSearchParams()
-    if (input.gardenId) params.set('gardenId', input.gardenId)
-    return (await api<{ invites: Invite[] }>(`/api/invites${params.size ? `?${params.toString()}` : ''}`)).invites
-  }
-
-  async function createInvite(input: { gardenId?: string; email?: string; role: string }) {
-    return (await api<{ invite: Invite }>('/api/invites', { method: 'POST', body: JSON.stringify(input) })).invite
-  }
-
-  async function resendInvite(inviteId: string) {
-    return (await api<{ invite: Invite }>(`/api/invites/${encodeURIComponent(inviteId)}/resend`, { method: 'POST' })).invite
-  }
-
-  async function deleteInvite(inviteId: string) {
-    await api<{ ok: true }>(`/api/invites/${encodeURIComponent(inviteId)}`, { method: 'DELETE' })
-  }
-
   async function reviewWithDebugAgent(record: DahliaRecordInput, recordId?: string) {
     const originalText = lastAgentInput.trim() || record.meta?.agentOriginalInput?.trim()
     if (!originalText && !recordId) {
@@ -1153,7 +679,7 @@ export default function App() {
     setActive(null)
     setCreateDraft(draft)
     setCreateOpen(true)
-    void prepareRecordModalRecords()
+    void refreshRecords().catch(() => {})
   }
 
   async function onCreateCompany(input: CompanyInput) {
@@ -1194,7 +720,6 @@ export default function App() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: companiesQueryKey }),
       queryClient.invalidateQueries({ queryKey: ordersQueryKey }),
-      queryClient.invalidateQueries({ queryKey: usersQueryKey }),
     ])
   }
 
@@ -1283,11 +808,6 @@ export default function App() {
     })
   }
 
-  function updateGardenOptions(nextOptions: GardenOptions) {
-    const normalized = normalizeGardenOptions(nextOptions)
-    setGardenOptionsDraft(normalized)
-    if (activeGardenId) void updateGarden(activeGardenId, { gardenOptions: normalized })
-  }
 
   async function renameGardenOptionReferences(key: GardenOptionKey, previousValue: string, nextValue: string, zoneName?: string) {
     const updates = records
@@ -1898,7 +1418,7 @@ export default function App() {
                 setReviewResult(null)
                 setCorrectionResult(null)
                 setCreateOpen(true)
-                void prepareRecordModalRecords()
+                void refreshRecords().catch(() => {})
               }}>
                 New Record
               </button>
@@ -1921,7 +1441,7 @@ export default function App() {
           </div>
           {error ? <div className="error">{error}</div> : null}
           {recordSummariesQuery.error ? <div className="error">{recordSummariesQuery.error instanceof Error ? recordSummariesQuery.error.message : String(recordSummariesQuery.error)}</div> : null}
-          <RecordsTable rows={tableRows} orders={orders} loading={loading} loadingMore={recordSummariesQuery.isFetchingNextPage} hasMore={Boolean(recordSummariesQuery.hasNextPage)} onLoadMore={() => void recordSummariesQuery.fetchNextPage()} onOpen={(r) => {
+          <RecordsTable rows={recordSummaries}orders={orders} loading={loading} loadingMore={recordSummariesQuery.isFetchingNextPage} hasMore={Boolean(recordSummariesQuery.hasNextPage)} onLoadMore={() => void recordSummariesQuery.fetchNextPage()} onOpen={(r) => {
             setReviewResult(null)
             setCorrectionResult(null)
             void openRecordFromSummary(r)
@@ -1986,7 +1506,7 @@ export default function App() {
           currentGardenId={activeGardenId}
           onClose={() => {
             setGardenManagementOpen(false)
-            void queryClient.invalidateQueries({ queryKey: gardenMembersQueryKey(activeGardenId) })
+            void invalidateGardenMembers()
           }}
           onCreateGarden={createGarden}
           onUpdateGarden={updateGarden}

@@ -1,5 +1,70 @@
 # Changelog
 
+## 0.24.1 - 2026-07-08
+
+- In `RecordModal.tsx`, moved the Core Details section above Photos as the first section, and moved Flower Name/Season and Planting State (with its conditional reason and garden-location fields) into Core Details above Cultivar and Planted Date.
+
+## 0.24.0 - 2026-07-07
+
+- Added a dev-only `-AuthBypass` mode to the `run-the-dahlia-ledger` driver script that signs in a throwaway user against a local Firebase Auth Emulator, so authenticated UI can be screenshotted without a real Microsoft OAuth popup; gated behind `import.meta.env.DEV` and compiled out of production builds.
+- Added `firebase-tools` as a root dev dependency and a Firebase Auth Emulator config in `firebase.json` to support the new auth bypass flow.
+- Reworked the Photos section in `RecordModal.tsx`: the section header is now a collapsible toggle button showing just the assigned photo, and "Show Galleries" now opens a dedicated modal with the upload dropzone, scope picker, and Record/Cultivar photo galleries instead of expanding inline.
+- Changed the default photo upload scope in `RecordModal.tsx` from "This record only" to "All ... records" (cultivar).
+- Fixed `Start-Process -FilePath "npm"` resolving to `npm.ps1` and failing in the driver script by calling `npm.cmd` explicitly.
+
+## 0.23.7 - 2026-07-07
+
+- In `RecordModal.tsx`, moved the Not Planted Reason / Not Viable Reason fields onto the same row as Planting State (25%/75% split) via a new `.gridSpan3` CSS class.
+- Removed the "Location details stop at..." summary message and its now-unused `getPlantingStateLabel` helper and `.stateSummary` style.
+
+## 0.23.6 - 2026-07-07
+
+- Replaced the local `SelectField` component and `plantingStateOptions` helper in `RecordModal.tsx` with the shared `DahliaPickerField` component for the Planting State field.
+- Added Claude Code run and ship skills under `.claude/skills/`.
+
+## 0.23.5 - 2026-07-06
+
+- Replaced `heic2any` with `heic-to` for HEIC/HEIF image conversion in photo upload, and excluded `heic-to` from the Workbox service worker precache.
+
+## 0.23.4 - 2026-07-06
+
+- Added `frontend/src/vite-env.d.ts` to declare `ImportMetaEnv` and `ImportMeta` types for `VITE_API_BASE`, enabling proper TypeScript typing of `import.meta.env` in the frontend.
+- Removed the `as any` cast and optional chaining from the `API_BASE` constant in `frontend/src/api/client.ts`.
+
+## 0.23.3 - 2026-07-06
+
+- Extracted all route handlers from `backend/src/server.js` into dedicated router modules under `backend/src/routes/` (gardens, users, records, maintenance reminders, companies, orders, assets, upload, imports, flower names, colors, agent, settings).
+
+## 0.23.2 - 2026-07-06
+
+- Moved `frontend/src/api.ts` into `frontend/src/api/client.ts`.
+- Extracted garden query logic (options, members, query keys) from `App.tsx` into a new `frontend/src/hooks/useGardens.ts` custom hook.
+- Extracted records query logic (summaries, flower names, colors, infinite scroll) from `App.tsx` into a new `frontend/src/hooks/useRecords.ts` custom hook.
+
+## 0.23.1 - 2026-07-06
+
+- Extracted HTTP helper functions (`bearerToken`, `forbidden`, `requireGlobalAdmin`, `requireGlobalAdminRoute`) from `server.js` into a new `backend/src/httpHelpers.js` module.
+- Moved inline Zod schemas (`GardenInputSchema`, `MemberInputSchema`, `InviteInputSchema`, `CompanyReassignmentSchema`, `MaintenanceReminderInputSchema`) from `server.js` into `backend/src/schema.js`.
+- Extracted record utility functions and types (`patchRecords`, `patchRecordSummaries`, `recordToSummary`, `RecordsPage`, `InfiniteRecordsData`) from `App.tsx` into a new `frontend/src/recordUtils.ts` module.
+- Added vitest testing infrastructure to both backend and frontend, with `test` and `test:watch` scripts.
+
+## 0.23.0 - 2026-07-06
+
+- Added Azure Application Insights telemetry to the backend: auto-collects requests, exceptions, and dependencies when `APPLICATIONINSIGHTS_CONNECTION_STRING` is set, and tracks exceptions from agent routes and the global error handler.
+
+## 0.22.3 - 2026-07-06
+
+- Extracted the shared `api` helper and `API_BASE` constant into `frontend/src/api.ts`, removing the duplicated copies from `App.tsx`, `AgentPanel.tsx`, and `AnalyticsModal.tsx`.
+
+## 0.22.2 - 2026-07-06
+
+- Updated the Azure deployment workflow to build the frontend and install backend production dependencies before uploading the artifact.
+- Removed a stale release workflow file.
+
+## 0.22.1 - 2026-07-06
+
+- Disabled overscroll bounce and touch-action on the orientation overlay and body in portrait mobile view to prevent scroll bleed-through.
+
 ## 0.22.0 - 2026-07-04
 
 - Displays the app version number next to the title in the top bar.

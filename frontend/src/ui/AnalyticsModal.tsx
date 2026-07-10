@@ -2,30 +2,13 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { jsPDF } from 'jspdf'
 import type { AgentVisualization, Company, DahliaRecord } from '../types'
-import { apiHeaders } from '../firebase'
+import { api } from '../api/client'
 import { DropdownField } from './DropdownField'
 
 const AgentVisualizationView = lazy(async () => {
   const module = await import('./AgentVisualizationView')
   return { default: module.AgentVisualizationView }
 })
-
-const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? ''
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(await apiHeaders(init?.headers)),
-    },
-    ...init,
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `Request failed: ${res.status}`)
-  }
-  return (await res.json()) as T
-}
 
 function openPdfInNewTab(pdf: jsPDF, targetWindow?: Window | null) {
   const blob = pdf.output('blob')

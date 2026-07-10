@@ -13,7 +13,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -22,6 +22,18 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '22.x'
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_APP_CHECK_SITE_KEY: ${{ secrets.VITE_FIREBASE_APP_CHECK_SITE_KEY }}
+
+      - name: Install backend production dependencies
+        run: npm --prefix backend ci --omit=dev
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -56,4 +68,3 @@ jobs:
           app-name: 'dahlia-ledger'
           slot-name: 'Production'
           package: .
-          

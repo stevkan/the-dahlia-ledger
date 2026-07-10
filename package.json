@@ -1,10 +1,14 @@
 {
   "name": "the-dahlia-ledger",
-  "version": "0.22.0",
+  "version": "0.24.1",
   "private": true,
   "scripts": {
     "build": "npm --prefix backend ci --ignore-scripts && npm --prefix frontend ci --ignore-scripts && npm run build --prefix frontend",
-    "start": "npm start --prefix backend"
+    "start": "npm start --prefix backend",
+    "emulators:auth": "firebase emulators:start --only auth"
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.22.4"
   },
   "keywords": [],
   "author": "",

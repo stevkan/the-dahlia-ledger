@@ -232,14 +232,6 @@ function getGardenKey(row?: string | null, position?: number | null) {
   return row && position ? `${row}${position}` : undefined
 }
 
-function getPlantingStateLabel(state?: PlantingState | null) {
-  return PLANTING_STATES.find((option) => option.value === state)?.label ?? 'Selected state'
-}
-
-function plantingStateOptions() {
-  return PLANTING_STATES.map((option) => `${option.value}|${option.label}`)
-}
-
 function inputWithGardenLocation(input: DahliaRecordInput) {
   const plantingState = input.meta.plantingState
   const gardenZone = input.meta.gardenZone ?? input.meta.gardenArea
@@ -517,71 +509,6 @@ function TextArea({
   )
 }
 
-function SelectField({
-  label,
-  hint,
-  required,
-  value,
-  options,
-  disabledOptions,
-  onChange,
-  labelAction,
-  message,
-  disabled: disabledField = false,
-  portal = false,
-}: {
-  label: string
-  hint?: string
-  required?: boolean
-  value: string | undefined
-  options: string[]
-  disabledOptions?: string[]
-  onChange: (v: string | undefined) => void
-  labelAction?: React.ReactNode
-  message?: string
-  disabled?: boolean
-  portal?: boolean
-}) {
-  const disabled = new Set(disabledOptions ?? [])
-  const hasSelectedOption = options.some((option) => (option.includes('|') ? option.split('|')[0] : option) === value)
-  const select = (
-    <DropdownField
-      label={label}
-      value={value ?? ''}
-      options={[
-        { value: '', label: 'Select...' },
-        ...(value && !hasSelectedOption ? [{ value, label: value }] : []),
-        ...options.map((option) => ({
-          value: option.includes('|') ? option.split('|')[0] : option,
-          label: option.includes('|') ? option.split('|')[1] : option,
-          disabled: disabled.has(option),
-        })),
-      ]}
-      onChange={(nextValue) => onChange(nextValue || undefined)}
-      disabled={disabledField}
-      portal={portal}
-    />
-  )
-
-  if (labelAction) {
-    return (
-      <div className="field">
-        <FieldLabel label={label} hint={hint} required={required} action={labelAction} />
-        {select}
-        {message ? <div className="fieldMessage">{message}</div> : null}
-      </div>
-    )
-  }
-
-  return (
-      <label className="field">
-      <FieldLabel label={label} hint={hint} required={required} action={labelAction} />
-      {select}
-      {message ? <div className="fieldMessage">{message}</div> : null}
-    </label>
-  )
-}
-
 function Toggle({
   label,
   hint,
@@ -682,6 +609,7 @@ export function RecordModal({
   gardenId?: string
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const galleriesFileInputRef = useRef<HTMLInputElement | null>(null)
   const confirmAreaRef = useRef<HTMLDivElement | null>(null)
   const [open, setOpen] = useState<Record<SectionKey, boolean>>({
     core: true,
@@ -703,9 +631,10 @@ export function RecordModal({
   const [photoConverting, setPhotoConverting] = useState(false)
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false)
   const [viewerPhotoUrl, setViewerPhotoUrl] = useState<string | null>(null)
+  const [galleriesOpen, setGalleriesOpen] = useState(false)
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [photoLoadError, setPhotoLoadError] = useState(false)
-  const [photoScope, setPhotoScope] = useState<'cultivar' | 'record'>('record')
+  const [photoScope, setPhotoScope] = useState<'cultivar' | 'record'>('cultivar')
   const [dirtyPhotoSection, setDirtyPhotoSection] = useState<'record' | 'cultivar' | null>(null)
   const [closeError, setCloseError] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
@@ -812,9 +741,8 @@ export function RecordModal({
     if (isHeic) {
       setPhotoConverting(true)
       try {
-        const heic2any = (await import('heic2any')).default
-        const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 })
-        const jpeg = Array.isArray(converted) ? converted[0] : converted
+        const { heicTo } = await import('heic-to')
+        const jpeg = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.92 })
         const convertedName = file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg')
         const convertedFile = new File([jpeg], convertedName, { type: 'image/jpeg' })
         setPhotoFile(convertedFile)
@@ -835,6 +763,17 @@ export function RecordModal({
       if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous)
       return URL.createObjectURL(file)
     })
+  }
+
+  function cancelPhotoSelection() {
+    setPhotoFile(null)
+    setPhotoPreview((previous) => {
+      if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous)
+      return null
+    })
+    setPhotoError(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (galleriesFileInputRef.current) galleriesFileInputRef.current.value = ''
   }
 
   function setGardenArea(value: string | undefined) {
@@ -1235,13 +1174,6 @@ export function RecordModal({
   const overallCultivarDefaultPhotoId = form.defaultPhotoScope === 'cultivar' ? currentResolvedPhoto?.id : undefined
   const currentPhoto = photoPreview ?? (photoUrl(currentResolvedPhoto) || form.thumbnailUrl || form.imageUrl || form.cultivarThumbnailUrl || form.cultivarImageUrl || inheritedCultivarPhoto)
   const currentViewerPhoto = photoPreview ?? (fullPhotoUrl(currentResolvedPhoto) || form.imageUrl || form.thumbnailUrl || form.cultivarImageUrl || form.cultivarThumbnailUrl || inheritedCultivarPhoto)
-  const currentPhotoSource = photoPreview
-    ? 'Selected photo preview'
-    : currentResolvedPhoto?.scope === 'record' || (form.thumbnailUrl || form.imageUrl) && form.defaultPhotoScope !== 'cultivar'
-      ? 'Using record photo'
-      : currentResolvedPhoto?.scope === 'cultivar' || form.cultivarThumbnailUrl || form.cultivarImageUrl || inheritedCultivarPhoto
-        ? 'Using cultivar photo'
-        : ''
 
   useEffect(() => {
     setPhotoLoadError(false)
@@ -1300,240 +1232,205 @@ export function RecordModal({
       </div>
 
       <div className="modalBody">
-        <div className="grid4">
-          <div className="gridSpan2">
-            <FlowerNameField
-              label="Flower Name"
-              hint="The primary display name for this dahlia record."
-              required
-              value={form.flowerName}
-              knownFlowerNames={knownFlowerNames}
-              onChange={(v) => setForm((p) => ({
-                ...p,
-                flowerName: v,
-                core: {
-                  ...p.core,
-                  cultivar: p.core.cultivar === p.flowerName ? v : p.core.cultivar,
-                },
-              }))}
-              placeholder="e.g. Cafe au Lait"
-              labelAction={onOpenFlowerNames ? (
-                <button className="labelLink" type="button" onClick={onOpenFlowerNames}>
-                  Flower Name
-                </button>
-              ) : undefined}
-            />
-          </div>
-          <div className="gridSpan2">
-            <Field label="Season" hint="The growing season year for this record." required type="number" value={String(form.seasonYearStart)} onChange={setSeasonYearStart} />
-          </div>
-          <SelectField label="Planting State" hint="Where this specific tuber or plant is currently being tracked." required value={plantingState} options={plantingStateOptions()} onChange={setPlantingState} />
-          {plantingState === 'not_planted' ? (
-            <div className="field gridSpanFull">
-              <FieldLabel label="Not Planted Reason" hint="Why this dahlia is tracked but not planted." />
-              <div className="radioRow">
-                {NOT_PLANTED_REASONS.map((option) => (
-                  <label key={option.value} className="radioOption">
-                    <input
-                      type="radio"
-                      name="notPlantedState"
-                      value={option.value}
-                      checked={notPlantedReason === option.value}
-                      onChange={() => setNotPlantedReason(option.value)}
+        <div className="sections">
+          <div className="section">
+            <button
+              className="sectionHead"
+              onClick={() => setOpen((p) => ({ ...p, core: !p.core }))}
+              type="button"
+            >
+              <span>{sectionTitle('core')}</span>
+              <span className="chev">{open.core ? '▾' : '▸'}</span>
+            </button>
+
+            {open.core ? (
+              <div className="sectionBody">
+                <div className="grid4">
+                  <div className="gridSpan2">
+                    <FlowerNameField
+                      label="Flower Name"
+                      hint="The primary display name for this dahlia record."
+                      required
+                      value={form.flowerName}
+                      knownFlowerNames={knownFlowerNames}
+                      onChange={(v) => setForm((p) => ({
+                        ...p,
+                        flowerName: v,
+                        core: {
+                          ...p.core,
+                          cultivar: p.core.cultivar === p.flowerName ? v : p.core.cultivar,
+                        },
+                      }))}
+                      placeholder="e.g. Cafe au Lait"
+                      labelAction={onOpenFlowerNames ? (
+                        <button className="labelLink" type="button" onClick={onOpenFlowerNames}>
+                          Flower Name
+                        </button>
+                      ) : undefined}
                     />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
+                  </div>
+                  <div className="gridSpan2">
+                    <Field label="Season" hint="The growing season year for this record." required type="number" value={String(form.seasonYearStart)} onChange={setSeasonYearStart} />
+                  </div>
+                  <DahliaPickerField
+                    label="Planting State"
+                    hint="Where this specific tuber or plant is currently being tracked."
+                    required
+                    clearable={false}
+                    options={PLANTING_STATES}
+                    value={plantingState}
+                    onChange={setPlantingState}
+                  />
+                  {plantingState === 'not_planted' ? (
+                    <div className="field gridSpan3">
+                      <FieldLabel label="Not Planted Reason" hint="Why this dahlia is tracked but not planted." />
+                      <div className="radioRow">
+                        {NOT_PLANTED_REASONS.map((option) => (
+                          <label key={option.value} className="radioOption">
+                            <input
+                              type="radio"
+                              name="notPlantedState"
+                              value={option.value}
+                              checked={notPlantedReason === option.value}
+                              onChange={() => setNotPlantedReason(option.value)}
+                            />
+                            <span>{option.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {plantingState === 'not_viable' ? (
+                    <div className="field gridSpan3">
+                      <FieldLabel label="Not Viable Reason" hint="Why this dahlia is no longer viable." />
+                      <div className="radioRow">
+                        {NOT_VIABLE_REASONS.map((option) => (
+                          <label key={option.value} className="radioOption">
+                            <input
+                              type="radio"
+                              name="notViableState"
+                              value={option.value}
+                              checked={notViableReason === option.value}
+                              onChange={() => setNotViableReason(option.value)}
+                            />
+                            <span>{option.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {plantingState === 'in_garden' ? (
+                    <>
+                      <DahliaPickerField
+                        label="Zone"
+                        hint="The zone or section where this dahlia is planted."
+                        required
+                        value={gardenArea || undefined}
+                        options={gardenOptions.gardenAreas}
+                        onChange={setGardenArea}
+                        labelAction={onOpenGardenOptions ? (
+                          <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenAreas')}>
+                            Zone
+                          </button>
+                        ) : undefined}
+                      />
+                      <DahliaPickerField
+                        label="Row/Bed"
+                        hint="Row or bed labels available for planted records."
+                        required
+                        value={gardenRow || undefined}
+                        options={availableGardenRows}
+                        disabled={!gardenArea}
+                        onChange={setGardenRow}
+                        labelAction={onOpenGardenOptions ? (
+                          <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenRows')}>
+                            Row/Bed
+                          </button>
+                        ) : undefined}
+                      />
+                      <DahliaPickerField
+                        label="Position"
+                        hint="Position labels available inside each row or bed."
+                        required
+                        value={gardenPosition || undefined}
+                        options={gardenOptions.gardenPositions.map((position) => ({
+                          value: position,
+                          label: position,
+                          disabled: isGardenOptionInUse(gardenRow, Number(position)),
+                        }))}
+                        disabled={!gardenRow}
+                        onChange={setGardenPosition}
+                        labelAction={onOpenGardenOptions ? (
+                          <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenPositions')}>
+                            Position
+                          </button>
+                        ) : undefined}
+                      />
+                      {gardenLocationInUse ? <div className="error inlineError gridSpanFull">That garden location is already assigned to another record.</div> : null}
+                    </>
+                  ) : null}
+                </div>
+                <div className="grid2">
+                  <Field label="Cultivar" hint="The cultivar name. If blank, Flower Name is used when saving." value={form.core.cultivar ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, cultivar: v } }))} />
+                  <Field label="Planted Date" hint="Date planted. This may be earlier than the current season year for overwintered or moved plants." type="date" value={form.core.plantedDate ?? plantedDateForYear(form.seasonYearStart)} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, plantedDate: v } }))} />
+                  <ColorField
+                    label="Color"
+                    hint="Main bloom color or color description."
+                    value={form.core.color ?? ''}
+                    knownColors={knownColors}
+                    onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, color: v } }))}
+                    labelAction={onOpenColors ? (
+                      <button className="labelLink" type="button" onClick={onOpenColors}>
+                        Color
+                      </button>
+                    ) : undefined}
+                  />
+                  <DahliaPickerField label="Form" title="Bloom Form" hint="Bloom form, such as decorative, ball, cactus, or anemone." options={DAHLIA_FORM_OPTIONS} value={form.core.form} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, form: v } }))} />
+                </div>
+                <TextArea label="Notes" hint="General notes about the dahlia, bloom, or record." value={form.core.notes ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, notes: v } }))} />
               </div>
-            </div>
-          ) : null}
-          {plantingState === 'not_viable' ? (
-            <div className="field gridSpanFull">
-              <FieldLabel label="Not Viable Reason" hint="Why this dahlia is no longer viable." />
-              <div className="radioRow">
-                {NOT_VIABLE_REASONS.map((option) => (
-                  <label key={option.value} className="radioOption">
-                    <input
-                      type="radio"
-                      name="notViableState"
-                      value={option.value}
-                      checked={notViableReason === option.value}
-                      onChange={() => setNotViableReason(option.value)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          {plantingState === 'in_garden' ? (
-            <>
-              <DahliaPickerField
-                label="Zone"
-                hint="The zone or section where this dahlia is planted."
-                required
-                value={gardenArea || undefined}
-                options={gardenOptions.gardenAreas}
-                onChange={setGardenArea}
-                labelAction={onOpenGardenOptions ? (
-                  <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenAreas')}>
-                    Zone
-                  </button>
-                ) : undefined}
-              />
-              <DahliaPickerField
-                label="Row/Bed"
-                hint="Row or bed labels available for planted records."
-                required
-                value={gardenRow || undefined}
-                options={availableGardenRows}
-                disabled={!gardenArea}
-                onChange={setGardenRow}
-                labelAction={onOpenGardenOptions ? (
-                  <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenRows')}>
-                    Row/Bed
-                  </button>
-                ) : undefined}
-              />
-              <DahliaPickerField
-                label="Position"
-                hint="Position labels available inside each row or bed."
-                required
-                value={gardenPosition || undefined}
-                options={gardenOptions.gardenPositions.map((position) => ({
-                  value: position,
-                  label: position,
-                  disabled: isGardenOptionInUse(gardenRow, Number(position)),
-                }))}
-                disabled={!gardenRow}
-                onChange={setGardenPosition}
-                labelAction={onOpenGardenOptions ? (
-                  <button className="labelLink" type="button" onClick={() => onOpenGardenOptions('gardenPositions')}>
-                    Position
-                  </button>
-                ) : undefined}
-              />
-              {gardenLocationInUse ? <div className="error inlineError gridSpanFull">That garden location is already assigned to another record.</div> : null}
-            </>
-          ) : null}
-          {plantingState && plantingState !== 'in_garden' && plantingState !== 'garden_tray' ? <div className="stateSummary gridSpanFull">Location details stop at {getPlantingStateLabel(plantingState)}.</div> : null}
+            ) : null}
+          </div>
         </div>
 
         <div className="photoField photosSection">
-          <div className="photosSectionHeader">
-            <div>
-              <div className="photosSectionTitle">Photos</div>
-              <div className="photoHint">Record photos are specific to this plant. Cultivar photos are shared across matching records.</div>
-            </div>
-            <button
-              className="btn ghost compact photosCollapseButton"
-              type="button"
-              onClick={() => setOpen((previous) => ({ ...previous, photos: !previous.photos }))}
-            >
-              {open.photos ? 'Hide Galleries' : 'Show Galleries'} <span className="chev">{open.photos ? '▾' : '▸'}</span>
-            </button>
-          </div>
-          <div className="photoSubhead">Current Default Image</div>
-          <div
-            className="photoDropzone"
-            onDragOver={(e) => {
-              e.preventDefault()
-            }}
-            onDrop={(e) => {
-              e.preventDefault()
-              void selectPhoto(e.dataTransfer.files[0])
-            }}
+          <button
+            className="photosSectionHeader"
+            type="button"
+            onClick={() => setOpen((previous) => ({ ...previous, photos: !previous.photos }))}
           >
-            {currentPhoto && !photoLoadError ? (
-              <div className="photoPreviewFrame">
-                <img key={currentPhoto} className="photoPreview" src={currentPhoto} alt="Selected dahlia" loading="lazy" decoding="async" width={PHOTO_PREVIEW_SIZE} height={PHOTO_PREVIEW_SIZE} onError={() => setPhotoLoadError(true)} />
-                <button className="photoPreviewOverlayButton" type="button" onClick={() => { setViewerPhotoUrl(currentViewerPhoto); setPhotoViewerOpen(true) }} aria-label="View larger flower photo" />
-              </div>
-            ) : (
-              <div className="photoPlaceholder">{photoLoadError ? 'Photo failed to load' : 'Drop a photo here'}</div>
-            )}
-            <div className="photoActions">
-              <div className="photoHint">Add a new image by dragging it here, or choose one from your device.</div>
-              <div className="photoUploadTarget" role="radiogroup" aria-label="Photo upload target">
-                <label className="radioOption">
-                  <input type="radio" name="photoScope" value="record" checked={photoScope === 'record'} onChange={() => setPhotoScope('record')} />
-                  <span>This record only</span>
-                </label>
-                <label className="radioOption">
-                  <input type="radio" name="photoScope" value="cultivar" checked={photoScope === 'cultivar'} onChange={() => setPhotoScope('cultivar')} />
-                  <span>All {form.core.cultivar || form.flowerName || 'cultivar'} records</span>
-                </label>
-              </div>
-              <div className="photoActionButtons">
-                <button
-                  className={photoFile ? 'btn' : 'btn ghost'}
-                  type="button"
-                  disabled={photoFile ? !canSave || saving || photoConverting : photoConverting}
-                  onClick={() => photoFile ? void handleSave({ keepOpen: true }) : fileInputRef.current?.click()}
-                >
-                  {photoConverting ? 'Converting...' : photoFile ? saving ? 'Saving...' : 'Save Photo' : 'Add Photo'}
-                </button>
-              </div>
-              <input
-                ref={fileInputRef}
-                className="fileInput"
-                type="file"
-                accept="image/*,.heic,.heif"
-                onChange={(e) => void selectPhoto(e.target.files?.[0])}
-              />
-            </div>
-          </div>
-          {photoFile ? <div className="photoFileName">Selected: {photoFile.name}</div> : null}
-          {photoFile ? <div className="photoFileName">Will upload to: {photoScope === 'record' ? 'Record Photos' : 'Cultivar Photos'}</div> : null}
-          {currentPhotoSource ? <div className="photoFileName">{currentPhotoSource}</div> : null}
-          {currentViewerPhoto ? <a className="photoFileName" href={currentViewerPhoto} target="_blank" rel="noreferrer">Open photo</a> : null}
-          {photoLoadError ? <div className="error inlineError">The photo URL is saved but the browser could not load it in the preview.</div> : null}
-          {photoError ? <div className="error inlineError">{photoError}</div> : null}
+            <div className="photosSectionTitle">Photos</div>
+            <span className="chev">{open.photos ? '▾' : '▸'}</span>
+          </button>
           {open.photos ? (
-            <div className="photoGalleryGroups">
-              <PhotoGallery
-                title="Record Photos"
-                empty="No record-specific photos yet."
-                photos={recordPhotos}
-                defaultPhotoId={resolvedRecordDefaultPhotoId}
-                overallDefaultPhotoId={overallRecordDefaultPhotoId}
-                onView={(url) => { setViewerPhotoUrl(url); setPhotoViewerOpen(true) }}
-                onSetDefault={(photo) => void setRecordDefault(photo)}
-                onDelete={(photos) => void deletePhotos(photos, 'record')}
-                onCopy={(photos) => void copyPhotosToScope(photos, 'cultivar')}
-                copyLabel="Copy to Cultivar"
-                onSave={() => void handleSave({ keepOpen: true, dirtyPhotoSection: 'record' })}
-                showSave={dirtyPhotoSection === 'record'}
-                saveDisabled={!canSave || !hasChanges || saving}
-                saving={saving}
-              />
-              <PhotoGallery
-                title="Cultivar Photos"
-                empty="No shared cultivar photos yet."
-                photos={cultivarPhotos}
-                defaultPhotoId={resolvedCultivarDefaultPhotoId}
-                overallDefaultPhotoId={overallCultivarDefaultPhotoId}
-                onView={(url) => { setViewerPhotoUrl(url); setPhotoViewerOpen(true) }}
-                onSetDefault={(photo) => {
-                  setDirtyPhotoSection('cultivar')
-                  setForm((previous) => withResolvedPhotoFields({ ...previous, cultivarPhotos, defaultCultivarPhotoId: photo.id, defaultPhotoScope: 'cultivar' }))
-                }}
-                onSetDefaultForAll={(photo) => void setCultivarDefault(photo, true)}
-                applyDefaultToAllLabel="All related records"
-                onDelete={(photos) => void deletePhotos(photos, 'cultivar')}
-                onCopy={(photos) => void copyPhotosToScope(photos, 'record')}
-                copyLabel="Copy to Record"
-                onSave={() => void handleSave({ keepOpen: true, dirtyPhotoSection: 'cultivar' })}
-                showSave={dirtyPhotoSection === 'cultivar'}
-                saveDisabled={!canSave || !hasChanges || saving}
-                saving={saving}
-              />
+            <div className="photosSectionBody">
+              <div className="photosCollapseColumn">
+                {currentPhoto && !photoLoadError ? (
+                  <div className="photoPreviewFrame">
+                    <img key={currentPhoto} className="photoPreview" src={currentPhoto} alt="Selected dahlia" loading="lazy" decoding="async" width={PHOTO_PREVIEW_SIZE} height={PHOTO_PREVIEW_SIZE} onError={() => setPhotoLoadError(true)} />
+                    <button className="photoPreviewOverlayButton" type="button" onClick={() => { setViewerPhotoUrl(currentViewerPhoto); setPhotoViewerOpen(true) }} aria-label="View larger flower photo" />
+                  </div>
+                ) : (
+                  <div className="photoPlaceholder">{photoLoadError ? 'Photo failed to load' : 'No photo yet'}</div>
+                )}
+                <div className="photosCollapseButtonRow">
+                  <button
+                    className="btn ghost compact photosCollapseButton"
+                    type="button"
+                    onClick={() => setGalleriesOpen(true)}
+                  >
+                    Show Galleries
+                  </button>
+                </div>
+              </div>
+              {photoLoadError ? <div className="error inlineError">The photo URL is saved but the browser could not load it in the preview.</div> : null}
+              {photoError ? <div className="error inlineError">{photoError}</div> : null}
             </div>
           ) : null}
         </div>
 
         <div className="sections">
-          {(['core', 'growth', 'care', 'health', 'storage', 'varieties', 'tuber', 'meta'] as SectionKey[]).map((k) => (
+          {(['growth', 'care', 'health', 'storage', 'varieties', 'tuber', 'meta'] as SectionKey[]).map((k) => (
             <div key={k} className="section">
               <button
                 className="sectionHead"
@@ -1551,29 +1448,6 @@ export function RecordModal({
 
               {open[k] ? (
                 <div className="sectionBody">
-                  {k === 'core' ? (
-                    <>
-                      <div className="grid2">
-                        <Field label="Cultivar" hint="The cultivar name. If blank, Flower Name is used when saving." value={form.core.cultivar ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, cultivar: v } }))} />
-                        <Field label="Planted Date" hint="Date planted. This may be earlier than the current season year for overwintered or moved plants." type="date" value={form.core.plantedDate ?? plantedDateForYear(form.seasonYearStart)} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, plantedDate: v } }))} />
-                        <ColorField
-                          label="Color"
-                          hint="Main bloom color or color description."
-                          value={form.core.color ?? ''}
-                          knownColors={knownColors}
-                          onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, color: v } }))}
-                          labelAction={onOpenColors ? (
-                            <button className="labelLink" type="button" onClick={onOpenColors}>
-                              Color
-                            </button>
-                          ) : undefined}
-                        />
-                        <DahliaPickerField label="Form" title="Bloom Form" hint="Bloom form, such as decorative, ball, cactus, or anemone." options={DAHLIA_FORM_OPTIONS} value={form.core.form} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, form: v } }))} />
-                      </div>
-                      <TextArea label="Notes" hint="General notes about the dahlia, bloom, or record." value={form.core.notes ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, notes: v } }))} />
-                    </>
-                  ) : null}
-
                   {k === 'growth' ? (
                     <div className="grid2">
                       <Field label="Height (in feet)" hint="Expected or observed plant height in feet." value={form.growth.height ?? ''} onChange={(v) => setForm((p) => ({ ...p, growth: { ...p.growth, height: v } }))} />
@@ -1914,6 +1788,133 @@ export function RecordModal({
           </div>
         </div>
       </div>
+      {galleriesOpen ? (
+        <div className="photoViewerOverlay" role="dialog" aria-modal="true" aria-label="Photo galleries">
+          <div className="photoViewerModal photoGalleriesModal">
+            <div className="photoViewerHeader">
+              <div>
+                <div className="modalTitle">Photo Galleries</div>
+                <div className="photoHint">Record photos are specific to this plant. Cultivar photos are shared across matching records.</div>
+              </div>
+              <button className="btn ghost" type="button" onClick={() => setGalleriesOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="photoViewerBody photoGalleriesBody">
+              <div className="photoSubhead">Assigned Image</div>
+              <div
+                className="photoDropzone"
+                onDragOver={(e) => {
+                  e.preventDefault()
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  void selectPhoto(e.dataTransfer.files[0])
+                }}
+              >
+                {currentPhoto && !photoLoadError ? (
+                  <div className="photoPreviewFrame">
+                    <img key={currentPhoto} className="photoPreview" src={currentPhoto} alt="Selected dahlia" loading="lazy" decoding="async" width={PHOTO_PREVIEW_SIZE} height={PHOTO_PREVIEW_SIZE} onError={() => setPhotoLoadError(true)} />
+                  </div>
+                ) : (
+                  <div className="photoPlaceholder">{photoLoadError ? 'Photo failed to load' : 'Drop a photo here'}</div>
+                )}
+                <div className="photoActions">
+                  <div className="photoHint">Add a new image by dragging it here, or choose one from your device.</div>
+                  <div className="photoUploadTarget" role="radiogroup" aria-label="Photo upload target">
+                    <label className="radioOption">
+                      <input type="radio" name="galleriesPhotoScope" value="cultivar" checked={photoScope === 'cultivar'} onChange={() => setPhotoScope('cultivar')} />
+                      <span>All {form.core.cultivar || form.flowerName || 'cultivar'} records</span>
+                    </label>
+                    <label className="radioOption">
+                      <input type="radio" name="galleriesPhotoScope" value="record" checked={photoScope === 'record'} onChange={() => setPhotoScope('record')} />
+                      <span>This record only</span>
+                    </label>
+                  </div>
+                  <div className="photoActionButtons">
+                    <button
+                      className={photoFile ? 'btn' : 'btn ghost'}
+                      type="button"
+                      disabled={photoFile ? !canSave || saving || photoConverting : photoConverting}
+                      onClick={() => photoFile ? void handleSave({ keepOpen: true }) : galleriesFileInputRef.current?.click()}
+                    >
+                      {photoConverting ? 'Converting...' : photoFile ? saving ? 'Saving...' : 'Save Photo' : 'Add Photo'}
+                    </button>
+                    {photoFile ? (
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        disabled={saving || photoConverting}
+                        onClick={() => galleriesFileInputRef.current?.click()}
+                      >
+                        Choose Different Photo
+                      </button>
+                    ) : null}
+                    {photoFile ? (
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        disabled={saving || photoConverting}
+                        onClick={cancelPhotoSelection}
+                      >
+                        Cancel
+                      </button>
+                    ) : null}
+                  </div>
+                  <input
+                    ref={galleriesFileInputRef}
+                    className="fileInput"
+                    type="file"
+                    accept="image/*,.heic,.heif"
+                    onChange={(e) => void selectPhoto(e.target.files?.[0])}
+                  />
+                </div>
+              </div>
+              {photoLoadError ? <div className="error inlineError">The photo URL is saved but the browser could not load it in the preview.</div> : null}
+              {photoError ? <div className="error inlineError">{photoError}</div> : null}
+              <div className="photoGalleryGroups">
+                <PhotoGallery
+                  title="Record Photos"
+                  empty="No record-specific photos yet."
+                  photos={recordPhotos}
+                  defaultPhotoId={resolvedRecordDefaultPhotoId}
+                  overallDefaultPhotoId={overallRecordDefaultPhotoId}
+                  onView={(url) => { setViewerPhotoUrl(url); setPhotoViewerOpen(true) }}
+                  onSetDefault={(photo) => void setRecordDefault(photo)}
+                  onDelete={(photos) => void deletePhotos(photos, 'record')}
+                  onCopy={(photos) => void copyPhotosToScope(photos, 'cultivar')}
+                  copyLabel="Copy to Cultivar"
+                  onSave={() => void handleSave({ keepOpen: true, dirtyPhotoSection: 'record' })}
+                  showSave={dirtyPhotoSection === 'record'}
+                  saveDisabled={!canSave || !hasChanges || saving}
+                  saving={saving}
+                />
+                <PhotoGallery
+                  title="Cultivar Photos"
+                  empty="No shared cultivar photos yet."
+                  photos={cultivarPhotos}
+                  defaultPhotoId={resolvedCultivarDefaultPhotoId}
+                  overallDefaultPhotoId={overallCultivarDefaultPhotoId}
+                  onView={(url) => { setViewerPhotoUrl(url); setPhotoViewerOpen(true) }}
+                  onSetDefault={(photo) => {
+                    setDirtyPhotoSection('cultivar')
+                    setForm((previous) => withResolvedPhotoFields({ ...previous, cultivarPhotos, defaultCultivarPhotoId: photo.id, defaultPhotoScope: 'cultivar' }))
+                  }}
+                  onSetDefaultForAll={(photo) => void setCultivarDefault(photo, true)}
+                  applyDefaultToAllLabel="All related records"
+                  onDelete={(photos) => void deletePhotos(photos, 'cultivar')}
+                  onCopy={(photos) => void copyPhotosToScope(photos, 'record')}
+                  copyLabel="Copy to Record"
+                  onSave={() => void handleSave({ keepOpen: true, dirtyPhotoSection: 'cultivar' })}
+                  showSave={dirtyPhotoSection === 'cultivar'}
+                  saveDisabled={!canSave || !hasChanges || saving}
+                  saving={saving}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {photoViewerOpen && (viewerPhotoUrl || currentPhoto) ? (
         <div className="photoViewerOverlay" role="dialog" aria-modal="true" aria-label="Flower photo viewer" onMouseDown={() => setPhotoViewerOpen(false)}>
           <div className="photoViewerModal" onMouseDown={(e) => e.stopPropagation()}>
