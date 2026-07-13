@@ -2302,6 +2302,88 @@ th.sortable {
   display: none;
 }
 
+.photoIdentifyOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--modal-overlay);
+}
+
+.photoIdentifyModal {
+  width: min(760px, calc(100vw - 32px));
+}
+
+.photoIdentifyBody {
+  display: block;
+}
+
+.photoIdentifyCaveats {
+  margin-bottom: 12px;
+}
+
+.photoIdentifyGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.photoIdentifyCard {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-subtle);
+}
+
+.photoIdentifyCard .photoPreviewButton,
+.photoIdentifyCard .photoPreview,
+.photoIdentifyPlaceholder {
+  width: 96px;
+  aspect-ratio: 1;
+  border-radius: 12px;
+}
+
+.photoIdentifyPlaceholder {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  text-align: center;
+  font-size: 11px;
+  padding: 6px;
+}
+
+.photoIdentifyInfo {
+  min-width: 0;
+}
+
+.photoIdentifyName {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.photoIdentifyConfidence {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.photoIdentifyNotes {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.photoIdentifyEnlargeOverlay {
+  z-index: 5100;
+}
+
 .inlineError {
   margin-top: 6px;
   padding: 0;
@@ -2322,6 +2404,17 @@ th.sortable {
 
   .photoGalleryGroups {
     grid-template-columns: 1fr;
+  }
+
+  .photoIdentifyCard {
+    grid-template-columns: 72px 1fr;
+    gap: 10px;
+  }
+
+  .photoIdentifyCard .photoPreviewButton,
+  .photoIdentifyCard .photoPreview,
+  .photoIdentifyCard .photoIdentifyPlaceholder {
+    width: 72px;
   }
 
   .photosSectionHeader {
@@ -3330,6 +3423,36 @@ th.sortable {
   min-width: 180px;
 }
 
+.agentPhotoIdentify {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.agentPhotoIdentifyRow {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.agentPhotoIdentifyPreview {
+  width: 96px;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  object-fit: cover;
+  font-size: 11px;
+  text-align: center;
+}
+
+.agentPhotoIdentifyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 @media (max-width: 720px) {
   .analyticsControls {
     grid-template-columns: 1fr;
@@ -3341,6 +3464,14 @@ th.sortable {
 
   .reminderCard {
     grid-template-columns: 1fr;
+  }
+
+  .agentPhotoIdentifyRow {
+    grid-template-columns: 1fr;
+  }
+
+  .agentPhotoIdentifyPreview {
+    width: 100%;
   }
 }
 

@@ -1,4 +1,5 @@
 import { apiHeaders, authHeaders } from '../firebase'
+import type { AgentPhotoIdentificationResult } from '../types'
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -44,4 +45,21 @@ export async function uploadPhoto(file: File): Promise<{ imageUrl: string; thumb
     throw new Error(text || `Upload failed: ${res.status}`)
   }
   return (await res.json()) as { imageUrl: string; thumbnailUrl?: string }
+}
+
+export async function identifyPhoto(input: { file?: File; imageUrl?: string }): Promise<AgentPhotoIdentificationResult> {
+  const body = new FormData()
+  if (input.file) body.append('file', input.file)
+  if (input.imageUrl) body.append('imageUrl', input.imageUrl)
+
+  const res = await fetch(`${API_BASE}/api/agent/identify-photo`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body,
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `Photo identification failed: ${res.status}`)
+  }
+  return (await res.json()) as AgentPhotoIdentificationResult
 }

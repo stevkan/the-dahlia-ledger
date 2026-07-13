@@ -11,6 +11,7 @@ const PROMPTS_DIR = path.resolve(__dirname, '..', 'prompts')
 const AGENT_HELPER_PROMPT_PATH = path.join(PROMPTS_DIR, 'agent-helper.md')
 const REVIEW_PROMPT_PATH = path.join(PROMPTS_DIR, 'review-agent.md')
 const CORRECTION_PROMPT_PATH = path.join(PROMPTS_DIR, 'correction-agent.md')
+const PHOTO_IDENTIFICATION_PROMPT_PATH = path.join(PROMPTS_DIR, 'photo-identification-agent.md')
 
 const VisualizationSchema = z.object({
   type: z.enum(['bar', 'line', 'pie', 'scatter', 'table', 'garden-map']).optional(),
@@ -199,6 +200,25 @@ const CorrectionResultSchema = z.object({
   summary: z.string(),
   promptSuggestion: z.string().optional().default(''),
 })
+
+const PhotoSuggestionSchema = z.object({
+  name: z.string(),
+  confidence: z.number().min(0).max(1),
+  notes: z.string().optional(),
+  thumbnailUrl: z.string().optional(),
+})
+
+export const PhotoIdentificationResultSchema = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('needs_clarification'),
+    message: z.string(),
+  }),
+  z.object({
+    status: z.literal('answer'),
+    suggestions: z.array(PhotoSuggestionSchema).max(5),
+    caveats: z.array(z.string()).optional(),
+  }),
+])
 
 async function readPrompt(filePath) {
   return await readFile(filePath, 'utf8')
@@ -1708,4 +1728,160 @@ export async function proposeMissedIssueCorrection({ originalText, record, recor
     ...parsed,
     recordPatch: normalizeRecordKeys(parsed.recordPatch ?? {}),
   })
+}
+
+const MAX_REFERENCE_PHOTOS = 60
+const MAX_PHOTOS_PER_CULTIVAR = 4
+
+function normalizeCultivarKey(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function collectCultivarReferences(records) {
+  const byCultivar = new Map()
+
+  for (const record of records) {
+    const name = String(record.core?.cultivar || record.flowerName || '').trim()
+    if (!name) continue
+    const key = normalizeCultivarKey(name)
+    let entry = byCultivar.get(key)
+    if (!entry) {
+      entry = { name, urls: new Map() }
+      byCultivar.set(key, entry)
+    }
+
+    const photos = [...(record.recordPhotos ?? []), ...(record.cultivarPhotos ?? [])]
+    for (const photo of photos) {
+      const url = photo?.thumbnailUrl || photo?.imageUrl
+      if (url && !entry.urls.has(url)) entry.urls.set(url, url)
+    }
+
+    const legacyUrls = [record.cultivarThumbnailUrl, record.cultivarImageUrl, record.thumbnailUrl, record.imageUrl]
+    for (const url of legacyUrls) {
+      if (url && !entry.urls.has(url)) entry.urls.set(url, url)
+    }
+  }
+
+  const references = []
+  for (const { name, urls } of byCultivar.values()) {
+    let count = 0
+    for (const url of urls.keys()) {
+      if (count >= MAX_PHOTOS_PER_CULTIVAR) break
+      references.push({ name, thumbnailUrl: url })
+      count += 1
+    }
+  }
+  return references
+}
+
+export async function identifyPhoto({ imageDataUrl, imageUrl }) {
+  const client = getClient()
+  if (!client) {
+    return PhotoIdentificationResultSchema.parse({
+      status: 'needs_clarification',
+      message: 'Agent unavailable because OPENAI_API_KEY is not configured.',
+    })
+  }
+
+  const image = imageDataUrl || imageUrl
+  if (!image) {
+    return PhotoIdentificationResultSchema.parse({
+      status: 'needs_clarification',
+      message: 'No photo was provided to identify.',
+    })
+  }
+
+  const { records } = await getAgentContext()
+  const allReferences = collectCultivarReferences(records)
+  if (allReferences.length === 0) {
+    return PhotoIdentificationResultSchema.parse({
+      status: 'needs_clarification',
+      message: 'No saved cultivar photos are available yet to compare this photo against. Save a photo on at least one record first.',
+    })
+  }
+
+  const truncated = allReferences.length > MAX_REFERENCE_PHOTOS
+  const references = allReferences.slice(0, MAX_REFERENCE_PHOTOS)
+  const truncationCaveat = truncated
+    ? `Compared against the first ${references.length} of ${allReferences.length} saved cultivar photos; some saved cultivars were not included in this comparison.`
+    : undefined
+
+  const system = await readPrompt(PHOTO_IDENTIFICATION_PROMPT_PATH)
+  const model = process.env.OPENAI_MODEL ?? 'gpt-4.1-mini'
+
+  const referenceList = references.map((reference, index) => `${index + 1}. ${reference.name}`).join('\n')
+  const content = [
+    {
+      type: 'input_text',
+      text: `Query photo to identify against ${references.length} labeled reference photos from the user's own saved collection. Some labels repeat because that cultivar has more than one saved reference photo; treat repeats as multiple photos of the same cultivar, not separate cultivars. Reference labels:\n${referenceList}`,
+    },
+    { type: 'input_image', image_url: image },
+  ]
+  for (const reference of references) {
+    content.push({ type: 'input_text', text: `Reference photo for: ${reference.name}` })
+    content.push({ type: 'input_image', image_url: reference.thumbnailUrl })
+  }
+
+  const resp = await client.responses.create({
+    model,
+    input: [
+      {
+        role: 'system',
+        content: system,
+      },
+      {
+        role: 'user',
+        content,
+      },
+    ],
+    text: { format: { type: 'json_object' } },
+  })
+
+  let parsed
+  try {
+    parsed = PhotoIdentificationResultSchema.parse(await parseJsonResponse(resp))
+  } catch (error) {
+    console.warn('Photo identification response validation failed:', error)
+    return PhotoIdentificationResultSchema.parse({
+      status: 'needs_clarification',
+      message: 'I could not parse the photo identification response. Please try a different or clearer photo.',
+    })
+  }
+
+  if (parsed.status !== 'answer') {
+    return truncationCaveat ? { ...parsed, message: `${parsed.message} ${truncationCaveat}` } : parsed
+  }
+
+  const referenceByKey = new Map()
+  for (const reference of references) {
+    const key = normalizeCultivarKey(reference.name)
+    if (!referenceByKey.has(key)) referenceByKey.set(key, reference)
+  }
+  const seenNames = new Set()
+  const matchedSuggestions = []
+  for (const suggestion of parsed.suggestions) {
+    const reference = referenceByKey.get(normalizeCultivarKey(suggestion.name))
+    if (!reference) continue
+    const key = normalizeCultivarKey(reference.name)
+    if (seenNames.has(key)) continue
+    seenNames.add(key)
+    matchedSuggestions.push({ ...suggestion, name: reference.name, thumbnailUrl: reference.thumbnailUrl })
+    if (matchedSuggestions.length >= 5) break
+  }
+
+  if (matchedSuggestions.length === 0) {
+    return PhotoIdentificationResultSchema.parse({
+      status: 'needs_clarification',
+      message: [
+        'No close visual match was found among your saved cultivar photos. This may be a cultivar new to your collection.',
+        truncationCaveat,
+      ].filter(Boolean).join(' '),
+    })
+  }
+
+  return {
+    status: 'answer',
+    suggestions: matchedSuggestions,
+    ...(truncationCaveat ? { caveats: [truncationCaveat] } : {}),
+  }
 }

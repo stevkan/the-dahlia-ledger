@@ -230,6 +230,17 @@ export type AgentCorrectionResult = {
   promptSuggestion?: string
 }
 
+export type AgentPhotoSuggestion = {
+  name: string
+  confidence: number
+  notes?: string
+  thumbnailUrl?: string
+}
+
+export type AgentPhotoIdentificationResult =
+  | { status: 'needs_clarification'; message: string }
+  | { status: 'answer'; suggestions: AgentPhotoSuggestion[]; caveats?: string[] }
+
 export type MaintenanceReminder = {
   id: string
   gardenId?: string

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.25.0 - 2026-07-12
+
+- Added dahlia photo identification: a new "Identify Photo" action in `AgentPanel.tsx` lets users submit a photo directly to the agent, and a new "Identify Photo" button in the `RecordModal.tsx` Photo Galleries modal identifies the currently assigned (even unsaved) photo. Both open a new `PhotoIdentifyResultsModal.tsx` showing up to 5 suggested cultivars, each as a row with its thumbnail beside the name, confidence score, and notes; the modal only closes via its Close button and renders above all other content.
+- `identifyPhoto()` in `backend/src/agent.js` sends the submitted photo to the vision-capable OpenAI model alongside labeled reference photos of the user's own saved cultivars, and asks it to visually rank which saved cultivars most resemble the new photo. Suggestions are filtered server-side to only ever include an exact match against a saved cultivar, so every returned result always has a photo to compare against; a flower new to the collection correctly returns "no close match" instead of a guessed name. Reference photos are now collected from all of a cultivar's saved `recordPhotos`/`cultivarPhotos` (up to 4 per cultivar, deduplicated by URL) instead of just one representative photo, and the overall request is capped at 60 reference photos.
+- Added `backend/prompts/photo-identification-agent.md` describing this photo-vs-collection comparison task.
+- Added `POST /api/agent/identify-photo` in `backend/src/routes/agent.js`, accepting a multipart file upload or an existing photo URL.
+
 ## 0.24.1 - 2026-07-08
 
 - In `RecordModal.tsx`, moved the Core Details section above Photos as the first section, and moved Flower Name/Season and Planting State (with its conditional reason and garden-location fields) into Core Details above Cultivar and Planted Date.

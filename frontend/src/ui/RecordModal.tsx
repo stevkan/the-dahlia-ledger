@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_GARDEN_OPTIONS } from '../gardenOptions'
-import type { AgentCorrectionResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, GardenOptionKey, GardenOptions, NotPlantedReason, NotViableReason, Order, PlantingState } from '../types'
+import type { AgentCorrectionResult, AgentPhotoIdentificationResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, GardenOptionKey, GardenOptions, NotPlantedReason, NotViableReason, Order, PlantingState } from '../types'
 import { DropdownField } from './DropdownField'
 import { FlowerNameField } from './FlowerNameField'
 import { ColorField } from './ColorField'
 import { DahliaPickerField } from './DahliaPickerField'
+import { PhotoIdentifyResultsModal } from './PhotoIdentifyResultsModal'
+import { identifyPhoto } from '../api/client'
 
 type SectionKey = 'core' | 'growth' | 'care' | 'tuber' | 'storage' | 'health' | 'varieties' | 'meta' | 'photos'
 type ConfirmAction = 'review' | 'delete' | 'duplicate' | null
@@ -635,6 +637,9 @@ export function RecordModal({
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [photoLoadError, setPhotoLoadError] = useState(false)
   const [photoScope, setPhotoScope] = useState<'cultivar' | 'record'>('cultivar')
+  const [identifyBusy, setIdentifyBusy] = useState(false)
+  const [identifyError, setIdentifyError] = useState<string | null>(null)
+  const [identifyResult, setIdentifyResult] = useState<AgentPhotoIdentificationResult | null>(null)
   const [dirtyPhotoSection, setDirtyPhotoSection] = useState<'record' | 'cultivar' | null>(null)
   const [closeError, setCloseError] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
@@ -763,6 +768,23 @@ export function RecordModal({
       if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous)
       return URL.createObjectURL(file)
     })
+  }
+
+  async function submitIdentifyPhoto() {
+    if (identifyBusy) return
+
+    setIdentifyBusy(true)
+    setIdentifyError(null)
+    try {
+      const out = photoFile
+        ? await identifyPhoto({ file: photoFile })
+        : await identifyPhoto({ imageUrl: currentViewerPhoto })
+      setIdentifyResult(out)
+    } catch (e: any) {
+      setIdentifyError(e?.message ?? String(e))
+    } finally {
+      setIdentifyBusy(false)
+    }
   }
 
   function cancelPhotoSelection() {
@@ -1840,6 +1862,14 @@ export function RecordModal({
                     >
                       {photoConverting ? 'Converting...' : photoFile ? saving ? 'Saving...' : 'Save Photo' : 'Add Photo'}
                     </button>
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      disabled={!currentPhoto || photoLoadError || identifyBusy}
+                      onClick={() => void submitIdentifyPhoto()}
+                    >
+                      {identifyBusy ? 'Identifying...' : 'Identify Photo'}
+                    </button>
                     {photoFile ? (
                       <button
                         className="btn ghost"
@@ -1872,6 +1902,7 @@ export function RecordModal({
               </div>
               {photoLoadError ? <div className="error inlineError">The photo URL is saved but the browser could not load it in the preview.</div> : null}
               {photoError ? <div className="error inlineError">{photoError}</div> : null}
+              {identifyError ? <div className="error inlineError">{identifyError}</div> : null}
               <div className="photoGalleryGroups">
                 <PhotoGallery
                   title="Record Photos"
@@ -1930,6 +1961,7 @@ export function RecordModal({
           </div>
         </div>
       ) : null}
+      {identifyResult ? <PhotoIdentifyResultsModal result={identifyResult} onClose={() => setIdentifyResult(null)} /> : null}
     </Overlay>
   )
 }
