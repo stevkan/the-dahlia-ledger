@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createUserWithEmailAndPassword,
@@ -24,6 +24,7 @@ import { PhotoIdentifyModal } from './PhotoIdentifyModal'
 import { OrderModal } from './OrderModal'
 import { AssetsModal } from './AssetsModal'
 import { CompaniesModal } from './CompaniesModal'
+import { SettingsModal } from './SettingsModal'
 import { GardenOptionsModal } from './GardenOptionsModal'
 import { MaintenanceRemindersModal } from './MaintenanceRemindersModal'
 import { GardenManagementModal } from './GardenManagementModal'
@@ -159,7 +160,7 @@ function loadRecordsRefreshInterval() {
 
 type Theme = 'dark' | 'light'
 
-function excelImportSummary(result: ExcelImportResult) {
+export function excelImportSummary(result: ExcelImportResult) {
   const counts = result.counts
   const followUpCount = counts.unmatchedCount + counts.ambiguousCount + counts.priorSeasonMissingCount + counts.skippedCount
   return `Updated ${counts.updatedCount} of ${counts.extractedCount} Excel location${counts.extractedCount === 1 ? '' : 's'}. ${followUpCount} need review.`
@@ -226,12 +227,11 @@ export default function App() {
   const [photoIdentifyOpen, setPhotoIdentifyOpen] = useState(false)
   const [insightsMenuOpen, setInsightsMenuOpen] = useState(false)
   const [maintenanceRemindersOpen, setMaintenanceRemindersOpen] = useState(false)
-  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   const [hamburgerMenuOpen, setHamburgerMenuOpen] = useState(false)
   const recordsManagementRef = useRef<HTMLDivElement>(null)
   const gardenMenuRef = useRef<HTMLDivElement>(null)
   const insightsMenuRef = useRef<HTMLDivElement>(null)
-  const settingsMenuRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
 
   const {
@@ -364,19 +364,6 @@ export default function App() {
     document.addEventListener('pointerdown', closeOnOutsideClick)
     return () => document.removeEventListener('pointerdown', closeOnOutsideClick)
   }, [recordsManagementOpen])
-
-  useEffect(() => {
-    if (!settingsMenuOpen) return
-
-    function closeOnOutsideClick(event: PointerEvent) {
-      if (!settingsMenuRef.current?.contains(event.target as Node)) {
-        setSettingsMenuOpen(false)
-      }
-    }
-
-    document.addEventListener('pointerdown', closeOnOutsideClick)
-    return () => document.removeEventListener('pointerdown', closeOnOutsideClick)
-  }, [settingsMenuOpen])
 
   useEffect(() => {
     if (!insightsMenuOpen) return
@@ -1080,7 +1067,6 @@ export default function App() {
                 setGardenMenuOpen((open) => !open)
                 setRecordsManagementOpen(false)
                 setInsightsMenuOpen(false)
-                setSettingsMenuOpen(false)
               }}
             >
               <span>Garden:</span>
@@ -1114,7 +1100,6 @@ export default function App() {
               setMaintenanceRemindersOpen(true)
               setRecordsManagementOpen(false)
               setInsightsMenuOpen(false)
-              setSettingsMenuOpen(false)
               setHamburgerMenuOpen(false)
             }}
           >
@@ -1130,7 +1115,6 @@ export default function App() {
                 setHamburgerMenuOpen((open) => !open)
                 setRecordsManagementOpen(false)
                 setInsightsMenuOpen(false)
-                setSettingsMenuOpen(false)
               }}
             >
               <span>More</span>
@@ -1208,7 +1192,6 @@ export default function App() {
                   onClick={() => {
                     setInsightsMenuOpen((open) => !open)
                     setRecordsManagementOpen(false)
-                    setSettingsMenuOpen(false)
                   }}
                 >
                   <span>Insights</span>
@@ -1251,123 +1234,16 @@ export default function App() {
                   </div>
                 ) : null}
               </div>
-          <div className="actionAccordion" ref={settingsMenuRef}>
-            <button
-              className="btn ghost accordionToggle"
-              type="button"
-              aria-expanded={settingsMenuOpen}
-              aria-controls="settings-actions"
-              onClick={() => setSettingsMenuOpen((open) => !open)}
-            >
-              <span>Settings</span>
-              <span className="accordionIcon" aria-hidden="true">
-                {settingsMenuOpen ? '−' : '+'}
-              </span>
-            </button>
-            {settingsMenuOpen ? (
-              <div className="accordionPanel settingsPanel" id="settings-actions">
-                <div className="appearanceSetting" role="group" aria-label="Appearance setting">
-                  <span>Appearance</span>
-                  <button
-                    className={`switchToggle ${theme === 'light' ? 'on' : ''}`}
-                    type="button"
-                    role="switch"
-                    aria-checked={theme === 'light'}
-                    aria-label="Use light theme"
-                    onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-                  >
-                    <span className="switchTrack">
-                      <span className="switchLabel">{theme === 'light' ? 'Light' : 'Dark'}</span>
-                      <span className="switchThumb" />
-                    </span>
-                  </button>
-                </div>
-                {globalAdmin ? <div className="oneNoteImportSetting">
-                  <div>
-                    <div className="settingTitle">OneNote Import</div>
-                    <div className="settingHint">Upload a Single File Web Page (.mht) export.</div>
-                  </div>
-                  <label
-                    className={`btn ghost compact importFileButton ${oneNoteImporting ? 'disabled importing' : ''}`}
-                    style={{ '--import-progress': `${oneNoteImportProgress}%` } as CSSProperties}
-                    aria-disabled={oneNoteImporting}
-                  >
-                    <span>{oneNoteImporting ? `Importing ${oneNoteImportProgress}%` : 'Import data from OneNote'}</span>
-                    <input
-                      type="file"
-                      accept=".mht,.mhtml"
-                      disabled={oneNoteImporting}
-                      onChange={(event) => {
-                        const file = event.currentTarget.files?.[0]
-                        event.currentTarget.value = ''
-                        void importOneNoteFile(file)
-                      }}
-                    />
-                  </label>
-                  {oneNoteImportMessage ? <div className="settingHint success">{oneNoteImportMessage}</div> : null}
-                </div> : null}
-                {globalAdmin ? <div className="oneNoteImportSetting">
-                  <div>
-                    <div className="settingTitle">Excel Import</div>
-                    <div className="settingHint">Upload the 2026 garden location spreadsheet.</div>
-                  </div>
-                  <label
-                    className={`btn ghost compact importFileButton ${excelImporting ? 'disabled importing' : ''}`}
-                    style={{ '--import-progress': `${excelImportProgress}%` } as CSSProperties}
-                    aria-disabled={excelImporting}
-                  >
-                    <span>{excelImporting ? `Importing ${excelImportProgress}%` : 'Import data from Excel'}</span>
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls"
-                      disabled={excelImporting}
-                      onChange={(event) => {
-                        const file = event.currentTarget.files?.[0]
-                        event.currentTarget.value = ''
-                        void importExcelFile(file)
-                      }}
-                    />
-                  </label>
-                  {excelImportResult ? (
-                    <div className="excelImportSummary">
-                      <div className="settingHint success">{excelImportSummary(excelImportResult)}</div>
-                      {excelImportResult.canRevert ? (
-                        <button className="btn ghost compact" type="button" disabled={excelReverting} onClick={() => void revertLatestExcelImport()}>
-                          {excelReverting ? 'Reverting Excel import...' : 'Revert latest Excel import'}
-                        </button>
-                      ) : null}
-                      {excelImportResult.priorSeasonMissing.length ? (
-                        <div className="settingHint">Prior seasons only: {excelImportResult.priorSeasonMissing.slice(0, 5).map((entry) => `${entry.excelName} (${entry.gardenLocation})`).join(', ')}</div>
-                      ) : null}
-                      {excelImportResult.ambiguous.length ? (
-                        <div className="settingHint">Ambiguous: {excelImportResult.ambiguous.slice(0, 5).map((entry) => `${entry.excelName} (${entry.gardenLocation})`).join(', ')}</div>
-                      ) : null}
-                      {excelImportResult.unmatched.length ? (
-                        <div className="settingHint">Unmatched: {excelImportResult.unmatched.slice(0, 5).map((entry) => `${entry.excelName} (${entry.gardenLocation})`).join(', ')}</div>
-                      ) : null}
-                      {excelImportResult.skipped.length ? (
-                        <div className="settingHint">Skipped: {excelImportResult.skipped.slice(0, 5).map((entry) => `${entry.excelName} (${entry.gardenLocation})`).join(', ')}</div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  {excelRevertMessage ? <div className="settingHint success">{excelRevertMessage}</div> : null}
-                </div> : null}
-                <div className="settingsSignOut">
-                  <div className="signedInAs">Signed in as {user.email ?? user.displayName}</div>
-                  <button
-                    className="btn ghost compact"
-                    type="button"
-                    onClick={() => {
-                      setSettingsMenuOpen(false)
-                      if (auth) void signOut(auth)
-                    }}
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
+          <button
+            className="btn ghost accordionToggle"
+            type="button"
+            onClick={() => {
+              setSettingsModalOpen(true)
+              setHamburgerMenuOpen(false)
+            }}
+          >
+            <span>Settings</span>
+          </button>
             </div>
           </div>
         </div>
@@ -1551,6 +1427,33 @@ export default function App() {
             setInitialOrderId(orderId)
             setOrdersOpen(true)
           }}
+        />
+      ) : null}
+
+      {settingsModalOpen ? (
+        <SettingsModal
+          initialBlade="appearance"
+          theme={theme}
+          onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+          showFileImports={globalAdmin}
+          signedInAs={user.email ?? user.displayName ?? ''}
+          onSignOut={() => {
+            setSettingsModalOpen(false)
+            if (auth) void signOut(auth)
+          }}
+          oneNoteImporting={oneNoteImporting}
+          oneNoteImportProgress={oneNoteImportProgress}
+          oneNoteImportMessage={oneNoteImportMessage}
+          onImportOneNote={(file) => void importOneNoteFile(file)}
+          excelImporting={excelImporting}
+          excelImportProgress={excelImportProgress}
+          excelImportResult={excelImportResult}
+          excelImportSummary={excelImportSummary}
+          onImportExcel={(file) => void importExcelFile(file)}
+          excelReverting={excelReverting}
+          excelRevertMessage={excelRevertMessage}
+          onRevertExcel={() => void revertLatestExcelImport()}
+          onClose={() => setSettingsModalOpen(false)}
         />
       ) : null}
 

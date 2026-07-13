@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.28.0 - 2026-07-13
+
+- Replaced the Settings dropdown with a new `SettingsModal.tsx`, styled like the Companies modal with an equal-width left/right blade layout: "Appearance" (theme toggle), "File Imports" (OneNote/Excel import, admin-only), and "Account" (signed-in email and Sign Out, stacked and left-aligned). The Settings header button now opens the modal directly instead of expanding an inline dropdown/accordion, and the modal only closes via its Close button.
+- `App.tsx`'s Settings button, drawer, and top bar no longer render sign-in info or Sign Out inline; that's now exclusively reachable through the modal's Account blade.
+- The Settings modal's width grows (up to ~820px) to fit the full "Signed in as..." line without truncating it.
+
 ## 0.27.0 - 2026-07-13
 
 - Added metadata-assisted re-ranking to Identify Photo: `backend/src/embeddings.js` now also loads CLIP's text tower (`CLIPTextModelWithProjection`/`AutoTokenizer`, `embedTexts()`) so `identifyPhoto()` in `backend/src/agent.js` can zero-shot-classify the query photo's likely color family and bloom form using the same already-loaded model (no extra vision-model inference, since it reuses the query's existing image embedding against small cached sets of text-label embeddings). Cultivars whose saved `core.color`/`core.form` agree with that inferred guess get a small score boost (`PHOTO_MATCH_COLOR_BOOST`/`PHOTO_MATCH_FORM_BOOST` env vars, defaulting to 0.03/0.015 — form's default is lower since empirical testing showed CLIP's zero-shot form discrimination is much weaker than its color discrimination). Missing or non-matching metadata is always neutral (no penalty), so records with incomplete color/form data behave exactly as before.
