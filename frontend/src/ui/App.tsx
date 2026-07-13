@@ -37,7 +37,6 @@ const RECORDS_REFRESH_INTERVAL_OPTIONS = [0, 30_000, 60_000, 5 * 60_000, 15 * 60
 const companiesQueryKey = ['companies'] as const
 const ordersQueryKey = ['orders'] as const
 const assetsQueryKey = ['assets'] as const
-const settingsQueryKey = ['settings'] as const
 const KNOWN_USERS_REFRESH_INTERVAL_MS = 30_000
 
 function LandscapeOnlyOverlay() {
@@ -160,10 +159,6 @@ function loadRecordsRefreshInterval() {
 
 type Theme = 'dark' | 'light'
 
-type AppSettings = {
-  agentDebugReviewEnabled: boolean
-}
-
 function excelImportSummary(result: ExcelImportResult) {
   const counts = result.counts
   const followUpCount = counts.unmatchedCount + counts.ambiguousCount + counts.priorSeasonMissingCount + counts.skippedCount
@@ -268,12 +263,6 @@ export default function App() {
     enabled: Boolean(user),
     staleTime: 5 * 60_000,
   })
-  const settingsQuery = useQuery({
-    queryKey: settingsQueryKey,
-    queryFn: async () => (await api<{ settings: AppSettings }>('/api/settings')).settings,
-    enabled: Boolean(user),
-    staleTime: 5 * 60_000,
-  })
   const maintenanceRemindersQuery = useQuery({
     queryKey: maintenanceRemindersQueryKey(activeGardenId),
     queryFn: async () => (await api<{ reminders: MaintenanceReminder[] }>(`/api/maintenance-reminders${gardenQuery}`)).reminders,
@@ -285,7 +274,6 @@ export default function App() {
   const companies = companiesQuery.data ?? []
   const orders = ordersQuery.data ?? []
   const assets = assetsQuery.data ?? []
-  const settings = settingsQuery.data ?? { agentDebugReviewEnabled: false }
   const maintenanceReminders = maintenanceRemindersQuery.data ?? []
   const visibleIncompleteReminders = maintenanceReminders.filter((reminder) => !reminder.completedAt && canUserViewReminder(reminder, user?.uid))
   const visibleReminderCount = visibleIncompleteReminders.length
@@ -457,22 +445,6 @@ export default function App() {
       unsubscribe()
     }
   }, [])
-
-  async function setAgentDebugReviewEnabled(agentDebugReviewEnabled: boolean) {
-    const previous = settings
-    queryClient.setQueryData(settingsQueryKey, { ...settings, agentDebugReviewEnabled })
-    setError(null)
-    try {
-      const data = await api<{ settings: AppSettings }>('/api/settings', {
-        method: 'PUT',
-        body: JSON.stringify({ agentDebugReviewEnabled }),
-      })
-      queryClient.setQueryData(settingsQueryKey, data.settings)
-    } catch (e: any) {
-      queryClient.setQueryData(settingsQueryKey, previous)
-      setError(e?.message ?? String(e))
-    }
-  }
 
   async function loginWithMicrosoft() {
     if (!auth) {
@@ -1306,22 +1278,6 @@ export default function App() {
                   >
                     <span className="switchTrack">
                       <span className="switchLabel">{theme === 'light' ? 'Light' : 'Dark'}</span>
-                      <span className="switchThumb" />
-                    </span>
-                  </button>
-                </div>
-                <div className="appearanceSetting" role="group" aria-label="Agent debug review setting">
-                  <span>Agent Debug</span>
-                  <button
-                    className={`switchToggle ${settings.agentDebugReviewEnabled ? 'on' : ''}`}
-                    type="button"
-                    role="switch"
-                    aria-checked={settings.agentDebugReviewEnabled}
-                    aria-label="Enable agent debug review"
-                    onClick={() => void setAgentDebugReviewEnabled(!settings.agentDebugReviewEnabled)}
-                  >
-                    <span className="switchTrack">
-                      <span className="switchLabel">{settings.agentDebugReviewEnabled ? 'On' : 'Off'}</span>
                       <span className="switchThumb" />
                     </span>
                   </button>
