@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.28.2 - 2026-07-13
+
+- Fixed a real regression from the 0.27.0 metadata re-ranking boost: `PHOTO_MATCH_COLOR_BOOST`/`PHOTO_MATCH_FORM_BOOST` defaults (0.03/0.015) were large enough to override genuine visual-similarity differences, so a cultivar with no recorded color/form (getting zero boost, by design) could be outranked by a visually-worse match that happened to have matching metadata — confirmed with a real case where a cultivar's own saved photo, used as the query, scored 0.9737 (correctly the best raw visual match) but ranked behind two other cultivars boosted to 0.983/0.979 from raw scores of ~0.95, burying the correct self-match entirely. Reduced the defaults to 0.008/0.004 in `backend/src/agent.js` — small enough to only break near-ties, verified against multiple real self-match cases that previously failed or were at risk.
+
+## 0.28.1 - 2026-07-13
+
+- Fixed an intermittent 400 "A photo is required to identify" from Identify Photo when selecting a HEIC photo (the default format for iPhone camera photos): the button could be tapped before the async HEIC→JPEG conversion finished, submitting neither a file nor an image URL. `RecordModal.tsx`'s Photo Galleries Identify Photo button now also disables while `photoConverting` is true. `PhotoIdentifyModal.tsx` previously had no HEIC handling at all (a raw `.heic` upload could fail server-side, or be rejected client-side depending on browser MIME reporting); it now converts HEIC the same way `RecordModal.tsx` does, with matching button-disable behavior during conversion.
+- `identifyPhoto()` in `frontend/src/api/client.ts` now downscales the photo client-side (max 768px on the long edge, JPEG quality 0.85, via `createImageBitmap`/canvas) before uploading for identification, since CLIP resizes to 224×224 internally regardless — this cuts upload size and time substantially on mobile connections with no accuracy loss. Falls back to the original file if resizing fails for any reason.
+- Added diagnostic logging (`trackTrace`, visible in Application Insights) to the `POST /api/agent/identify-photo` 400 responses in `backend/src/routes/agent.js`, capturing content-type, content-length, user-agent, and whether a file was received, to help diagnose any further occurrences.
+
 ## 0.28.0 - 2026-07-13
 
 - Replaced the Settings dropdown with a new `SettingsModal.tsx`, styled like the Companies modal with an equal-width left/right blade layout: "Appearance" (theme toggle), "File Imports" (OneNote/Excel import, admin-only), and "Account" (signed-in email and Sign Out, stacked and left-aligned). The Settings header button now opens the modal directly instead of expanding an inline dropdown/accordion, and the modal only closes via its Close button.

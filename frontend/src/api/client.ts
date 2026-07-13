@@ -47,9 +47,42 @@ export async function uploadPhoto(file: File): Promise<{ imageUrl: string; thumb
   return (await res.json()) as { imageUrl: string; thumbnailUrl?: string }
 }
 
+const IDENTIFY_PHOTO_MAX_DIMENSION = 768
+const IDENTIFY_PHOTO_JPEG_QUALITY = 0.85
+
+async function resizeForIdentification(file: File): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, IDENTIFY_PHOTO_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height))
+    if (scale >= 1) {
+      bitmap.close()
+      return file
+    }
+
+    const width = Math.round(bitmap.width * scale)
+    const height = Math.round(bitmap.height * scale)
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      bitmap.close()
+      return file
+    }
+    ctx.drawImage(bitmap, 0, 0, width, height)
+    bitmap.close()
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', IDENTIFY_PHOTO_JPEG_QUALITY))
+    if (!blob) return file
+    return new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })
+  } catch {
+    return file
+  }
+}
+
 export async function identifyPhoto(input: { file?: File; imageUrl?: string }): Promise<AgentPhotoIdentificationResult> {
   const body = new FormData()
-  if (input.file) body.append('file', input.file)
+  if (input.file) body.append('file', await resizeForIdentification(input.file))
   if (input.imageUrl) body.append('imageUrl', input.imageUrl)
 
   const res = await fetch(`${API_BASE}/api/agent/identify-photo`, {

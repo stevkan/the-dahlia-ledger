@@ -1788,8 +1788,12 @@ function textIncludesWord(haystack, word) {
   return new RegExp(`\\b${escaped}\\b`, 'i').test(haystack)
 }
 
-const DEFAULT_COLOR_MATCH_BOOST = 0.03
-const DEFAULT_FORM_MATCH_BOOST = 0.015 // Zero-shot form classification is a much weaker signal than color; kept conservative by default.
+// Kept deliberately small: real testing showed the natural score gap between a true visual match and its
+// nearest rival can be as little as ~0.01, and a cultivar with no recorded color/form gets zero boost by
+// design (missing metadata is neutral) — so a boost this size must stay well under that gap, or a strong
+// true match with incomplete metadata can be outranked by a weaker match that happens to have metadata filled in.
+const DEFAULT_COLOR_MATCH_BOOST = 0.008
+const DEFAULT_FORM_MATCH_BOOST = 0.004 // Zero-shot form classification is a much weaker signal than color; kept smaller still.
 
 function colorMatchBoost() {
   const configured = Number(process.env.PHOTO_MATCH_COLOR_BOOST)

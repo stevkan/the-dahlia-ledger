@@ -1885,10 +1885,10 @@ export function RecordModal({
                     <button
                       className="btn ghost photoActionIdentify"
                       type="button"
-                      disabled={!currentPhoto || photoLoadError || identifyBusy}
+                      disabled={!currentPhoto || photoLoadError || photoConverting || identifyBusy}
                       onClick={() => void submitIdentifyPhoto()}
                     >
-                      {identifyBusy ? 'Identifying...' : 'Identify Photo'}
+                      {photoConverting ? 'Converting...' : identifyBusy ? 'Identifying...' : 'Identify Photo'}
                     </button>
                   </div>
                   <input

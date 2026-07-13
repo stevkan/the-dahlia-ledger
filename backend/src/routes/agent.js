@@ -5,7 +5,7 @@ import { identifyPhoto, ingestText, proposeMissedIssueCorrection, reviewRecordMa
 import { resolveGardenId } from '../gardens.js'
 import { forbidden } from '../httpHelpers.js'
 import { getSettings } from '../settings.js'
-import { trackException } from '../telemetry.js'
+import { trackException, trackTrace } from '../telemetry.js'
 
 const router = express.Router()
 const photoIdentifyUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } })
@@ -33,8 +33,20 @@ router.post('/agent/ingest', async (req, res) => {
 router.post('/agent/identify-photo', photoIdentifyUpload.single('file'), async (req, res) => {
   const Body = z.object({ imageUrl: z.string().min(1).optional() })
   const parsed = Body.safeParse(req.body)
-  if (!parsed.success) return res.status(400).send(parsed.error.toString())
+  const diagnostics = {
+    contentType: req.get('content-type') ?? 'none',
+    contentLength: req.get('content-length') ?? 'none',
+    userAgent: req.get('user-agent') ?? 'none',
+    hasFile: Boolean(req.file),
+    bodyKeys: Object.keys(req.body ?? {}).join(',') || 'none',
+  }
+
+  if (!parsed.success) {
+    trackTrace('Agent identify-photo: invalid body', 2, diagnostics)
+    return res.status(400).send(parsed.error.toString())
+  }
   if (!req.file && !parsed.data.imageUrl) {
+    trackTrace('Agent identify-photo: no file or imageUrl received', 2, diagnostics)
     return res.status(400).json({ status: 'needs_clarification', message: 'A photo is required to identify.' })
   }
 

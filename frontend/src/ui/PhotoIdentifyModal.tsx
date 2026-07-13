@@ -7,17 +7,41 @@ export function PhotoIdentifyModal({ onClose }: { onClose: () => void }) {
   const identifyFileInputRef = useRef<HTMLInputElement | null>(null)
   const [identifyFile, setIdentifyFile] = useState<File | null>(null)
   const [identifyPreview, setIdentifyPreview] = useState<string | null>(null)
+  const [identifyConverting, setIdentifyConverting] = useState(false)
   const [identifyBusy, setIdentifyBusy] = useState(false)
   const [identifyError, setIdentifyError] = useState<string | null>(null)
   const [identifyResult, setIdentifyResult] = useState<AgentPhotoIdentificationResult | null>(null)
 
-  function selectIdentifyPhoto(file: File | undefined) {
+  async function selectIdentifyPhoto(file: File | undefined) {
     if (!file) return
-    if (!file.type.startsWith('image/')) {
+    const isHeic = file.type === 'image/heic' || file.type === 'image/heif' || /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name)
+    if (!file.type.startsWith('image/') && !isHeic) {
       setIdentifyError('Please select an image file.')
       return
     }
+
     setIdentifyError(null)
+
+    if (isHeic) {
+      setIdentifyConverting(true)
+      try {
+        const { heicTo } = await import('heic-to')
+        const jpeg = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.92 })
+        const convertedName = file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg')
+        const convertedFile = new File([jpeg], convertedName, { type: 'image/jpeg' })
+        setIdentifyFile(convertedFile)
+        setIdentifyPreview((previous) => {
+          if (previous) URL.revokeObjectURL(previous)
+          return URL.createObjectURL(jpeg)
+        })
+      } catch {
+        setIdentifyError('Could not convert HEIC file. Please try a different photo format.')
+      } finally {
+        setIdentifyConverting(false)
+      }
+      return
+    }
+
     setIdentifyFile(file)
     setIdentifyPreview((previous) => {
       if (previous) URL.revokeObjectURL(previous)
@@ -71,14 +95,14 @@ export function PhotoIdentifyModal({ onClose }: { onClose: () => void }) {
                 <div className="photoPlaceholder agentPhotoIdentifyPreview">No photo selected</div>
               )}
               <div className="agentPhotoIdentifyActions">
-                <button className="btn ghost compact" type="button" disabled={identifyBusy} onClick={() => identifyFileInputRef.current?.click()}>
+                <button className="btn ghost compact" type="button" disabled={identifyBusy || identifyConverting} onClick={() => identifyFileInputRef.current?.click()}>
                   {identifyFile ? 'Choose Different Photo' : 'Choose Photo'}
                 </button>
-                <button className="btn compact" type="button" disabled={!identifyFile || identifyBusy} onClick={() => void submitIdentifyPhoto()}>
-                  {identifyBusy ? 'Identifying...' : 'Identify Photo'}
+                <button className="btn compact" type="button" disabled={!identifyFile || identifyBusy || identifyConverting} onClick={() => void submitIdentifyPhoto()}>
+                  {identifyConverting ? 'Converting...' : identifyBusy ? 'Identifying...' : 'Identify Photo'}
                 </button>
                 {identifyFile ? (
-                  <button className="btn ghost compact" type="button" disabled={identifyBusy} onClick={cancelIdentifyPhoto}>
+                  <button className="btn ghost compact" type="button" disabled={identifyBusy || identifyConverting} onClick={cancelIdentifyPhoto}>
                     Cancel
                   </button>
                 ) : null}
@@ -88,7 +112,7 @@ export function PhotoIdentifyModal({ onClose }: { onClose: () => void }) {
                 className="fileInput"
                 type="file"
                 accept="image/*,.heic,.heif"
-                onChange={(e) => selectIdentifyPhoto(e.target.files?.[0])}
+                onChange={(e) => void selectIdentifyPhoto(e.target.files?.[0])}
               />
             </div>
             {identifyError ? <div className="error inlineError">{identifyError}</div> : null}
