@@ -1,4 +1,5 @@
 import { getDb } from './firebase.js'
+import { ensureEmbeddingsForRecord } from './photoEmbeddings.js'
 const COLLECTION = 'dahliaRecords'
 const SUMMARY_COLLECTION = 'dahliaRecordSummaries'
 const ONENOTE_IMPORT_NOTE = 'Imported from OneNote MHT.'
@@ -26,6 +27,12 @@ function recordSummaryCacheKey(gardenId, options = {}) {
 
 function clearRecordSummaryCache() {
   recordSummaryCache.clear()
+}
+
+function syncPhotoEmbeddings(record) {
+  void ensureEmbeddingsForRecord(record).catch((error) => {
+    console.error(`Failed to ensure photo embeddings for record ${record?.id}:`, error)
+  })
 }
 
 function isMissingFirestoreIndexError(error) {
@@ -376,7 +383,9 @@ export async function createRecord(input, gardenId) {
   const ref = await getDb().collection(COLLECTION).add(withoutUndefined(base))
   await writeRecordSummary({ id: ref.id, ...base })
   clearRecordSummaryCache()
-  return await getRecord(ref.id)
+  const record = await getRecord(ref.id)
+  syncPhotoEmbeddings(record)
+  return record
 }
 
 export async function updateRecord(id, input, gardenId) {
@@ -430,7 +439,9 @@ export async function updateRecord(id, input, gardenId) {
   await getDb().collection(COLLECTION).doc(id).set(withoutUndefined(next), { merge: false })
   await writeRecordSummary({ ...next, id })
   clearRecordSummaryCache()
-  return await getRecord(id)
+  const record = await getRecord(id)
+  syncPhotoEmbeddings(record)
+  return record
 }
 
 export async function updateCultivarPhoto(id, { cultivarImageUrl, cultivarThumbnailUrl, photo: inputPhoto }) {
@@ -473,6 +484,7 @@ export async function updateCultivarPhoto(id, { cultivarImageUrl, cultivarThumbn
   const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
   await backfillMissingSummaries(updatedRecords.filter(Boolean))
   clearRecordSummaryCache()
+  syncPhotoEmbeddings(updatedRecords.filter(Boolean)[0])
   return {
     updatedCount: matchedRecords.length,
     records: updatedRecords.filter(Boolean),

@@ -2108,7 +2108,28 @@ th.sortable {
 
 .photoActionButtons {
   display: grid;
+  grid-template-columns: repeat(3, minmax(140px, auto));
   gap: 8px;
+}
+
+.photoActionPrimary {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.photoActionIdentify {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.photoActionChoose {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.photoActionCancel {
+  grid-column: 3;
+  grid-row: 1;
 }
 
 .photoHint,
@@ -2318,6 +2339,8 @@ th.sortable {
 
 .photoIdentifyBody {
   display: block;
+  padding-left: 7px;
+  padding-right: 7px;
 }
 
 .photoIdentifyCaveats {
@@ -3421,12 +3444,6 @@ th.sortable {
 
 .agentReminderSave .field {
   min-width: 180px;
-}
-
-.agentPhotoIdentify {
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
 }
 
 .agentPhotoIdentifyRow {

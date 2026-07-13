@@ -5,6 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import './env.js'
+import { warmEmbeddingModel } from './embeddings.js'
 import { verifyFirebaseAppCheckToken, verifyFirebaseIdToken } from './firebase.js'
 import { isGlobalAdmin, upsertKnownUser } from './users.js'
 import { bearerToken } from './httpHelpers.js'
@@ -100,6 +101,10 @@ app.use((err, req, res, next) => {
 
   trackException(err, { url: req.originalUrl, method: req.method })
   next(err)
+})
+
+warmEmbeddingModel().catch((error) => {
+  console.error('Failed to warm photo embedding model:', error)
 })
 
 const port = Number(process.env.PORT ?? 8787)

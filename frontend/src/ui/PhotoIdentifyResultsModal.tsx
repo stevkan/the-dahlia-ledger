@@ -25,7 +25,7 @@ function PhotoIdentifySuggestionCard({ suggestion, onEnlarge }: { suggestion: Ag
   )
 }
 
-export function PhotoIdentifyResultsModal({ result, onClose }: { result: AgentPhotoIdentificationResult; onClose: () => void }) {
+export function PhotoIdentifyResultsModal({ result, onBack, onClose }: { result: AgentPhotoIdentificationResult; onBack: () => void; onClose: () => void }) {
   const [enlargedUrl, setEnlargedUrl] = useState<string | null>(null)
 
   return (
@@ -36,9 +36,14 @@ export function PhotoIdentifyResultsModal({ result, onClose }: { result: AgentPh
             <div className="modalTitle">Identification Results</div>
             {result.status === 'answer' ? <div className="photoHint">Compared against your saved cultivar photos, most similar first.</div> : null}
           </div>
-          <button className="btn ghost" type="button" onClick={onClose}>
-            Close
-          </button>
+          <div className="rowActions modalHeaderActions">
+            <button className="btn ghost" type="button" onClick={onBack}>
+              Back
+            </button>
+            <button className="btn ghost" type="button" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
         <div className="photoViewerBody photoIdentifyBody">
           {result.status === 'needs_clarification' ? (

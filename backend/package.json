@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "0.25.0",
+  "version": "0.27.0",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
@@ -15,7 +15,9 @@
     "backfill:file-names": "node scripts/backfill-file-names.js",
     "backfill:file-names:dry-run": "node scripts/backfill-file-names.js --dry-run",
     "backfill:garden-ids": "node scripts/backfill-garden-ids.js",
-    "backfill:garden-ids:dry-run": "node scripts/backfill-garden-ids.js --dry-run"
+    "backfill:garden-ids:dry-run": "node scripts/backfill-garden-ids.js --dry-run",
+    "backfill:photo-embeddings": "node scripts/backfill-photo-embeddings.js",
+    "backfill:photo-embeddings:dry-run": "node scripts/backfill-photo-embeddings.js --dry-run"
   },
   "keywords": [],
   "author": "",
@@ -25,6 +27,7 @@
     "exec": "node --require ./src/appinsights.cjs src/server.js"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "applicationinsights": "^3.15.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

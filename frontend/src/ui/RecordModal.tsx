@@ -1855,24 +1855,16 @@ export function RecordModal({
                   </div>
                   <div className="photoActionButtons">
                     <button
-                      className={photoFile ? 'btn' : 'btn ghost'}
+                      className={photoFile ? 'btn photoActionPrimary' : 'btn ghost photoActionPrimary'}
                       type="button"
                       disabled={photoFile ? !canSave || saving || photoConverting : photoConverting}
                       onClick={() => photoFile ? void handleSave({ keepOpen: true }) : galleriesFileInputRef.current?.click()}
                     >
                       {photoConverting ? 'Converting...' : photoFile ? saving ? 'Saving...' : 'Save Photo' : 'Add Photo'}
                     </button>
-                    <button
-                      className="btn ghost"
-                      type="button"
-                      disabled={!currentPhoto || photoLoadError || identifyBusy}
-                      onClick={() => void submitIdentifyPhoto()}
-                    >
-                      {identifyBusy ? 'Identifying...' : 'Identify Photo'}
-                    </button>
                     {photoFile ? (
                       <button
-                        className="btn ghost"
+                        className="btn ghost photoActionChoose"
                         type="button"
                         disabled={saving || photoConverting}
                         onClick={() => galleriesFileInputRef.current?.click()}
@@ -1882,7 +1874,7 @@ export function RecordModal({
                     ) : null}
                     {photoFile ? (
                       <button
-                        className="btn ghost"
+                        className="btn ghost photoActionCancel"
                         type="button"
                         disabled={saving || photoConverting}
                         onClick={cancelPhotoSelection}
@@ -1890,6 +1882,14 @@ export function RecordModal({
                         Cancel
                       </button>
                     ) : null}
+                    <button
+                      className="btn ghost photoActionIdentify"
+                      type="button"
+                      disabled={!currentPhoto || photoLoadError || identifyBusy}
+                      onClick={() => void submitIdentifyPhoto()}
+                    >
+                      {identifyBusy ? 'Identifying...' : 'Identify Photo'}
+                    </button>
                   </div>
                   <input
                     ref={galleriesFileInputRef}
@@ -1961,7 +1961,9 @@ export function RecordModal({
           </div>
         </div>
       ) : null}
-      {identifyResult ? <PhotoIdentifyResultsModal result={identifyResult} onClose={() => setIdentifyResult(null)} /> : null}
+      {identifyResult ? (
+        <PhotoIdentifyResultsModal result={identifyResult} onBack={() => setIdentifyResult(null)} onClose={() => setIdentifyResult(null)} />
+      ) : null}
     </Overlay>
   )
 }

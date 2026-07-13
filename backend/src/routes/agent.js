@@ -2,6 +2,8 @@ import express from 'express'
 import multer from 'multer'
 import { z } from 'zod'
 import { identifyPhoto, ingestText, proposeMissedIssueCorrection, reviewRecordMapping, runMetricDrilldown, runMetricRequest } from '../agent.js'
+import { resolveGardenId } from '../gardens.js'
+import { forbidden } from '../httpHelpers.js'
 import { getSettings } from '../settings.js'
 import { trackException } from '../telemetry.js'
 
@@ -36,9 +38,21 @@ router.post('/agent/identify-photo', photoIdentifyUpload.single('file'), async (
     return res.status(400).json({ status: 'needs_clarification', message: 'A photo is required to identify.' })
   }
 
+  let gardenId
   try {
-    const imageDataUrl = req.file ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}` : undefined
-    const out = await identifyPhoto({ imageDataUrl, imageUrl: parsed.data.imageUrl })
+    gardenId = await resolveGardenId(req.user, req.query.gardenId)
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
+
+  try {
+    const out = await identifyPhoto({
+      imageBuffer: req.file?.buffer,
+      imageContentType: req.file?.mimetype,
+      imageUrl: parsed.data.imageUrl,
+      gardenId,
+    })
     res.json(out)
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)

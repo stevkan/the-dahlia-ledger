@@ -5,13 +5,14 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { listRecords, getRecord } from './records.js'
 import { listCompanies, listOrders } from './orders.js'
+import { embedImage, embedTexts, cosineSimilarity } from './embeddings.js'
+import { listPhotoEmbeddings } from './photoEmbeddings.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PROMPTS_DIR = path.resolve(__dirname, '..', 'prompts')
 const AGENT_HELPER_PROMPT_PATH = path.join(PROMPTS_DIR, 'agent-helper.md')
 const REVIEW_PROMPT_PATH = path.join(PROMPTS_DIR, 'review-agent.md')
 const CORRECTION_PROMPT_PATH = path.join(PROMPTS_DIR, 'correction-agent.md')
-const PHOTO_IDENTIFICATION_PROMPT_PATH = path.join(PROMPTS_DIR, 'photo-identification-agent.md')
 
 const VisualizationSchema = z.object({
   type: z.enum(['bar', 'line', 'pie', 'scatter', 'table', 'garden-map']).optional(),
@@ -1730,158 +1731,141 @@ export async function proposeMissedIssueCorrection({ originalText, record, recor
   })
 }
 
-const MAX_REFERENCE_PHOTOS = 60
-const MAX_PHOTOS_PER_CULTIVAR = 4
-
 function normalizeCultivarKey(value) {
   return String(value ?? '').trim().toLowerCase()
 }
 
-function collectCultivarReferences(records) {
-  const byCultivar = new Map()
+const DEFAULT_MIN_SIMILARITY = 0.88
 
-  for (const record of records) {
-    const name = String(record.core?.cultivar || record.flowerName || '').trim()
-    if (!name) continue
-    const key = normalizeCultivarKey(name)
-    let entry = byCultivar.get(key)
-    if (!entry) {
-      entry = { name, urls: new Map() }
-      byCultivar.set(key, entry)
-    }
-
-    const photos = [...(record.recordPhotos ?? []), ...(record.cultivarPhotos ?? [])]
-    for (const photo of photos) {
-      const url = photo?.thumbnailUrl || photo?.imageUrl
-      if (url && !entry.urls.has(url)) entry.urls.set(url, url)
-    }
-
-    const legacyUrls = [record.cultivarThumbnailUrl, record.cultivarImageUrl, record.thumbnailUrl, record.imageUrl]
-    for (const url of legacyUrls) {
-      if (url && !entry.urls.has(url)) entry.urls.set(url, url)
-    }
-  }
-
-  const references = []
-  for (const { name, urls } of byCultivar.values()) {
-    let count = 0
-    for (const url of urls.keys()) {
-      if (count >= MAX_PHOTOS_PER_CULTIVAR) break
-      references.push({ name, thumbnailUrl: url })
-      count += 1
-    }
-  }
-  return references
+function minSimilarityThreshold() {
+  const configured = Number(process.env.PHOTO_MATCH_MIN_SIMILARITY)
+  return Number.isFinite(configured) ? configured : DEFAULT_MIN_SIMILARITY
 }
 
-export async function identifyPhoto({ imageDataUrl, imageUrl }) {
-  const client = getClient()
-  if (!client) {
-    return PhotoIdentificationResultSchema.parse({
-      status: 'needs_clarification',
-      message: 'Agent unavailable because OPENAI_API_KEY is not configured.',
-    })
-  }
+// Zero-shot label sets used to guess the query photo's color/form from the photo itself,
+// since a not-yet-saved query photo never has recorded core.color/core.form to compare against.
+const DAHLIA_COLOR_FAMILIES = ['white', 'cream', 'yellow', 'orange', 'red', 'burgundy', 'pink', 'lavender', 'purple', 'bronze', 'bicolor']
+const DAHLIA_FORM_OPTIONS = [
+  'Anemone', 'Ball', 'Cactus', 'Collarette', 'Formal Decorative', 'Incurved Cactus',
+  'Informal Decorative', 'Mignon Single', 'Orchid', 'Peony', 'Pom Pon', 'Semi Cactus',
+  'Semi-Double', 'Single', 'Stellar', 'Waterlily',
+]
 
-  const image = imageDataUrl || imageUrl
-  if (!image) {
+let colorLabelEmbeddingsPromise
+let formLabelEmbeddingsPromise
+
+function getColorLabelEmbeddings() {
+  if (!colorLabelEmbeddingsPromise) {
+    colorLabelEmbeddingsPromise = embedTexts(DAHLIA_COLOR_FAMILIES.map((color) => `a photo of a ${color} dahlia flower`))
+  }
+  return colorLabelEmbeddingsPromise
+}
+
+function getFormLabelEmbeddings() {
+  if (!formLabelEmbeddingsPromise) {
+    formLabelEmbeddingsPromise = embedTexts(DAHLIA_FORM_OPTIONS.map((form) => `a photo of a ${form} dahlia flower`))
+  }
+  return formLabelEmbeddingsPromise
+}
+
+async function classifyBestLabel(imageEmbedding, labels, labelEmbeddingsPromise) {
+  const labelEmbeddings = await labelEmbeddingsPromise
+  let bestIndex = 0
+  let bestScore = -Infinity
+  for (let i = 0; i < labelEmbeddings.length; i++) {
+    const score = cosineSimilarity(imageEmbedding, labelEmbeddings[i])
+    if (score > bestScore) {
+      bestScore = score
+      bestIndex = i
+    }
+  }
+  return { label: labels[bestIndex], score: bestScore }
+}
+
+function textIncludesWord(haystack, word) {
+  if (!haystack || !word) return false
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`\\b${escaped}\\b`, 'i').test(haystack)
+}
+
+const DEFAULT_COLOR_MATCH_BOOST = 0.03
+const DEFAULT_FORM_MATCH_BOOST = 0.015 // Zero-shot form classification is a much weaker signal than color; kept conservative by default.
+
+function colorMatchBoost() {
+  const configured = Number(process.env.PHOTO_MATCH_COLOR_BOOST)
+  return Number.isFinite(configured) ? configured : DEFAULT_COLOR_MATCH_BOOST
+}
+
+function formMatchBoost() {
+  const configured = Number(process.env.PHOTO_MATCH_FORM_BOOST)
+  return Number.isFinite(configured) ? configured : DEFAULT_FORM_MATCH_BOOST
+}
+
+export async function identifyPhoto({ imageBuffer, imageContentType, imageUrl, gardenId }) {
+  if (!imageBuffer && !imageUrl) {
     return PhotoIdentificationResultSchema.parse({
       status: 'needs_clarification',
       message: 'No photo was provided to identify.',
     })
   }
 
-  const { records } = await getAgentContext()
-  const allReferences = collectCultivarReferences(records)
-  if (allReferences.length === 0) {
+  const references = await listPhotoEmbeddings(gardenId)
+  if (references.length === 0) {
     return PhotoIdentificationResultSchema.parse({
       status: 'needs_clarification',
       message: 'No saved cultivar photos are available yet to compare this photo against. Save a photo on at least one record first.',
     })
   }
 
-  const truncated = allReferences.length > MAX_REFERENCE_PHOTOS
-  const references = allReferences.slice(0, MAX_REFERENCE_PHOTOS)
-  const truncationCaveat = truncated
-    ? `Compared against the first ${references.length} of ${allReferences.length} saved cultivar photos; some saved cultivars were not included in this comparison.`
-    : undefined
-
-  const system = await readPrompt(PHOTO_IDENTIFICATION_PROMPT_PATH)
-  const model = process.env.OPENAI_MODEL ?? 'gpt-4.1-mini'
-
-  const referenceList = references.map((reference, index) => `${index + 1}. ${reference.name}`).join('\n')
-  const content = [
-    {
-      type: 'input_text',
-      text: `Query photo to identify against ${references.length} labeled reference photos from the user's own saved collection. Some labels repeat because that cultivar has more than one saved reference photo; treat repeats as multiple photos of the same cultivar, not separate cultivars. Reference labels:\n${referenceList}`,
-    },
-    { type: 'input_image', image_url: image },
-  ]
-  for (const reference of references) {
-    content.push({ type: 'input_text', text: `Reference photo for: ${reference.name}` })
-    content.push({ type: 'input_image', image_url: reference.thumbnailUrl })
-  }
-
-  const resp = await client.responses.create({
-    model,
-    input: [
-      {
-        role: 'system',
-        content: system,
-      },
-      {
-        role: 'user',
-        content,
-      },
-    ],
-    text: { format: { type: 'json_object' } },
-  })
-
-  let parsed
+  let queryEmbedding
   try {
-    parsed = PhotoIdentificationResultSchema.parse(await parseJsonResponse(resp))
+    queryEmbedding = await embedImage({ buffer: imageBuffer, contentType: imageContentType, url: imageUrl })
   } catch (error) {
-    console.warn('Photo identification response validation failed:', error)
+    console.warn('Photo identification embedding failed:', error)
     return PhotoIdentificationResultSchema.parse({
       status: 'needs_clarification',
-      message: 'I could not parse the photo identification response. Please try a different or clearer photo.',
+      message: 'I could not read that photo. Please try a different or clearer photo.',
     })
   }
 
-  if (parsed.status !== 'answer') {
-    return truncationCaveat ? { ...parsed, message: `${parsed.message} ${truncationCaveat}` } : parsed
+  const [inferredColor, inferredForm] = await Promise.all([
+    classifyBestLabel(queryEmbedding, DAHLIA_COLOR_FAMILIES, getColorLabelEmbeddings()),
+    classifyBestLabel(queryEmbedding, DAHLIA_FORM_OPTIONS, getFormLabelEmbeddings()),
+  ])
+  const colorBoost = colorMatchBoost()
+  const formBoost = formMatchBoost()
+
+  const bestByCultivar = new Map()
+  for (const reference of references) {
+    if (!Array.isArray(reference.embedding) || !reference.cultivarName) continue
+
+    let score = cosineSimilarity(queryEmbedding, reference.embedding)
+    if (textIncludesWord(reference.color, inferredColor.label)) score += colorBoost
+    if (reference.form && normalizeCultivarKey(reference.form) === normalizeCultivarKey(inferredForm.label)) score += formBoost
+
+    const key = normalizeCultivarKey(reference.cultivarName)
+    const existing = bestByCultivar.get(key)
+    if (!existing || score > existing.score) {
+      bestByCultivar.set(key, { name: reference.cultivarName, thumbnailUrl: reference.thumbnailUrl || reference.imageUrl, score })
+    }
   }
 
-  const referenceByKey = new Map()
-  for (const reference of references) {
-    const key = normalizeCultivarKey(reference.name)
-    if (!referenceByKey.has(key)) referenceByKey.set(key, reference)
-  }
-  const seenNames = new Set()
-  const matchedSuggestions = []
-  for (const suggestion of parsed.suggestions) {
-    const reference = referenceByKey.get(normalizeCultivarKey(suggestion.name))
-    if (!reference) continue
-    const key = normalizeCultivarKey(reference.name)
-    if (seenNames.has(key)) continue
-    seenNames.add(key)
-    matchedSuggestions.push({ ...suggestion, name: reference.name, thumbnailUrl: reference.thumbnailUrl })
-    if (matchedSuggestions.length >= 5) break
-  }
+  const threshold = minSimilarityThreshold()
+  const matchedSuggestions = Array.from(bestByCultivar.values())
+    .filter((match) => match.score >= threshold)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map((match) => ({ name: match.name, confidence: Math.max(0, Math.min(1, match.score)), thumbnailUrl: match.thumbnailUrl }))
 
   if (matchedSuggestions.length === 0) {
     return PhotoIdentificationResultSchema.parse({
       status: 'needs_clarification',
-      message: [
-        'No close visual match was found among your saved cultivar photos. This may be a cultivar new to your collection.',
-        truncationCaveat,
-      ].filter(Boolean).join(' '),
+      message: 'No close visual match was found among your saved cultivar photos. This may be a cultivar new to your collection.',
     })
   }
 
   return {
     status: 'answer',
     suggestions: matchedSuggestions,
-    ...(truncationCaveat ? { caveats: [truncationCaveat] } : {}),
   }
 }

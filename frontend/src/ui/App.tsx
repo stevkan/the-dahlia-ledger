@@ -20,6 +20,7 @@ import { RecordsTable } from './RecordsTable'
 import { RecordModal } from './RecordModal'
 import { AgentPanel } from './AgentPanel'
 import { AnalyticsModal } from './AnalyticsModal'
+import { PhotoIdentifyModal } from './PhotoIdentifyModal'
 import { OrderModal } from './OrderModal'
 import { AssetsModal } from './AssetsModal'
 import { CompaniesModal } from './CompaniesModal'
@@ -227,6 +228,7 @@ export default function App() {
   const [recordsManagementOpen, setRecordsManagementOpen] = useState(false)
   const [agentHelperOpen, setAgentHelperOpen] = useState(false)
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
+  const [photoIdentifyOpen, setPhotoIdentifyOpen] = useState(false)
   const [insightsMenuOpen, setInsightsMenuOpen] = useState(false)
   const [maintenanceRemindersOpen, setMaintenanceRemindersOpen] = useState(false)
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
@@ -316,7 +318,7 @@ export default function App() {
   }, [recordsRefreshIntervalMs])
 
   const anyModalOpen = Boolean(
-    active || createOpen || agentHelperOpen || analyticsOpen ||
+    active || createOpen || agentHelperOpen || analyticsOpen || photoIdentifyOpen ||
     maintenanceRemindersOpen || gardenManagementOpen || companiesOpen ||
     ordersOpen || assetsOpen || gardenOptionsOpen
   )
@@ -1264,6 +1266,16 @@ export default function App() {
                     >
                       Analytics
                     </button>
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      onClick={() => {
+                        setPhotoIdentifyOpen(true)
+                        setInsightsMenuOpen(false)
+                      }}
+                    >
+                      Identify A Flower
+                    </button>
                   </div>
                 ) : null}
               </div>
@@ -1481,6 +1493,8 @@ export default function App() {
           }}
         />
       ) : null}
+
+      {photoIdentifyOpen ? <PhotoIdentifyModal onClose={() => setPhotoIdentifyOpen(false)} /> : null}
 
       {maintenanceRemindersOpen ? (
         <MaintenanceRemindersModal
