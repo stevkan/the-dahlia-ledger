@@ -35,6 +35,9 @@ jobs:
       - name: Install backend production dependencies
         run: npm --prefix backend ci --omit=dev
 
+      - name: Prune non-Linux onnxruntime-node binaries
+        run: rm -rf backend/node_modules/onnxruntime-node/bin/napi-v6/darwin backend/node_modules/onnxruntime-node/bin/napi-v6/win32
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
