@@ -10,6 +10,8 @@
     "test:watch": "vitest",
     "backfill:thumbnails": "node scripts/backfill-photo-thumbnails.js",
     "backfill:thumbnails:dry-run": "node scripts/backfill-photo-thumbnails.js --dry-run",
+    "backfill:list-thumbnails": "node scripts/backfill-photo-list-thumbnails.js",
+    "backfill:list-thumbnails:dry-run": "node scripts/backfill-photo-list-thumbnails.js --dry-run",
     "normalize:bloom-widths": "node scripts/normalize-record-bloom-widths.js",
     "normalize:bloom-widths:dry-run": "node scripts/normalize-record-bloom-widths.js --dry-run",
     "backfill:file-names": "node scripts/backfill-file-names.js",

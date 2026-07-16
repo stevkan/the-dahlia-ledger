@@ -6,8 +6,10 @@ export type DahliaRecord = {
   gardenLocation: string
   seasonYearStart: number
   thumbnailUrl?: string
+  listThumbnailUrl?: string
   imageUrl?: string
   cultivarThumbnailUrl?: string
+  cultivarListThumbnailUrl?: string
   cultivarImageUrl?: string
   recordPhotos?: DahliaPhoto[]
   cultivarPhotos?: DahliaPhoto[]
@@ -77,6 +79,7 @@ export type DahliaPhoto = {
   id: string
   imageUrl: string
   thumbnailUrl?: string
+  listThumbnailUrl?: string
   scope: 'record' | 'cultivar'
   createdAt?: string
 }
@@ -183,8 +186,10 @@ export type DahliaRecordSummary = Pick<
   | 'gardenLocation'
   | 'seasonYearStart'
   | 'thumbnailUrl'
+  | 'listThumbnailUrl'
   | 'imageUrl'
   | 'cultivarThumbnailUrl'
+  | 'cultivarListThumbnailUrl'
   | 'cultivarImageUrl'
   | 'defaultPhotoScope'
 > & {

@@ -19,8 +19,10 @@ export function recordToSummary(record: DahliaRecord): DahliaRecordSummary {
     gardenLocation: record.gardenLocation,
     seasonYearStart: record.seasonYearStart,
     thumbnailUrl: record.thumbnailUrl,
+    listThumbnailUrl: record.listThumbnailUrl,
     imageUrl: record.imageUrl,
     cultivarThumbnailUrl: record.cultivarThumbnailUrl,
+    cultivarListThumbnailUrl: record.cultivarListThumbnailUrl,
     cultivarImageUrl: record.cultivarImageUrl,
     defaultPhotoScope: record.defaultPhotoScope,
     core: {

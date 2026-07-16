@@ -31,7 +31,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T
 }
 
-export async function uploadPhoto(file: File): Promise<{ imageUrl: string; thumbnailUrl?: string }> {
+export async function uploadPhoto(file: File): Promise<{ imageUrl: string; thumbnailUrl?: string; listThumbnailUrl?: string }> {
   const body = new FormData()
   body.append('file', file)
 
@@ -44,7 +44,7 @@ export async function uploadPhoto(file: File): Promise<{ imageUrl: string; thumb
     const text = await res.text().catch(() => '')
     throw new Error(text || `Upload failed: ${res.status}`)
   }
-  return (await res.json()) as { imageUrl: string; thumbnailUrl?: string }
+  return (await res.json()) as { imageUrl: string; thumbnailUrl?: string; listThumbnailUrl?: string }
 }
 
 const IDENTIFY_PHOTO_MAX_DIMENSION = 768

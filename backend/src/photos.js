@@ -7,6 +7,7 @@ import { getBucket } from './firebase.js'
 
 const PHOTO_CACHE_CONTROL = 'public, max-age=31536000, immutable'
 const THUMBNAIL_WIDTH = 320
+const LIST_THUMBNAIL_WIDTH = 96
 
 function safeExtension(extension = '') {
   const ext = extension.toLowerCase()
@@ -47,12 +48,20 @@ async function uploadPublicFile(objectName, buffer, contentType) {
   return file.publicUrl()
 }
 
-export async function createThumbnail(buffer) {
+async function resizeToWebp(buffer, width) {
   return await sharp(buffer, { failOn: 'none' })
     .rotate()
-    .resize({ width: THUMBNAIL_WIDTH, withoutEnlargement: true })
+    .resize({ width, withoutEnlargement: true })
     .webp({ quality: 78 })
     .toBuffer()
+}
+
+export async function createThumbnail(buffer) {
+  return await resizeToWebp(buffer, THUMBNAIL_WIDTH)
+}
+
+export async function createListThumbnail(buffer) {
+  return await resizeToWebp(buffer, LIST_THUMBNAIL_WIDTH)
 }
 
 export async function uploadPhotoBuffer(buffer, contentType, extension = '') {
@@ -60,23 +69,45 @@ export async function uploadPhotoBuffer(buffer, contentType, extension = '') {
   const safeExt = safeExtension(extension)
   const originalObjectName = `dahlia-photos/originals/${id}${safeExt}`
   const thumbnailObjectName = `dahlia-photos/thumbnails/${id}.webp`
+  const listThumbnailObjectName = `dahlia-photos/thumbnails-list/${id}.webp`
 
-  const [imageUrl, thumbnailBuffer] = await Promise.all([
+  const [imageUrl, thumbnailBuffer, listThumbnailBuffer] = await Promise.all([
     uploadPublicFile(originalObjectName, buffer, contentType),
     createThumbnail(buffer),
+    createListThumbnail(buffer),
   ])
-  const thumbnailUrl = await uploadPublicFile(thumbnailObjectName, thumbnailBuffer, 'image/webp')
+  const [thumbnailUrl, listThumbnailUrl] = await Promise.all([
+    uploadPublicFile(thumbnailObjectName, thumbnailBuffer, 'image/webp'),
+    uploadPublicFile(listThumbnailObjectName, listThumbnailBuffer, 'image/webp'),
+  ])
 
-  return { imageUrl, thumbnailUrl }
+  return { imageUrl, thumbnailUrl, listThumbnailUrl }
 }
 
-export async function createThumbnailForPhotoUrl(imageUrl) {
+async function downloadPhotoBuffer(imageUrl) {
   const objectName = publicStorageObjectName(imageUrl)
   if (!objectName) return undefined
 
   const [buffer] = await getBucket().file(objectName).download()
-  const thumbnailBuffer = await createThumbnail(buffer)
-  const parsed = path.parse(objectName)
+  return { objectName, buffer }
+}
+
+export async function createThumbnailForPhotoUrl(imageUrl) {
+  const downloaded = await downloadPhotoBuffer(imageUrl)
+  if (!downloaded) return undefined
+
+  const thumbnailBuffer = await createThumbnail(downloaded.buffer)
+  const parsed = path.parse(downloaded.objectName)
   const thumbnailName = `dahlia-photos/thumbnails/${parsed.name || `${Date.now()}-${crypto.randomUUID()}`}.webp`
   return await uploadPublicFile(thumbnailName, thumbnailBuffer, 'image/webp')
+}
+
+export async function createListThumbnailForPhotoUrl(imageUrl) {
+  const downloaded = await downloadPhotoBuffer(imageUrl)
+  if (!downloaded) return undefined
+
+  const listThumbnailBuffer = await createListThumbnail(downloaded.buffer)
+  const parsed = path.parse(downloaded.objectName)
+  const listThumbnailName = `dahlia-photos/thumbnails-list/${parsed.name || `${Date.now()}-${crypto.randomUUID()}`}.webp`
+  return await uploadPublicFile(listThumbnailName, listThumbnailBuffer, 'image/webp')
 }

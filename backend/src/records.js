@@ -73,6 +73,10 @@ function photoUrl(photo) {
   return photo?.thumbnailUrl || photo?.imageUrl
 }
 
+function listPhotoUrl(photo) {
+  return photo?.listThumbnailUrl || photo?.thumbnailUrl || photo?.imageUrl
+}
+
 function uniquePhotos(photos) {
   const seen = new Set()
   return (photos ?? []).filter((photo) => {
@@ -104,8 +108,10 @@ function withPhotoDefaults(record) {
       : (recordDefault ? 'record' : cultivarDefault ? 'cultivar' : undefined),
     imageUrl: recordDefault ? recordDefault.imageUrl : record.imageUrl,
     thumbnailUrl: recordDefault ? photoUrl(recordDefault) : record.thumbnailUrl,
+    listThumbnailUrl: recordDefault ? listPhotoUrl(recordDefault) : record.listThumbnailUrl,
     cultivarImageUrl: cultivarDefault ? cultivarDefault.imageUrl : record.cultivarImageUrl,
     cultivarThumbnailUrl: cultivarDefault ? photoUrl(cultivarDefault) : record.cultivarThumbnailUrl,
+    cultivarListThumbnailUrl: cultivarDefault ? listPhotoUrl(cultivarDefault) : record.cultivarListThumbnailUrl,
   }
 }
 
@@ -159,8 +165,10 @@ export function toRecordSummary(record) {
     gardenLocation: record.gardenLocation,
     seasonYearStart: record.seasonYearStart,
     thumbnailUrl: record.thumbnailUrl,
+    listThumbnailUrl: record.listThumbnailUrl,
     imageUrl: record.imageUrl,
     cultivarThumbnailUrl: record.cultivarThumbnailUrl,
+    cultivarListThumbnailUrl: record.cultivarListThumbnailUrl,
     cultivarImageUrl: record.cultivarImageUrl,
     defaultPhotoScope: record.defaultPhotoScope,
     core: {

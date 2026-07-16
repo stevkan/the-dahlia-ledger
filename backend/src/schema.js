@@ -4,6 +4,7 @@ export const DahliaPhotoSchema = z.object({
   id: z.string().min(1),
   imageUrl: z.string().min(1),
   thumbnailUrl: z.string().optional().nullable(),
+  listThumbnailUrl: z.string().optional().nullable(),
   scope: z.enum(['record', 'cultivar']),
   createdAt: z.string().optional().nullable(),
 })
@@ -16,8 +17,10 @@ export const DahliaRecordInputSchema = z.object({
   gardenLocation: z.string().optional().nullable(),
   seasonYearStart: z.number().int().min(1900).max(3000),
   thumbnailUrl: z.string().optional().nullable(),
+  listThumbnailUrl: z.string().optional().nullable(),
   imageUrl: z.string().optional().nullable(),
   cultivarThumbnailUrl: z.string().optional().nullable(),
+  cultivarListThumbnailUrl: z.string().optional().nullable(),
   cultivarImageUrl: z.string().optional().nullable(),
   recordPhotos: z.array(DahliaPhotoSchema).optional().nullable(),
   cultivarPhotos: z.array(DahliaPhotoSchema).optional().nullable(),

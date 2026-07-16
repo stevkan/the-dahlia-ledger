@@ -34,9 +34,9 @@ function compareGardenLocations(a: DahliaRecordSummary, b: DahliaRecordSummary) 
 
 function resolveRecordPhoto(record: DahliaRecordSummary) {
   if (record.defaultPhotoScope === 'cultivar') {
-    return record.cultivarThumbnailUrl || record.cultivarImageUrl || record.thumbnailUrl || record.imageUrl
+    return record.cultivarListThumbnailUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl || record.listThumbnailUrl || record.thumbnailUrl || record.imageUrl
   }
-  return record.thumbnailUrl || record.imageUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl
+  return record.listThumbnailUrl || record.thumbnailUrl || record.imageUrl || record.cultivarListThumbnailUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl
 }
 
 function formatGardenLocation(record: DahliaRecordSummary) {
