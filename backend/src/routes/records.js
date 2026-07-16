@@ -1,7 +1,7 @@
 import express from 'express'
 import { z } from 'zod'
 import { DahliaPhotoSchema, DahliaRecordInputSchema } from '../schema.js'
-import { createRecord, deleteCultivarPhoto, deleteRecord, getRecord, listRecords, listRecordsPage, listRecordSummaries, listRecordSummariesPage, updateCultivarPhoto, updateCultivarPhotoDefault, updateRecord, updateRecordPhotoDefault } from '../records.js'
+import { createRecord, deleteCultivarPhoto, deleteRecord, getRecord, hasLegacyUnassignedRecords, listRecords, listRecordsPage, listRecordSummaries, listRecordSummariesPage, updateCultivarPhoto, updateCultivarPhotoDefault, updateRecord, updateRecordPhotoDefault } from '../records.js'
 import { isFallbackGarden, requireGardenAccess, requireGardenWriteAccess, resolveGardenId, resolveWritableGardenId } from '../gardens.js'
 import { forbidden } from '../httpHelpers.js'
 
@@ -10,7 +10,7 @@ const router = express.Router()
 router.get('/records', async (req, res) => {
   try {
     const gardenId = await resolveGardenId(req.user, req.query.gardenId)
-    const includeLegacyUnassigned = await isFallbackGarden(req.user, gardenId)
+    const includeLegacyUnassigned = (await isFallbackGarden(req.user, gardenId)) && (await hasLegacyUnassignedRecords())
     if (req.query.limit && !includeLegacyUnassigned) {
       const page = req.query.view === 'summary'
         ? await listRecordSummariesPage(gardenId, { limit: req.query.limit, startAfter: req.query.startAfter })

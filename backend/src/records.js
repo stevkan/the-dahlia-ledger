@@ -5,6 +5,8 @@ const SUMMARY_COLLECTION = 'dahliaRecordSummaries'
 const ONENOTE_IMPORT_NOTE = 'Imported from OneNote MHT.'
 const RECORD_SUMMARY_CACHE_TTL_MS = 30_000
 const recordSummaryCache = new Map()
+const LEGACY_UNASSIGNED_CHECK_TTL_MS = 5 * 60_000
+let legacyUnassignedCache = null
 
 function nowIso() {
   return new Date().toISOString()
@@ -203,6 +205,17 @@ function cleanRecordSummary(summary, options = {}) {
 
 async function backfillMissingSummaries(records) {
   await Promise.all(records.map((record) => writeRecordSummary(record)))
+}
+
+export async function hasLegacyUnassignedRecords() {
+  if (legacyUnassignedCache && legacyUnassignedCache.expiresAt > Date.now()) {
+    return legacyUnassignedCache.value
+  }
+
+  const snap = await getDb().collection(COLLECTION).select('gardenId').get()
+  const value = snap.docs.some((doc) => !doc.data().gardenId)
+  legacyUnassignedCache = { value, expiresAt: Date.now() + LEGACY_UNASSIGNED_CHECK_TTL_MS }
+  return value
 }
 
 export async function listRecordSummaries(gardenId, options = {}) {
