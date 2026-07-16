@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import compression from 'compression'
 import multer from 'multer'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -35,6 +36,7 @@ app.use(
     credentials: false,
   }),
 )
+app.use(compression())
 app.use(express.json({ limit: '2mb' }))
 
 app.get('/api/health', (req, res) => {
