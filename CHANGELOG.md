@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.29.0 - 2026-07-15
+
+- Records pagination is no longer bypassed for every user on their default garden; a cheap cached check now confirms legacy gardenId-less records actually exist before disabling pagination, so the common case gets fast incremental page loads.
+- Enabled gzip/deflate compression for backend API responses and the static frontend bundle.
+- Added a dedicated 96px "list" thumbnail for the records table (previously the 320px thumbnail was downscaled to 42x42px in the browser), generated on upload and backfillable via `backend/scripts/backfill-photo-list-thumbnails.js`.
+- The PWA service worker now caches dahlia photo/thumbnail storage responses (CacheFirst), so repeat garden visits load previously-viewed images instantly, including offline or on a weak signal.
+- Added a `useIsWeakConnection` hook that automatically pauses background records refresh when the connection is 2G/slow-2G or the browser's Data Saver mode is on, with a "Paused (weak connection)" note next to the refresh interval dropdown; the user's saved preference is left untouched.
+
 ## 0.28.3 - 2026-07-15
 
 - Replaced the discrete 11-bucket color zero-shot classifier in `identifyPhoto()` (`backend/src/agent.js`) with continuous cosine similarity between the query photo and a text embedding of each reference's own recorded color string (e.g. "Creamy White", "White Lavender"). The old design forced the query into exactly one best-guess color bucket via argmax, then required an exact whole-word match against the reference's color text — fragile for blended colors (a white-and-lavender flower could only match a reference literally containing whichever single word won the argmax that run) and with no credit for adjacent colors (cream vs. white, lavender vs. purple). The new approach subtracts a per-query "a photo of a dahlia flower" baseline so the signal self-calibrates per photo, and naturally gives partial credit for semantically close colors via CLIP's own text embedding space — no hand-curated adjacency list needed. Verified against a real previously-failing case and all prior self-match regression cases.
