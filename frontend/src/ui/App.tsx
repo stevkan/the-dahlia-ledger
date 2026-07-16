@@ -16,6 +16,7 @@ import { api, API_BASE, uploadPhoto } from '../api/client'
 import { type InfiniteRecordsData } from '../recordUtils'
 import { useGardens, gardenOptionLabel, gardensQueryKey } from '../hooks/useGardens'
 import { useRecords, recordsQueryKey, recordSummariesQueryKey, flowerNamesQueryKey, colorsQueryKey } from '../hooks/useRecords'
+import { useIsWeakConnection } from '../hooks/useIsWeakConnection'
 import { RecordsTable } from './RecordsTable'
 import { RecordModal } from './RecordModal'
 import { AgentPanel } from './AgentPanel'
@@ -220,6 +221,8 @@ export default function App() {
   const [gardenManagementOpen, setGardenManagementOpen] = useState(false)
   const [gardenOptionsInitialGroup, setGardenOptionsInitialGroup] = useState<GardenOptionKey>('gardenAreas')
   const [recordsRefreshIntervalMs, setRecordsRefreshIntervalMs] = useState(loadRecordsRefreshInterval)
+  const isWeakConnection = useIsWeakConnection()
+  const effectiveRecordsRefreshIntervalMs = isWeakConnection ? 0 : recordsRefreshIntervalMs
   const [gardenMenuOpen, setGardenMenuOpen] = useState(false)
   const [recordsManagementOpen, setRecordsManagementOpen] = useState(false)
   const [agentHelperOpen, setAgentHelperOpen] = useState(false)
@@ -287,7 +290,7 @@ export default function App() {
   } = useRecords({
     user, activeGardenId, gardenQuery,
     analyticsOpen, maintenanceRemindersOpen, gardenOptionsOpen, createOpen,
-    recordsRefreshIntervalMs,
+    recordsRefreshIntervalMs: effectiveRecordsRefreshIntervalMs,
     setActive: (r) => setActive(r),
     setCreateDraft: (d) => setCreateDraft(d),
     setCreateOpen: (o) => setCreateOpen(o),
@@ -1280,6 +1283,9 @@ export default function App() {
                     <option key={intervalMs} value={intervalMs}>{refreshIntervalLabel(intervalMs)}</option>
                   ))}
                 </select>
+                {isWeakConnection && recordsRefreshIntervalMs !== 0 ? (
+                  <span className="recordsRefreshStatus">Paused (weak connection)</span>
+                ) : null}
               </label>
             </div>
           </div>
