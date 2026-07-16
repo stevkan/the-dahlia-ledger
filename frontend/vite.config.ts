@@ -39,6 +39,22 @@ export default defineConfig({
       workbox: {
         navigateFallback: '/index.html',
         globIgnores: ['**/heic-to*.js'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/storage\.googleapis\.com\/.*\/dahlia-photos\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'dahlia-photos',
+              expiration: {
+                maxEntries: 500,
+                maxAgeSeconds: 30 * 24 * 60 * 60,
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+        ],
       },
     }),
   ],
