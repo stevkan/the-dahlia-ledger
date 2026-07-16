@@ -2,7 +2,7 @@ import '../src/env.js'
 import { getDb } from '../src/firebase.js'
 import { listRecords } from '../src/records.js'
 import { embedImage, EMBEDDING_MODEL_ID, warmEmbeddingModel } from '../src/embeddings.js'
-import { photoEmbeddingId, upsertPhotoEmbedding, listAllPhotoEmbeddings } from '../src/photoEmbeddings.js'
+import { photoEmbeddingId, embedColorText, upsertPhotoEmbedding, listAllPhotoEmbeddings } from '../src/photoEmbeddings.js'
 
 const DRY_RUN = process.argv.includes('--dry-run')
 const BATCH_LIMIT = 450
@@ -47,10 +47,13 @@ for (const [imageUrl, { gardenId, cultivarName, thumbnailUrl, color, form }] of 
   const existingDoc = existingById.get(id)
 
   if (existingDoc) {
-    if ((existingDoc.color ?? null) !== color || (existingDoc.form ?? null) !== form) {
+    const colorChanged = (existingDoc.color ?? null) !== color
+    const needsColorEmbedding = color && !Array.isArray(existingDoc.colorEmbedding)
+    if (colorChanged || needsColorEmbedding || (existingDoc.form ?? null) !== form) {
       console.log(`${DRY_RUN ? '[dry-run] ' : ''}update metadata ${cultivarName}: ${imageUrl}`)
       if (!DRY_RUN) {
-        await getDb().collection('photoEmbeddings').doc(id).set({ color, form }, { merge: true })
+        const colorEmbedding = colorChanged || needsColorEmbedding ? await embedColorText(color) : (existingDoc.colorEmbedding ?? null)
+        await getDb().collection('photoEmbeddings').doc(id).set({ color, form, colorEmbedding }, { merge: true })
       }
       metadataUpdated += 1
     }
@@ -62,8 +65,11 @@ for (const [imageUrl, { gardenId, cultivarName, thumbnailUrl, color, form }] of 
   if (DRY_RUN) continue
 
   try {
-    const embedding = await embedImage({ url: thumbnailUrl })
-    await upsertPhotoEmbedding({ gardenId, cultivarName, imageUrl, thumbnailUrl, embedding, model: EMBEDDING_MODEL_ID, color, form })
+    const [embedding, colorEmbedding] = await Promise.all([
+      embedImage({ url: thumbnailUrl }),
+      embedColorText(color),
+    ])
+    await upsertPhotoEmbedding({ gardenId, cultivarName, imageUrl, thumbnailUrl, embedding, model: EMBEDDING_MODEL_ID, color, form, colorEmbedding })
     embedded += 1
   } catch (error) {
     failed += 1

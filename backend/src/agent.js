@@ -1742,24 +1742,17 @@ function minSimilarityThreshold() {
   return Number.isFinite(configured) ? configured : DEFAULT_MIN_SIMILARITY
 }
 
-// Zero-shot label sets used to guess the query photo's color/form from the photo itself,
-// since a not-yet-saved query photo never has recorded core.color/core.form to compare against.
-const DAHLIA_COLOR_FAMILIES = ['white', 'cream', 'yellow', 'orange', 'red', 'burgundy', 'pink', 'lavender', 'purple', 'bronze', 'bicolor']
+// Zero-shot label set used to guess the query photo's bloom form from the photo itself,
+// since a not-yet-saved query photo never has a recorded core.form to compare against.
+// Form stays a discrete-label match: it's a closed dropdown vocabulary (not free text like color),
+// so exact agreement is meaningful and there's no need for the fuzzy/continuous treatment color needs.
 const DAHLIA_FORM_OPTIONS = [
   'Anemone', 'Ball', 'Cactus', 'Collarette', 'Formal Decorative', 'Incurved Cactus',
   'Informal Decorative', 'Mignon Single', 'Orchid', 'Peony', 'Pom Pon', 'Semi Cactus',
   'Semi-Double', 'Single', 'Stellar', 'Waterlily',
 ]
 
-let colorLabelEmbeddingsPromise
 let formLabelEmbeddingsPromise
-
-function getColorLabelEmbeddings() {
-  if (!colorLabelEmbeddingsPromise) {
-    colorLabelEmbeddingsPromise = embedTexts(DAHLIA_COLOR_FAMILIES.map((color) => `a photo of a ${color} dahlia flower`))
-  }
-  return colorLabelEmbeddingsPromise
-}
 
 function getFormLabelEmbeddings() {
   if (!formLabelEmbeddingsPromise) {
@@ -1782,22 +1775,40 @@ async function classifyBestLabel(imageEmbedding, labels, labelEmbeddingsPromise)
   return { label: labels[bestIndex], score: bestScore }
 }
 
-function textIncludesWord(haystack, word) {
-  if (!haystack || !word) return false
-  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`\\b${escaped}\\b`, 'i').test(haystack)
+// Color instead compares the query photo directly against a text embedding of each reference's own
+// recorded color string (e.g. "Creamy White", "White Lavender") — continuous cosine similarity rather
+// than forcing the query into one of a fixed set of discrete color buckets. This naturally gives partial
+// credit for blended/adjacent colors (e.g. "cream" scoring well against a "white" description) without
+// a hand-curated adjacency list, since CLIP's own text embedding space already encodes that closeness.
+// A per-query "generic dahlia flower" baseline is subtracted so the signal self-calibrates per photo
+// instead of relying on one fixed global cutoff (raw image-vs-text similarity sits in a much narrower,
+// lower band than image-vs-image similarity, and varies by photo).
+const GENERIC_DAHLIA_PROMPT = 'a photo of a dahlia flower'
+let genericPromptEmbeddingPromise
+
+function getGenericPromptEmbedding() {
+  if (!genericPromptEmbeddingPromise) {
+    genericPromptEmbeddingPromise = embedTexts([GENERIC_DAHLIA_PROMPT]).then((embeddings) => embeddings[0])
+  }
+  return genericPromptEmbeddingPromise
 }
 
 // Kept deliberately small: real testing showed the natural score gap between a true visual match and its
 // nearest rival can be as little as ~0.01, and a cultivar with no recorded color/form gets zero boost by
 // design (missing metadata is neutral) — so a boost this size must stay well under that gap, or a strong
 // true match with incomplete metadata can be outranked by a weaker match that happens to have metadata filled in.
-const DEFAULT_COLOR_MATCH_BOOST = 0.008
+const DEFAULT_COLOR_SIMILARITY_SCALE = 0.4
+const DEFAULT_MAX_COLOR_BOOST = 0.02
 const DEFAULT_FORM_MATCH_BOOST = 0.004 // Zero-shot form classification is a much weaker signal than color; kept smaller still.
 
-function colorMatchBoost() {
-  const configured = Number(process.env.PHOTO_MATCH_COLOR_BOOST)
-  return Number.isFinite(configured) ? configured : DEFAULT_COLOR_MATCH_BOOST
+function colorSimilarityScale() {
+  const configured = Number(process.env.PHOTO_MATCH_COLOR_SIMILARITY_SCALE)
+  return Number.isFinite(configured) ? configured : DEFAULT_COLOR_SIMILARITY_SCALE
+}
+
+function maxColorBoost() {
+  const configured = Number(process.env.PHOTO_MATCH_MAX_COLOR_BOOST)
+  return Number.isFinite(configured) ? configured : DEFAULT_MAX_COLOR_BOOST
 }
 
 function formMatchBoost() {
@@ -1832,11 +1843,13 @@ export async function identifyPhoto({ imageBuffer, imageContentType, imageUrl, g
     })
   }
 
-  const [inferredColor, inferredForm] = await Promise.all([
-    classifyBestLabel(queryEmbedding, DAHLIA_COLOR_FAMILIES, getColorLabelEmbeddings()),
+  const [inferredForm, genericBaseline] = await Promise.all([
     classifyBestLabel(queryEmbedding, DAHLIA_FORM_OPTIONS, getFormLabelEmbeddings()),
+    getGenericPromptEmbedding(),
   ])
-  const colorBoost = colorMatchBoost()
+  const genericSimilarity = cosineSimilarity(queryEmbedding, genericBaseline)
+  const colorScale = colorSimilarityScale()
+  const colorBoostCap = maxColorBoost()
   const formBoost = formMatchBoost()
 
   const bestByCultivar = new Map()
@@ -1844,7 +1857,11 @@ export async function identifyPhoto({ imageBuffer, imageContentType, imageUrl, g
     if (!Array.isArray(reference.embedding) || !reference.cultivarName) continue
 
     let score = cosineSimilarity(queryEmbedding, reference.embedding)
-    if (textIncludesWord(reference.color, inferredColor.label)) score += colorBoost
+    if (Array.isArray(reference.colorEmbedding)) {
+      const colorSimilarity = cosineSimilarity(queryEmbedding, reference.colorEmbedding)
+      const relativeColorSignal = Math.max(0, colorSimilarity - genericSimilarity)
+      score += Math.min(relativeColorSignal * colorScale, colorBoostCap)
+    }
     if (reference.form && normalizeCultivarKey(reference.form) === normalizeCultivarKey(inferredForm.label)) score += formBoost
 
     const key = normalizeCultivarKey(reference.cultivarName)

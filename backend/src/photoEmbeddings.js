@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import { getDb } from './firebase.js'
-import { embedImage, EMBEDDING_MODEL_ID } from './embeddings.js'
+import { embedImage, embedTexts, EMBEDDING_MODEL_ID } from './embeddings.js'
 
 const COLLECTION = 'photoEmbeddings'
 
@@ -19,7 +19,13 @@ export function photoEmbeddingId(imageUrl) {
   return crypto.createHash('sha1').update(imageUrl).digest('hex')
 }
 
-export async function upsertPhotoEmbedding({ gardenId, cultivarName, imageUrl, thumbnailUrl, embedding, model, color, form }) {
+export async function embedColorText(color) {
+  if (!color) return null
+  const [embedding] = await embedTexts([`a photo of a ${color} dahlia flower`])
+  return embedding
+}
+
+export async function upsertPhotoEmbedding({ gardenId, cultivarName, imageUrl, thumbnailUrl, embedding, model, color, form, colorEmbedding }) {
   const id = photoEmbeddingId(imageUrl)
   await getDb().collection(COLLECTION).doc(id).set(
     withoutUndefined({
@@ -31,6 +37,7 @@ export async function upsertPhotoEmbedding({ gardenId, cultivarName, imageUrl, t
       model,
       color: color ?? null,
       form: form ?? null,
+      colorEmbedding: colorEmbedding ?? null,
       createdAt: new Date().toISOString(),
     }),
     { merge: false },
@@ -76,13 +83,18 @@ export async function ensureEmbeddingsForRecord(record) {
 
     if (existingDoc.exists) {
       const existing = existingDoc.data()
-      if ((existing.color ?? null) !== color || (existing.form ?? null) !== form) {
-        await db.collection(COLLECTION).doc(id).set({ color, form }, { merge: true })
+      const colorChanged = (existing.color ?? null) !== color
+      if (colorChanged || (existing.form ?? null) !== form) {
+        const colorEmbedding = colorChanged ? await embedColorText(color) : (existing.colorEmbedding ?? null)
+        await db.collection(COLLECTION).doc(id).set({ color, form, colorEmbedding }, { merge: true })
       }
       continue
     }
 
-    const embedding = await embedImage({ url: thumbnailUrl })
+    const [embedding, colorEmbedding] = await Promise.all([
+      embedImage({ url: thumbnailUrl }),
+      embedColorText(color),
+    ])
     await upsertPhotoEmbedding({
       gardenId: record.gardenId,
       cultivarName,
@@ -92,6 +104,7 @@ export async function ensureEmbeddingsForRecord(record) {
       model: EMBEDDING_MODEL_ID,
       color,
       form,
+      colorEmbedding,
     })
   }
 }
