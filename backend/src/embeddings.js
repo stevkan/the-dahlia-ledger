@@ -1,31 +1,32 @@
-import { AutoProcessor, AutoTokenizer, CLIPVisionModelWithProjection, CLIPTextModelWithProjection, RawImage, cos_sim } from '@huggingface/transformers'
+import os from 'node:os'
+import path from 'node:path'
+import { AutoProcessor, AutoTokenizer, CLIPVisionModelWithProjection, CLIPTextModelWithProjection, RawImage, cos_sim, env } from '@huggingface/transformers'
 
 export const EMBEDDING_MODEL_ID = 'Xenova/clip-vit-base-patch32'
 
-let processorPromise
-let modelPromise
-let tokenizerPromise
-let textModelPromise
+// Defaults to caching downloaded model weights inside its own node_modules folder, which is read-only
+// under common "run from package" deployments (e.g. Azure App Service) and fails with ENOENT on mkdir.
+env.cacheDir = process.env.HF_CACHE_DIR || path.join(os.tmpdir(), 'huggingface-transformers-cache')
 
-function getProcessor() {
-  if (!processorPromise) processorPromise = AutoProcessor.from_pretrained(EMBEDDING_MODEL_ID)
-  return processorPromise
+// A rejected from_pretrained() call (e.g. a transient network failure fetching model weights) must not be
+// cached forever, or every future request fails identically until the process restarts.
+function memoize(load) {
+  let promise
+  return () => {
+    if (!promise) {
+      promise = load().catch((error) => {
+        promise = undefined
+        throw error
+      })
+    }
+    return promise
+  }
 }
 
-function getModel() {
-  if (!modelPromise) modelPromise = CLIPVisionModelWithProjection.from_pretrained(EMBEDDING_MODEL_ID, { dtype: 'fp32' })
-  return modelPromise
-}
-
-function getTokenizer() {
-  if (!tokenizerPromise) tokenizerPromise = AutoTokenizer.from_pretrained(EMBEDDING_MODEL_ID)
-  return tokenizerPromise
-}
-
-function getTextModel() {
-  if (!textModelPromise) textModelPromise = CLIPTextModelWithProjection.from_pretrained(EMBEDDING_MODEL_ID, { dtype: 'fp32' })
-  return textModelPromise
-}
+const getProcessor = memoize(() => AutoProcessor.from_pretrained(EMBEDDING_MODEL_ID))
+const getModel = memoize(() => CLIPVisionModelWithProjection.from_pretrained(EMBEDDING_MODEL_ID, { dtype: 'fp32' }))
+const getTokenizer = memoize(() => AutoTokenizer.from_pretrained(EMBEDDING_MODEL_ID))
+const getTextModel = memoize(() => CLIPTextModelWithProjection.from_pretrained(EMBEDDING_MODEL_ID, { dtype: 'fp32' }))
 
 export async function warmEmbeddingModel() {
   await Promise.all([getProcessor(), getModel(), getTokenizer(), getTextModel()])

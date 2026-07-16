@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.29.1 - 2026-07-16
+
+- Fixed Identify Photo always failing in production ("I could not read that photo"). Root cause: `@huggingface/transformers` (`backend/src/embeddings.js`) defaults to caching downloaded CLIP model weights inside its own `node_modules` folder, which is read-only under Azure App Service's "Run From Package" deployment, so the model never loaded. The cache directory is now configurable via `HF_CACHE_DIR` (defaults to the OS temp dir).
+- Fixed a related resiliency bug: a failed model load was cached forever (a rejected promise was never retried), so one transient failure broke photo identification until the process restarted. Model loaders now retry on the next request after a failure instead of staying permanently broken.
+
 ## 0.29.0 - 2026-07-15
 
 - Records pagination is no longer bypassed for every user on their default garden; a cheap cached check now confirms legacy gardenId-less records actually exist before disabling pagination, so the common case gets fast incremental page loads.

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(command -v az)",
+      "Bash(node -e ' *)",
+      "Bash(grep -n \"  env,\\\\|env$\\\\|^  env\")",
+      "Bash(awk '/^export \\\\{/{f=1} f{print NR\": \"$0} f && /^\\\\};/{exit}' node_modules/@huggingface/transformers/dist/transformers.node.mjs)"
+    ]
+  }
+}
