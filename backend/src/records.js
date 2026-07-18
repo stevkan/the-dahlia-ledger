@@ -1,5 +1,5 @@
 import { getDb } from './firebase.js'
-import { ensureEmbeddingsForRecord } from './photoEmbeddings.js'
+import { ensureEmbeddingsForRecord, deletePhotoEmbeddings } from './photoEmbeddings.js'
 const COLLECTION = 'dahliaRecords'
 const SUMMARY_COLLECTION = 'dahliaRecordSummaries'
 const ONENOTE_IMPORT_NOTE = 'Imported from OneNote MHT.'
@@ -34,6 +34,31 @@ function clearRecordSummaryCache() {
 function syncPhotoEmbeddings(record) {
   void ensureEmbeddingsForRecord(record).catch((error) => {
     console.error(`Failed to ensure photo embeddings for record ${record?.id}:`, error)
+  })
+}
+
+function photoImageUrls(record) {
+  return new Set(
+    [...(record?.recordPhotos ?? []), ...(record?.cultivarPhotos ?? [])]
+      .map((photo) => photo?.imageUrl)
+      .filter(Boolean),
+  )
+}
+
+function pruneOrphanedPhotoEmbeddings(candidateUrls) {
+  const urls = [...new Set(candidateUrls)].filter(Boolean)
+  if (urls.length === 0) return
+
+  void (async () => {
+    const allRecords = await listRecords()
+    const stillUsed = new Set()
+    for (const record of allRecords) {
+      for (const url of photoImageUrls(record)) stillUsed.add(url)
+    }
+    const orphaned = urls.filter((url) => !stillUsed.has(url))
+    await deletePhotoEmbeddings(orphaned)
+  })().catch((error) => {
+    console.error('Failed to prune orphaned photo embeddings:', error)
   })
 }
 
@@ -467,6 +492,8 @@ export async function updateRecord(id, input, gardenId) {
   clearRecordSummaryCache()
   const record = await getRecord(id)
   syncPhotoEmbeddings(record)
+  const removedUrls = [...photoImageUrls(existing)].filter((url) => !photoImageUrls(record).has(url))
+  pruneOrphanedPhotoEmbeddings(removedUrls)
   return record
 }
 
@@ -628,6 +655,7 @@ export async function deleteCultivarPhoto(id, { imageUrl }) {
   const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
   await backfillMissingSummaries(updatedRecords.filter(Boolean))
   clearRecordSummaryCache()
+  pruneOrphanedPhotoEmbeddings([imageUrl])
   return {
     updatedCount: matchedRecords.length,
     records: updatedRecords.filter(Boolean),
@@ -635,8 +663,10 @@ export async function deleteCultivarPhoto(id, { imageUrl }) {
 }
 
 export async function deleteRecord(id) {
+  const existing = await getRecord(id)
   await getDb().collection(COLLECTION).doc(id).delete()
   await deleteRecordSummary(id)
   clearRecordSummaryCache()
+  if (existing) pruneOrphanedPhotoEmbeddings([...photoImageUrls(existing)])
   return true
 }

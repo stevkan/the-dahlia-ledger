@@ -44,6 +44,14 @@ export async function upsertPhotoEmbedding({ gardenId, cultivarName, imageUrl, t
   )
 }
 
+export async function deletePhotoEmbeddings(imageUrls) {
+  const urls = [...new Set((imageUrls ?? []).filter(Boolean))]
+  if (urls.length === 0) return
+
+  const db = getDb()
+  await Promise.all(urls.map((url) => db.collection(COLLECTION).doc(photoEmbeddingId(url)).delete()))
+}
+
 export async function listPhotoEmbeddings(gardenId) {
   const snap = await getDb().collection(COLLECTION).where('gardenId', '==', gardenId).get()
   return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
