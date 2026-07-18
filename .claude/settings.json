@@ -4,7 +4,20 @@
       "Bash(command -v az)",
       "Bash(node -e ' *)",
       "Bash(grep -n \"  env,\\\\|env$\\\\|^  env\")",
-      "Bash(awk '/^export \\\\{/{f=1} f{print NR\": \"$0} f && /^\\\\};/{exit}' node_modules/@huggingface/transformers/dist/transformers.node.mjs)"
+      "Bash(awk '/^export \\\\{/{f=1} f{print NR\": \"$0} f && /^\\\\};/{exit}' node_modules/@huggingface/transformers/dist/transformers.node.mjs)",
+      "WebSearch",
+      "WebFetch(domain:instances.vantage.sh)",
+      "WebFetch(domain:azure.microsoft.com)",
+      "WebFetch(domain:www.bytebase.com)",
+      "Bash(git log *)",
+      "Bash(node --check src/records.js)",
+      "Bash(npm test *)",
+      "Bash(git add *)",
+      "Bash(node --check backend/src/photoEmbeddings.js)",
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).version\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./backend/package.json'\\).version\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./frontend/package.json'\\).version\\)\")",
+      "Bash(git checkout *)"
     ]
   }
 }

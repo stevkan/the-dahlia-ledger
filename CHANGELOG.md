@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.29.3 - 2026-07-17
+
+- Fixed orphaned photo embeddings: removing or reassigning a photo previously left its CLIP embedding doc behind in `photoEmbeddings`, mislabeled under the wrong cultivar and still influencing future identify matches. `deletePhotoEmbeddings` (`backend/src/photoEmbeddings.js`) now prunes an embedding once no record references its `imageUrl`, wired into `updateRecord`, `deleteCultivarPhoto`, and `deleteRecord` in `backend/src/records.js`.
+
 ## 0.29.2 - 2026-07-17
 
 - Fixed a regression from the 0.27.0 cultivar photo sync change: renaming a record's variety name wiped its saved cultivar-scope photos instead of carrying them forward. `updateRecord()` (`backend/src/records.js`) only pulls in another record's shared cultivar photos as a "donor" when the new name matches an existing record; previously, if no donor was found, the record's own `cultivarPhotos` were unconditionally reset to empty — even when this record was the only one that had ever held them. It now only clears them when another record still holds the *old* cultivar name (a genuine split, where the shared photos correctly stay with the group), otherwise the record's existing photos carry over under the new name.
