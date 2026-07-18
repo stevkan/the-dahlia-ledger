@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.29.2 - 2026-07-17
+
+- Fixed a regression from the 0.27.0 cultivar photo sync change: renaming a record's variety name wiped its saved cultivar-scope photos instead of carrying them forward. `updateRecord()` (`backend/src/records.js`) only pulls in another record's shared cultivar photos as a "donor" when the new name matches an existing record; previously, if no donor was found, the record's own `cultivarPhotos` were unconditionally reset to empty — even when this record was the only one that had ever held them. It now only clears them when another record still holds the *old* cultivar name (a genuine split, where the shared photos correctly stay with the group), otherwise the record's existing photos carry over under the new name.
+
 ## 0.29.1 - 2026-07-16
 
 - Fixed Identify Photo always failing in production ("I could not read that photo"). Root cause: `@huggingface/transformers` (`backend/src/embeddings.js`) defaults to caching downloaded CLIP model weights inside its own `node_modules` folder, which is read-only under Azure App Service's "Run From Package" deployment, so the model never loaded. The cache directory is now configurable via `HF_CACHE_DIR` (defaults to the OS temp dir).

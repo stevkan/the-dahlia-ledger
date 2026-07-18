@@ -428,7 +428,12 @@ export async function updateRecord(id, input, gardenId) {
   if (oldKey !== newKey) {
     const gardenRecords = await listRecords(targetGardenId)
     const donor = gardenRecords.find((r) => r.id !== id && cultivarKey(r) === newKey && r.cultivarPhotos?.length)
-    const newCultivarPhotos = donor ? uniquePhotos(donor.cultivarPhotos) : []
+    const oldKeyRetainedElsewhere = gardenRecords.some((r) => r.id !== id && cultivarKey(r) === oldKey)
+    const newCultivarPhotos = donor
+      ? uniquePhotos(donor.cultivarPhotos)
+      : oldKeyRetainedElsewhere
+        ? []
+        : uniquePhotos(existing.cultivarPhotos)
     const byAge = (a, b) => (a.createdAt ?? 'z').localeCompare(b.createdAt ?? 'z')
     const userPick = newCultivarPhotos.find((p) => p.id === normalizedInput.defaultCultivarPhotoId)
     const oldestPhoto = newCultivarPhotos.length > 0 ? [...newCultivarPhotos].sort(byAge)[0] : undefined

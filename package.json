@@ -1,6 +1,6 @@
 {
   "name": "the-dahlia-ledger",
-  "version": "0.29.1",
+  "version": "0.29.2",
   "private": true,
   "scripts": {
     "build": "npm --prefix backend ci --ignore-scripts && npm --prefix frontend ci --ignore-scripts && npm run build --prefix frontend",
