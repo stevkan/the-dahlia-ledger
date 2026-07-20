@@ -64,6 +64,7 @@ const AnalyticsFiltersSchema = z.object({
   plantingStates: z.array(z.string()).optional().default([]),
   colors: z.array(z.string()).optional().default([]),
   forms: z.array(z.string()).optional().default([]),
+  nameStatuses: z.array(z.string()).optional().default([]),
 }).optional().default({})
 
 const MetricSpecSchema = z.discriminatedUnion('status', [
@@ -437,6 +438,9 @@ function recordMatchesAnalyticsFilters(record, spec, context) {
   const forms = normalizedSet(filters.forms)
   if (forms.size > 0 && !forms.has(String(record.core?.form ?? '').trim() || 'Unspecified')) return false
 
+  const nameStatuses = normalizedSet(filters.nameStatuses)
+  if (nameStatuses.size > 0 && !nameStatuses.has(nameStatusLabel(record))) return false
+
   const photoTypes = spec.photoTypes
   if (photoTypes?.length) {
     const hasRecord = hasRecordPhoto(record)
@@ -689,6 +693,12 @@ function plantingStateLabel(value) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
+}
+
+function nameStatusLabel(record) {
+  const value = record.meta?.nameStatus
+  if (!value) return 'Known'
+  return plantingStateLabel(value)
 }
 
 function enumReasonLabel(value) {

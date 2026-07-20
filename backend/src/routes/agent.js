@@ -113,6 +113,7 @@ router.post('/agent/metrics', async (req, res) => {
       plantingStates: z.array(z.string()).optional(),
       colors: z.array(z.string()).optional(),
       forms: z.array(z.string()).optional(),
+      nameStatuses: z.array(z.string()).optional(),
     }).optional(),
     photoTypes: z.array(z.enum(['any', 'record', 'cultivar', 'none'])).optional(),
     sortBy: z.enum(['company', 'value_desc', 'value_asc']).optional(),
@@ -172,6 +173,7 @@ router.post('/agent/metrics/drilldown', async (req, res) => {
       plantingStates: z.array(z.string()).optional(),
       colors: z.array(z.string()).optional(),
       forms: z.array(z.string()).optional(),
+      nameStatuses: z.array(z.string()).optional(),
     }).optional(),
     photoTypes: z.array(z.enum(['any', 'record', 'cultivar', 'none'])).optional(),
   }).refine((value) => value.metric === 'missing_data_summary' ? Boolean(value.field) : Boolean(value.bucket), 'field is required for missing_data_summary; bucket is required for other drilldowns')

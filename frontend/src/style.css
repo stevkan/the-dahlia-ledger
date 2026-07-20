@@ -3608,6 +3608,10 @@ th.sortable {
   padding-right: 4px;
 }
 
+.analyticsOptionListCompact {
+  max-height: 120px;
+}
+
 .agentShortcut {
   padding-top: 0;
   text-align: right;

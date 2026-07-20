@@ -120,6 +120,7 @@ type AnalyticsFilters = {
   plantingStates: string[]
   colors: string[]
   forms: string[]
+  nameStatuses: string[]
 }
 
 type AnalyticsDrilldownRecord = {
@@ -232,6 +233,8 @@ const DRILLDOWN_THUMB_SIZE = 42
 
 const DEFAULT_DRILLDOWN_RECORD_SORT: DrilldownSort = { table: 'records', key: 'location', direction: 'asc' }
 
+const NAME_STATUS_FILTER_OPTIONS = ['Known', 'Unknown', 'Mystery', 'Seedling']
+
 export function AnalyticsModal({
   records = [],
   companies = [],
@@ -249,7 +252,7 @@ export function AnalyticsModal({
   const [selectedSeasonYears, setSelectedSeasonYears] = useState<number[]>([])
   const defaultSeasonAppliedRef = useRef(false)
   const [optionsOpen, setOptionsOpen] = useState(false)
-  const [filters, setFilters] = useState<AnalyticsFilters>({ companies: [], gardenAreas: [], plantingStates: [], colors: [], forms: [] })
+  const [filters, setFilters] = useState<AnalyticsFilters>({ companies: [], gardenAreas: [], plantingStates: [], colors: [], forms: [], nameStatuses: [] })
   const [sortBy, setSortBy] = useState<AnalyticsSort>('company')
   const [chartType, setChartType] = useState<AnalyticsChartType>('table')
   const [photoTypes, setPhotoTypes] = useState<Array<'any' | 'record' | 'cultivar' | 'none'>>(['any', 'none'])
@@ -317,6 +320,7 @@ export function AnalyticsModal({
     plantingStates: sortedPlantingStates(records.map((record) => plantingStateLabel(record.meta?.plantingState)), 'Unspecified'),
     colors: sortedUnique(records.map((record) => record.core?.color), 'Unspecified'),
     forms: sortedUnique(records.map((record) => record.core?.form), 'Unspecified'),
+    nameStatuses: NAME_STATUS_FILTER_OPTIONS,
   }), [companies, records])
 
   const photoTypesModified = !(photoTypes.length === 2 && photoTypes.includes('any') && photoTypes.includes('none'))
@@ -724,7 +728,7 @@ export function AnalyticsModal({
             </div>
             {activeOptionCount ? (
               <div className="muted analyticsFilterSummary">
-                {filterSummary('companies', 'All Companies')} · {filterSummary('gardenAreas', 'All Garden Areas')} · {filterSummary('plantingStates', 'All Planting States')} · {filterSummary('colors', 'All Colors')} · {filterSummary('forms', 'All Forms')}
+                {filterSummary('companies', 'All Companies')} · {filterSummary('gardenAreas', 'All Garden Areas')} · {filterSummary('plantingStates', 'All Planting States')} · {filterSummary('colors', 'All Colors')} · {filterSummary('forms', 'All Forms')} · {filterSummary('nameStatuses', 'All Flowers')}
               </div>
             ) : null}
             {optionsOpen ? (
@@ -739,19 +743,20 @@ export function AnalyticsModal({
                   </div>
                   <div className="modalBody analyticsOptionsBody">
                     {([
-                      ['companies', 'Companies', 'All Companies', analyticsOptions.companies],
-                      ['gardenAreas', 'Garden Areas', 'All Garden Areas', analyticsOptions.gardenAreas],
-                      ['plantingStates', 'Planting States', 'All Planting States', analyticsOptions.plantingStates],
-                      ['colors', 'Colors', 'All Colors', analyticsOptions.colors],
-                      ['forms', 'Forms', 'All Forms', analyticsOptions.forms],
-                    ] as Array<[keyof AnalyticsFilters, string, string, string[]]>).map(([key, title, allLabel, options]) => (
+                      ['plantingStates', 'Planting States', 'All Planting States', analyticsOptions.plantingStates, true],
+                      ['gardenAreas', 'Garden Areas', 'All Garden Areas', analyticsOptions.gardenAreas, true],
+                      ['companies', 'Companies', 'All Companies', analyticsOptions.companies, false],
+                      ['colors', 'Colors', 'All Colors', analyticsOptions.colors, false],
+                      ['forms', 'Forms', 'All Forms', analyticsOptions.forms, false],
+                      ['nameStatuses', 'Flower Name Status', 'All Flowers', analyticsOptions.nameStatuses, true],
+                    ] as Array<[keyof AnalyticsFilters, string, string, string[], boolean]>).map(([key, title, allLabel, options, compact]) => (
                       <fieldset className="analyticsOptionGroup" key={key}>
                         <legend>{title}</legend>
                         <label className="seasonFilterOption">
                           <input type="checkbox" checked={filters[key].length === 0} onChange={() => setFilters((previous) => ({ ...previous, [key]: [] }))} />
                           {allLabel}
                         </label>
-                        <div className="analyticsOptionList">
+                        <div className={compact ? 'analyticsOptionList analyticsOptionListCompact' : 'analyticsOptionList'}>
                           {options.map((option) => (
                             <label key={option} className="seasonFilterOption">
                               <input
@@ -794,7 +799,7 @@ export function AnalyticsModal({
                       </div>
                     </fieldset>
                     <div className="agentInputFooter analyticsActions">
-                      <button className="btn ghost compact" type="button" onClick={() => { setFilters({ companies: [], gardenAreas: [], plantingStates: [], colors: [], forms: [] }); setPhotoTypes(['any', 'none']) }}>Clear Options</button>
+                      <button className="btn ghost compact" type="button" onClick={() => { setFilters({ companies: [], gardenAreas: [], plantingStates: [], colors: [], forms: [], nameStatuses: [] }); setPhotoTypes(['any', 'none']) }}>Clear Options</button>
                       <button className="btn compact" type="button" onClick={() => setOptionsOpen(false)}>Apply Options</button>
                     </div>
                   </div>
