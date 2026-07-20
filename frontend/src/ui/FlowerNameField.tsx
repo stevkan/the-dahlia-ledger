@@ -46,6 +46,7 @@ export function FlowerNameField({
   knownFlowerNames,
   onChange,
   labelAction,
+  disabled,
 }: {
   label?: string
   hint?: string
@@ -55,6 +56,7 @@ export function FlowerNameField({
   knownFlowerNames: string[]
   onChange: (v: string) => void
   labelAction?: React.ReactNode
+  disabled?: boolean
 }) {
   const [focused, setFocused] = useState(false)
   const [selectedFromList, setSelectedFromList] = useState(false)
@@ -63,7 +65,7 @@ export function FlowerNameField({
   const filteredNames = knownFlowerNames
     .filter((name) => !normalizedValue || name.toLowerCase().includes(normalizedValue))
     .slice(0, 8)
-  const showOptions = focused && !selectedFromList && filteredNames.length > 0
+  const showOptions = !disabled && focused && !selectedFromList && filteredNames.length > 0
 
   function select(name: string) {
     onChange(name)
@@ -90,6 +92,7 @@ export function FlowerNameField({
           className="input"
           value={value}
           placeholder={placeholder}
+          disabled={disabled}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => window.setTimeout(() => setFocused(false), 120)}
@@ -97,7 +100,7 @@ export function FlowerNameField({
           aria-expanded={showOptions}
           aria-autocomplete="list"
         />
-        {selectedFromList ? (
+        {selectedFromList && !disabled ? (
           <button
             className="relatedRecordClear"
             type="button"

@@ -68,6 +68,7 @@ export type DahliaRecord = {
     plantingState?: PlantingState
     notPlantedReason?: NotPlantedReason
     notViableReason?: NotViableReason
+    nameStatus?: NameStatus | null
     agentOriginalInput?: string
     agentExtractionPromptPath?: string
     agentExtractionModel?: string
@@ -89,6 +90,8 @@ export type PlantingState = 'garden_tray' | 'in_garden' | 'not_planted' | 'not_v
 export type NotPlantedReason = 'not_received' | 'refunded'
 
 export type NotViableReason = 'no_longer_present' | 'removed' | 'unused'
+
+export type NameStatus = 'mystery' | 'unknown' | 'seedling'
 
 export type GardenOptionKey = 'gardenAreas' | 'gardenRows' | 'gardenPositions'
 

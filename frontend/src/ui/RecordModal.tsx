@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_GARDEN_OPTIONS } from '../gardenOptions'
-import type { AgentCorrectionResult, AgentPhotoIdentificationResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, GardenOptionKey, GardenOptions, NotPlantedReason, NotViableReason, Order, PlantingState } from '../types'
+import type { AgentCorrectionResult, AgentPhotoIdentificationResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, GardenOptionKey, GardenOptions, NameStatus, NotPlantedReason, NotViableReason, Order, PlantingState } from '../types'
 import { DropdownField } from './DropdownField'
 import { FlowerNameField } from './FlowerNameField'
 import { ColorField } from './ColorField'
@@ -47,6 +47,16 @@ const DAHLIA_FORM_OPTIONS = [
   'Waterlily',
 ]
 const DAHLIA_HABIT_OPTIONS = ['Upright', 'Forward', 'Down']
+const NAME_STATUS_OPTIONS: { value: NameStatus; label: string }[] = [
+  { value: 'mystery', label: 'Mystery' },
+  { value: 'unknown', label: 'Unknown' },
+  { value: 'seedling', label: 'Seedling' },
+]
+const NAME_STATUS_LABELS: Record<NameStatus, string> = {
+  mystery: 'Mystery',
+  unknown: 'Unknown',
+  seedling: 'Seedling',
+}
 const BLOOM_WIDTH_OPTIONS = [
   'AA - over 10"',
   'A - 8" to 10"',
@@ -513,6 +523,30 @@ function TextArea({
   )
 }
 
+function NameStatusCheckbox({
+  label,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  disabled?: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label className={`nameStatusOption${disabled ? ' disabled' : ''}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span>{label}</span>
+    </label>
+  )
+}
+
 function Toggle({
   label,
   hint,
@@ -893,6 +927,31 @@ export function RecordModal({
     setForm((previous) => ({ ...previous, tuber: { ...previous.tuber, source: value } }))
   }
 
+  function setNameStatus(status: NameStatus | undefined) {
+    setConfirmAction(null)
+
+    if (!status) {
+      setForm((previous) => ({ ...previous, meta: { ...previous.meta, nameStatus: null } }))
+      return
+    }
+
+    const hasExistingName = form.flowerName.trim().length > 0 || (form.core.cultivar ?? '').trim().length > 0
+    if (hasExistingName) {
+      const label = NAME_STATUS_LABELS[status]
+      const confirmed = window.confirm(`Marking this record as "${label}" will overwrite the Flower Name and Cultivar fields. Continue?`)
+      if (!confirmed) return
+    }
+
+    const identifier = initial?.recordNumber ?? 'draft'
+    const generatedName = `${NAME_STATUS_LABELS[status]} - ${identifier}`
+    setForm((previous) => ({
+      ...previous,
+      flowerName: generatedName,
+      core: { ...previous.core, cultivar: generatedName },
+      meta: { ...previous.meta, nameStatus: status },
+    }))
+  }
+
   async function handleReviewClick() {
     if (!onReview) return
     if (confirmAction !== 'review') {
@@ -1271,31 +1330,43 @@ export function RecordModal({
             {open.core ? (
               <div className="sectionBody">
                 <div className="grid4">
-                  <div className="gridSpan2">
-                    <FlowerNameField
-                      label="Flower Name"
-                      hint="The primary display name for this dahlia record."
-                      required
-                      value={form.flowerName}
-                      knownFlowerNames={knownFlowerNames}
-                      onChange={(v) => setForm((p) => ({
-                        ...p,
-                        flowerName: v,
-                        core: {
-                          ...p.core,
-                          cultivar: p.core.cultivar === p.flowerName ? v : p.core.cultivar,
-                        },
-                      }))}
-                      placeholder="e.g. Cafe au Lait"
-                      labelAction={onOpenFlowerNames ? (
-                        <button className="labelLink" type="button" onClick={onOpenFlowerNames}>
-                          Flower Name
-                        </button>
-                      ) : undefined}
-                    />
-                  </div>
-                  <div className="gridSpan2">
-                    <Field label="Season" hint="The growing season year for this record." required type="number" value={String(form.seasonYearStart)} onChange={setSeasonYearStart} />
+                  <div className="gridSpanFull flowerNameStatusRow">
+                    <div className="flowerNameSeasonSplit">
+                      <FlowerNameField
+                        label="Flower Name"
+                        hint="The primary display name for this dahlia record."
+                        required
+                        value={form.flowerName}
+                        knownFlowerNames={knownFlowerNames}
+                        disabled={Boolean(form.meta.nameStatus)}
+                        onChange={(v) => setForm((p) => ({
+                          ...p,
+                          flowerName: v,
+                          core: {
+                            ...p.core,
+                            cultivar: p.core.cultivar === p.flowerName ? v : p.core.cultivar,
+                          },
+                        }))}
+                        placeholder="e.g. Cafe au Lait"
+                        labelAction={onOpenFlowerNames ? (
+                          <button className="labelLink" type="button" onClick={onOpenFlowerNames}>
+                            Flower Name
+                          </button>
+                        ) : undefined}
+                      />
+                      <Field label="Season" hint="The growing season year for this record." required type="number" value={String(form.seasonYearStart)} onChange={setSeasonYearStart} />
+                    </div>
+                    <div className="nameStatusOptions">
+                      {NAME_STATUS_OPTIONS.map((option) => (
+                        <NameStatusCheckbox
+                          key={option.value}
+                          label={option.label}
+                          checked={form.meta.nameStatus === option.value}
+                          disabled={Boolean(form.meta.nameStatus) && form.meta.nameStatus !== option.value}
+                          onChange={(checked) => setNameStatus(checked ? option.value : undefined)}
+                        />
+                      ))}
+                    </div>
                   </div>
                   <DahliaPickerField
                     label="Planting State"
@@ -1396,7 +1467,7 @@ export function RecordModal({
                   ) : null}
                 </div>
                 <div className="grid2">
-                  <Field label="Cultivar" hint="The cultivar name. If blank, Flower Name is used when saving." value={form.core.cultivar ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, cultivar: v } }))} />
+                  <Field label="Cultivar" hint="The cultivar name. If blank, Flower Name is used when saving." value={form.core.cultivar ?? ''} disabled={Boolean(form.meta.nameStatus)} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, cultivar: v } }))} />
                   <Field label="Planted Date" hint="Date planted. This may be earlier than the current season year for overwintered or moved plants." type="date" value={form.core.plantedDate ?? plantedDateForYear(form.seasonYearStart)} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, plantedDate: v } }))} />
                   <ColorField
                     label="Color"

@@ -90,6 +90,24 @@ function cultivarKey(record) {
   return normalizedValue(record?.core?.cultivar || record?.flowerName)
 }
 
+const NAME_STATUS_LABELS = {
+  mystery: 'Mystery',
+  unknown: 'Unknown',
+  seedling: 'Seedling',
+}
+
+function withGeneratedName(input, recordNumber) {
+  const label = NAME_STATUS_LABELS[input.meta?.nameStatus]
+  if (!label) return input
+
+  const generatedName = `${label} - ${recordNumber}`
+  return {
+    ...input,
+    flowerName: generatedName,
+    core: { ...input.core, cultivar: generatedName },
+  }
+}
+
 function flowerNameKey(record) {
   return normalizedValue(record?.flowerName)
 }
@@ -411,17 +429,19 @@ export async function createRecord(input, gardenId) {
     throw error
   }
 
+  const recordNumber = await getNextRecordNumber(gardenId)
+  const namedInput = withGeneratedName(normalizedInput, recordNumber)
   const timestamp = nowIso()
   const base = {
-    ...withPhotoDefaults(normalizedInput),
+    ...withPhotoDefaults(namedInput),
     gardenId,
-    recordNumber: await getNextRecordNumber(gardenId),
-    thumbnailUrl: normalizedInput.thumbnailUrl || undefined,
-    imageUrl: normalizedInput.imageUrl || undefined,
-    cultivarThumbnailUrl: normalizedInput.cultivarThumbnailUrl || undefined,
-    cultivarImageUrl: normalizedInput.cultivarImageUrl || undefined,
+    recordNumber,
+    thumbnailUrl: namedInput.thumbnailUrl || undefined,
+    imageUrl: namedInput.imageUrl || undefined,
+    cultivarThumbnailUrl: namedInput.cultivarThumbnailUrl || undefined,
+    cultivarImageUrl: namedInput.cultivarImageUrl || undefined,
     meta: {
-      ...(normalizedInput.meta ?? {}),
+      ...(namedInput.meta ?? {}),
       createdAt: timestamp,
       updatedAt: timestamp,
     },
@@ -440,35 +460,36 @@ export async function updateRecord(id, input, gardenId) {
   if (!existing) return null
 
   const normalizedInput = normalizeRecordText(input)
+  const namedInput = withGeneratedName(normalizedInput, existing.recordNumber)
   const targetGardenId = gardenId ?? existing.gardenId
-  const conflict = await findGardenLocationConflict(normalizedInput, id, targetGardenId)
+  const conflict = await findGardenLocationConflict(namedInput, id, targetGardenId)
   if (conflict) {
     const error = new Error('Garden location is already assigned to another record.')
     error.code = 'garden_location_conflict'
     throw error
   }
 
-  let adjustedInput = normalizedInput
+  let adjustedInput = namedInput
   const oldKey = cultivarKey(existing)
-  const newKey = cultivarKey(normalizedInput)
+  const newKey = cultivarKey(namedInput)
   if (oldKey !== newKey) {
     const gardenRecords = await listRecords(targetGardenId)
     const donor = gardenRecords.find((r) => r.id !== id && cultivarKey(r) === newKey && r.cultivarPhotos?.length)
     const oldKeyRetainedElsewhere = gardenRecords.some((r) => r.id !== id && cultivarKey(r) === oldKey)
     const newCultivarPhotos = donor
-      ? uniquePhotos(donor.cultivarPhotos)
+      ? uniquePhotos([...(existing.cultivarPhotos ?? []), ...donor.cultivarPhotos])
       : oldKeyRetainedElsewhere
         ? []
         : uniquePhotos(existing.cultivarPhotos)
     const byAge = (a, b) => (a.createdAt ?? 'z').localeCompare(b.createdAt ?? 'z')
-    const userPick = newCultivarPhotos.find((p) => p.id === normalizedInput.defaultCultivarPhotoId)
+    const userPick = newCultivarPhotos.find((p) => p.id === namedInput.defaultCultivarPhotoId)
     const oldestPhoto = newCultivarPhotos.length > 0 ? [...newCultivarPhotos].sort(byAge)[0] : undefined
     const newDefault = userPick ?? oldestPhoto
     adjustedInput = {
-      ...normalizedInput,
+      ...namedInput,
       cultivarPhotos: newCultivarPhotos,
       defaultCultivarPhotoId: newDefault?.id,
-      defaultPhotoScope: newDefault ? 'cultivar' : normalizedInput.defaultPhotoScope === 'cultivar' ? undefined : normalizedInput.defaultPhotoScope,
+      defaultPhotoScope: newDefault ? 'cultivar' : namedInput.defaultPhotoScope === 'cultivar' ? undefined : namedInput.defaultPhotoScope,
       cultivarImageUrl: undefined,
       cultivarThumbnailUrl: undefined,
     }
@@ -482,8 +503,8 @@ export async function updateRecord(id, input, gardenId) {
     recordNumber: existing.recordNumber,
     meta: {
       ...(existing.meta ?? {}),
-      ...(normalizedInput.meta ?? {}),
-      createdAt: existing.meta?.createdAt ?? normalizedInput.meta?.createdAt,
+      ...(namedInput.meta ?? {}),
+      createdAt: existing.meta?.createdAt ?? namedInput.meta?.createdAt,
       updatedAt: nowIso(),
     },
   }

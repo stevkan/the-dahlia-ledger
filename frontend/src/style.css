@@ -1375,6 +1375,46 @@ th.sortable {
   grid-column: 1 / -1;
 }
 
+.flowerNameStatusRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 10px;
+  align-items: end;
+}
+
+.flowerNameSeasonSplit {
+  display: grid;
+  grid-template-columns: 4fr 1fr;
+  column-gap: 10px;
+}
+
+.nameStatusOptions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  column-gap: 10px;
+}
+
+.nameStatusOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.nameStatusOption input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+.nameStatusOption.disabled {
+  color: var(--text-soft);
+  opacity: 0.6;
+}
+
 .orderItemRow {
   display: grid;
   grid-template-columns: 3fr 3fr 2fr 2fr 2fr;
@@ -1647,6 +1687,10 @@ th.sortable {
 
   .gridSpan3 {
     grid-column: 1 / -1;
+  }
+
+  .flowerNameStatusRow {
+    grid-template-columns: 1fr;
   }
 
   .healthGrid {
