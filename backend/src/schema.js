@@ -87,7 +87,7 @@ export const DahliaRecordInputSchema = z.object({
       gardenZone: z.string().optional().nullable(),
       rowOrBed: z.string().optional().nullable(),
       position: z.number().int().min(1).optional().nullable(),
-      plantingState: z.enum(['garden_tray', 'in_garden', 'not_planted', 'not_viable', 'purchased_container']).optional().nullable(),
+      plantingState: z.enum(['garden_tray', 'in_garden', 'not_planted', 'not_viable', 'purchased_container', 'did_not_grow']).optional().nullable(),
       notPlantedReason: z.enum(['not_received', 'refunded']).optional().nullable(),
       notViableReason: z.enum(['no_longer_present', 'removed', 'unused']).optional().nullable(),
       agentOriginalInput: z.string().optional().nullable(),

@@ -195,7 +195,7 @@ const RecordPatchSchema = z.object({
       gardenArea: StringishSchema,
       gardenRow: StringishSchema,
       gardenPosition: OptionalYearSchema,
-      plantingState: z.enum(['garden_tray', 'in_garden', 'not_planted', 'not_viable', 'purchased_container']).optional(),
+      plantingState: z.enum(['garden_tray', 'in_garden', 'not_planted', 'not_viable', 'purchased_container', 'did_not_grow']).optional(),
       notPlantedReason: z.enum(['not_received', 'refunded']).optional(),
       notViableReason: z.enum(['no_longer_present', 'removed', 'unused']).optional(),
     })

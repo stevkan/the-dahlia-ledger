@@ -16,6 +16,7 @@ const PLANTING_STATES: { value: PlantingState; label: string }[] = [
   { value: 'in_garden', label: 'In Garden' },
   { value: 'not_planted', label: 'Not Planted' },
   { value: 'not_viable', label: 'Not Viable' },
+  { value: 'did_not_grow', label: 'Did Not Grow' },
   { value: 'purchased_container', label: 'Purchased Container' },
 ]
 const NOT_PLANTED_REASONS: { value: NotPlantedReason; label: string }[] = [
@@ -371,6 +372,7 @@ function formatLocation(record: DahliaRecord) {
   if (state === 'garden_tray') return 'Garden Tray'
   if (state === 'not_planted') return 'Not Planted'
   if (state === 'not_viable') return 'Not Viable'
+  if (state === 'did_not_grow') return 'Did Not Grow'
 
   const zone = record.meta?.gardenZone ?? record.meta?.gardenArea
   const rowOrBed = record.meta?.rowOrBed ?? record.meta?.gardenRow

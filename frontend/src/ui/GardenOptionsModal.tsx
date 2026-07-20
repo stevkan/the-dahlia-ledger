@@ -321,6 +321,14 @@ export function GardenOptionsModal({
     setError(null)
   }
 
+  function handleCloseRequest() {
+    if (canSave) {
+      setError('Save or discard your unsaved changes before closing.')
+      return
+    }
+    onClose()
+  }
+
   function cancelEdit() {
     if (renameArmed) {
       setSelectedValue('')
@@ -499,7 +507,7 @@ export function GardenOptionsModal({
           <div className="modalTitle">Placement Options</div>
           <div className="modalSub">Manage zones, rows/beds, and positions used by record placement fields.</div>
         </div>
-        <button className="btn ghost" onClick={onClose}>Close</button>
+        <button className="btn ghost" onClick={handleCloseRequest}>Close</button>
       </div>
       <div className={`modalBody companiesLayout gardenOptionsLayout${selectedUsageRecords.length ? ' hasUsagePanel' : ''}`}>
         <div className="companyList">
@@ -585,8 +593,9 @@ export function GardenOptionsModal({
             <div className="gardenOptionPrimaryActions">
               {selectedValue ? <button className="btn ghost" type="button" onClick={cancelEdit}>Cancel Edit</button> : null}
               <button className="btn" type="button" disabled={!canSave} onClick={saveValue}>
-                {renameArmed ? 'Confirm Rename' : selectedValue ? 'Update Value' : 'Save Value'}
+                {renameArmed ? 'Confirm Rename' : selectedValue ? 'Update Value' : 'Save'}
               </button>
+              <button className="btn" type="button" disabled={!canSave} onClick={clearForm}>Cancel</button>
               {!values.length ? (
                 <button className="btn ghost gardenOptionRestoreDefaults" type="button" onClick={restoreDefaultValues}>
                   Use Default Values

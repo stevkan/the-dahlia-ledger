@@ -84,7 +84,7 @@ export type DahliaPhoto = {
   createdAt?: string
 }
 
-export type PlantingState = 'garden_tray' | 'in_garden' | 'not_planted' | 'not_viable' | 'purchased_container'
+export type PlantingState = 'garden_tray' | 'in_garden' | 'not_planted' | 'not_viable' | 'purchased_container' | 'did_not_grow'
 
 export type NotPlantedReason = 'not_received' | 'refunded'
 

@@ -45,6 +45,7 @@ function formatGardenLocation(record: DahliaRecordSummary) {
   if (plantingState === 'garden_tray') return 'Garden Tray'
   if (plantingState === 'not_planted') return 'Not Planted'
   if (plantingState === 'not_viable') return 'Not Viable'
+  if (plantingState === 'did_not_grow') return 'Did Not Grow'
 
   const gardenArea = record.meta?.gardenZone ?? record.meta?.gardenArea
   const gardenRow = record.meta?.rowOrBed ?? record.meta?.gardenRow
