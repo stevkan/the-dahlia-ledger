@@ -1655,7 +1655,7 @@ export function RecordModal({
                               label="Company"
                               hint="Manual company or source name when no invoice record is linked. Add new companies from the Companies modal."
                               layout="list"
-                              options={companies.map((company) => company.name)}
+                              options={Array.from(new Set(companies.map((company) => company.name)))}
                               value={selectedSourceCompany || undefined}
                               onChange={setSourceCompany}
                               labelAction={onOpenCompanies ? (
