@@ -9,7 +9,7 @@ import {
   signOut,
   type User,
 } from 'firebase/auth'
-import type { AgentCorrectionResult, AgentReviewResult, Asset, AssetInput, Company, CompanyInput, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, ExcelImportResult, ExcelImportRevertResult, Invite, MaintenanceReminder, MaintenanceReminderInput, Order, OrderInput } from '../types'
+import type { AgentCorrectionResult, AgentReviewResult, Asset, AssetInput, Company, CompanyInput, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, ExcelImportResult, ExcelImportRevertResult, Invite, LearnedProjectionStatus, MaintenanceReminder, MaintenanceReminderInput, Order, OrderInput } from '../types'
 import type { GardenOptionKey } from '../types'
 import { auth, authHeaders, hasFirebaseConfig, initializeAuthPersistence } from '../firebase'
 import { api, API_BASE, uploadPhoto } from '../api/client'
@@ -258,6 +258,12 @@ export default function App() {
     queryKey: ordersQueryKey,
     queryFn: async () => (await api<{ orders: Order[] }>('/api/orders')).orders,
     enabled: Boolean(user),
+    staleTime: 5 * 60_000,
+  })
+  const learnedProjectionStatusQuery = useQuery({
+    queryKey: ['learned-projection-status'],
+    queryFn: async () => api<LearnedProjectionStatus>('/api/agent/learned-projection-status'),
+    enabled: Boolean(user) && globalAdmin,
     staleTime: 5 * 60_000,
   })
   const assetsQuery = useQuery({
@@ -1255,6 +1261,10 @@ export default function App() {
           <div className="navDrawerBackdrop" aria-hidden="true" onClick={() => setHamburgerMenuOpen(false)} />
         )}
       </header>
+
+      {globalAdmin && learnedProjectionStatusQuery.data?.retrainingRecommended ? (
+        <div className="callout warn">{learnedProjectionStatusQuery.data.reason}</div>
+      ) : null}
 
       <main className="mainGrid">
         <section className="panel recordsPanel">

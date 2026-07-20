@@ -34,7 +34,9 @@ export function PhotoIdentifyResultsModal({ result, onBack, onClose }: { result:
         <div className="photoViewerHeader">
           <div>
             <div className="modalTitle">Identification Results</div>
-            {result.status === 'answer' ? <div className="photoHint">Compared against your saved cultivar photos, most similar first.</div> : null}
+            {result.status === 'answer' || result.status === 'uncertain' ? (
+              <div className="photoHint">Compared against your saved cultivar photos, most similar first.</div>
+            ) : null}
           </div>
           <div className="rowActions modalHeaderActions">
             <button className="btn ghost" type="button" onClick={onBack}>
@@ -52,6 +54,7 @@ export function PhotoIdentifyResultsModal({ result, onBack, onClose }: { result:
             <div className="callout warn">No close matches were found among your saved cultivar photos.</div>
           ) : (
             <>
+              {result.status === 'uncertain' ? <div className="callout warn photoIdentifyCaveats">{result.message}</div> : null}
               {result.caveats?.length ? (
                 <div className="callout warn photoIdentifyCaveats">
                   {result.caveats.map((caveat, index) => <div key={index}>{caveat}</div>)}

@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "0.29.3",
+  "version": "0.30.0",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
@@ -19,7 +19,15 @@
     "backfill:garden-ids": "node scripts/backfill-garden-ids.js",
     "backfill:garden-ids:dry-run": "node scripts/backfill-garden-ids.js --dry-run",
     "backfill:photo-embeddings": "node scripts/backfill-photo-embeddings.js",
-    "backfill:photo-embeddings:dry-run": "node scripts/backfill-photo-embeddings.js --dry-run"
+    "backfill:photo-embeddings:dry-run": "node scripts/backfill-photo-embeddings.js --dry-run",
+    "recompute:centroids": "node scripts/recompute-cultivar-centroids.js",
+    "recompute:centroids:dry-run": "node scripts/recompute-cultivar-centroids.js --dry-run",
+    "eval:build-set": "node scripts/build-photo-eval-set.js",
+    "eval:photo-matching": "node scripts/evaluate-photo-matching.js",
+    "export:training-embeddings": "node scripts/export-embeddings-for-training.js",
+    "import:learned-projection": "node scripts/import-learned-projection.js",
+    "import:learned-projection:dry-run": "node scripts/import-learned-projection.js --dry-run",
+    "deactivate:learned-projection": "node scripts/deactivate-learned-projection.js"
   },
   "keywords": [],
   "author": "",

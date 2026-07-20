@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.30.0 - 2026-07-19
+
+- Added metric-learning fine-tuning support for photo identification: an offline (`ml-training/`, Python, never deployed) triplet-loss trainer produces a small linear projection on top of frozen DINOv2 embeddings, stored externally in a new `learnedProjections` Firestore collection and applied at read time in `identifyPhotoDino` (`backend/src/agent.js`) — activating a newly trained projection is a data change (`backend/scripts/import-learned-projection.js --activate`), not a redeploy, and matching is unchanged until one is actually activated. New `backend/scripts/export-embeddings-for-training.js` exports current reference embeddings for training.
+- Added a "retraining recommended" notification for the global admin: `GET /api/agent/learned-projection-status` (`backend/src/learnedProjection.js`) compares the live photo/cultivar counts against the active projection's training-time baseline, and a top-level banner renders in `App.tsx` when the collection has drifted past configurable thresholds (`LEARNED_PROJECTION_DRIFT_PHOTO_GROWTH`, `LEARNED_PROJECTION_DRIFT_CULTIVAR_GROWTH`).
+
 ## 0.29.3 - 2026-07-17
 
 - Fixed orphaned photo embeddings: removing or reassigning a photo previously left its CLIP embedding doc behind in `photoEmbeddings`, mislabeled under the wrong cultivar and still influencing future identify matches. `deletePhotoEmbeddings` (`backend/src/photoEmbeddings.js`) now prunes an embedding once no record references its `imageUrl`, wired into `updateRecord`, `deleteCultivarPhoto`, and `deleteRecord` in `backend/src/records.js`.

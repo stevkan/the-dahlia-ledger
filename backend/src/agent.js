@@ -6,7 +6,13 @@ import { fileURLToPath } from 'node:url'
 import { listRecords, getRecord } from './records.js'
 import { listCompanies, listOrders } from './orders.js'
 import { embedImage, embedTexts, cosineSimilarity } from './embeddings.js'
-import { listPhotoEmbeddings } from './photoEmbeddings.js'
+import { listPhotoEmbeddings, computeColorFeatures } from './photoEmbeddings.js'
+import { segmentFlower } from './segmentation.js'
+import { embedImageDino, DINO_MODEL_ID } from './dino.js'
+import { colorFeatureSimilarity } from './labColor.js'
+import { listCultivarCentroids } from './cultivarCentroids.js'
+import { PREPROCESSING_VERSION } from './preprocessingVersion.js'
+import { getActiveLearnedProjection, applyProjection } from './learnedProjection.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PROMPTS_DIR = path.resolve(__dirname, '..', 'prompts')
@@ -216,7 +222,13 @@ export const PhotoIdentificationResultSchema = z.discriminatedUnion('status', [
   }),
   z.object({
     status: z.literal('answer'),
-    suggestions: z.array(PhotoSuggestionSchema).max(5),
+    suggestions: z.array(PhotoSuggestionSchema),
+    caveats: z.array(z.string()).optional(),
+  }),
+  z.object({
+    status: z.literal('uncertain'),
+    suggestions: z.array(PhotoSuggestionSchema),
+    message: z.string(),
     caveats: z.array(z.string()).optional(),
   }),
 ])
@@ -1816,15 +1828,8 @@ function formMatchBoost() {
   return Number.isFinite(configured) ? configured : DEFAULT_FORM_MATCH_BOOST
 }
 
-export async function identifyPhoto({ imageBuffer, imageContentType, imageUrl, gardenId }) {
-  if (!imageBuffer && !imageUrl) {
-    return PhotoIdentificationResultSchema.parse({
-      status: 'needs_clarification',
-      message: 'No photo was provided to identify.',
-    })
-  }
-
-  const references = await listPhotoEmbeddings(gardenId)
+async function identifyPhotoLegacyClip({ imageBuffer, imageContentType, imageUrl, gardenId, references: preloadedReferences }) {
+  const references = preloadedReferences ?? (await listPhotoEmbeddings(gardenId))
   if (references.length === 0) {
     return PhotoIdentificationResultSchema.parse({
       status: 'needs_clarification',
@@ -1875,7 +1880,6 @@ export async function identifyPhoto({ imageBuffer, imageContentType, imageUrl, g
   const matchedSuggestions = Array.from(bestByCultivar.values())
     .filter((match) => match.score >= threshold)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5)
     .map((match) => ({ name: match.name, confidence: Math.max(0, Math.min(1, match.score)), thumbnailUrl: match.thumbnailUrl }))
 
   if (matchedSuggestions.length === 0) {
@@ -1889,4 +1893,246 @@ export async function identifyPhoto({ imageBuffer, imageContentType, imageUrl, g
     status: 'answer',
     suggestions: matchedSuggestions,
   }
+}
+
+// -- Segmented DINOv2 pipeline (winner of the four-way CLIP/CLIP-segmented/SigLIP2/DINOv2 benchmark) --
+
+function photoMatchPipeline() {
+  return (process.env.PHOTO_MATCH_PIPELINE || 'clip').trim().toLowerCase()
+}
+
+const DEFAULT_EMBEDDING_WEIGHT = 0.55
+const DEFAULT_CENTROID_WEIGHT = 0.15
+const DEFAULT_COLOR_WEIGHT = 0.2
+const DEFAULT_CONSISTENCY_BONUS_SCALE = 0.05
+// The hybrid formula's score scale differs from the legacy pipeline's raw cosine similarity (DINOv2
+// produces a wider, lower-absolute-value spread than CLIP's typically-high baseline similarities), so
+// the legacy 0.88 default cannot carry over. Calibrated against real production data (717 backfilled
+// reference photos, 370 cultivars): scores form a smooth, ungapped distribution from ~0.2 to ~0.85 with
+// no natural elbow below the single top match (median ~0.53, p90 ~0.64, p95 ~0.66) -- so this floor
+// alone cannot produce a short result list, it only exists to drop clearly-implausible cultivars. The
+// result-count-bounding job belongs to RESULT_MARGIN below instead. Recalibrate periodically with
+// `npm run eval:photo-matching` as the reference collection grows.
+const DEFAULT_MIN_SCORE = 0.6
+const DEFAULT_CONFIDENT_MARGIN = 0.03
+// Because the score distribution has no natural gap beyond the top match, suggestions are bounded to
+// those within this margin of the top score -- adapts per query (a clear winner yields a short list,
+// a genuinely ambiguous photo yields a few more) instead of hardcoding a fixed result count.
+const DEFAULT_RESULT_MARGIN = 0.15
+// Safety net for genuinely ambiguous photos: real testing found some photos have essentially no gap
+// anywhere in the score distribution (consecutive scores 0.0001-0.02 apart for dozens of cultivars in a
+// row), so the margin above can still admit 90+ candidates. This caps the final list length regardless
+// -- much larger than the old hardcoded 5, but still usable. Only trims the tail; never changes which
+// cultivar ranks first or the confident/uncertain decision, both based on the full candidate set.
+const DEFAULT_MAX_SUGGESTIONS = 20
+
+function embeddingWeight() {
+  const configured = Number(process.env.PHOTO_MATCH_EMBEDDING_WEIGHT)
+  return Number.isFinite(configured) ? configured : DEFAULT_EMBEDDING_WEIGHT
+}
+
+function centroidWeight() {
+  const configured = Number(process.env.PHOTO_MATCH_CENTROID_WEIGHT)
+  return Number.isFinite(configured) ? configured : DEFAULT_CENTROID_WEIGHT
+}
+
+function colorWeight() {
+  const configured = Number(process.env.PHOTO_MATCH_COLOR_WEIGHT)
+  return Number.isFinite(configured) ? configured : DEFAULT_COLOR_WEIGHT
+}
+
+function consistencyBonusScale() {
+  const configured = Number(process.env.PHOTO_MATCH_CONSISTENCY_BONUS_SCALE)
+  return Number.isFinite(configured) ? configured : DEFAULT_CONSISTENCY_BONUS_SCALE
+}
+
+let loggedMinScoreDeprecation = false
+
+function minScoreThreshold() {
+  const configured = Number(process.env.PHOTO_MATCH_MIN_SCORE)
+  if (Number.isFinite(configured)) return configured
+
+  const legacyConfigured = Number(process.env.PHOTO_MATCH_MIN_SIMILARITY)
+  if (Number.isFinite(legacyConfigured)) {
+    if (!loggedMinScoreDeprecation) {
+      loggedMinScoreDeprecation = true
+      console.warn('PHOTO_MATCH_MIN_SIMILARITY is deprecated for the segmented-DINOv2 pipeline -- set PHOTO_MATCH_MIN_SCORE instead.')
+    }
+    return legacyConfigured
+  }
+  return DEFAULT_MIN_SCORE
+}
+
+function confidentMarginThreshold() {
+  const configured = Number(process.env.PHOTO_MATCH_CONFIDENT_MARGIN)
+  return Number.isFinite(configured) ? configured : DEFAULT_CONFIDENT_MARGIN
+}
+
+function resultMarginThreshold() {
+  const configured = Number(process.env.PHOTO_MATCH_RESULT_MARGIN)
+  return Number.isFinite(configured) ? configured : DEFAULT_RESULT_MARGIN
+}
+
+function maxSuggestions() {
+  const configured = Number(process.env.PHOTO_MATCH_MAX_SUGGESTIONS)
+  return Number.isFinite(configured) ? configured : DEFAULT_MAX_SUGGESTIONS
+}
+
+function modeForm(forms) {
+  const counts = new Map()
+  for (const form of forms) {
+    if (!form) continue
+    const key = normalizeCultivarKey(form)
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  let best = null
+  let bestCount = 0
+  for (const [key, count] of counts) {
+    if (count > bestCount) {
+      bestCount = count
+      best = key
+    }
+  }
+  return best
+}
+
+async function identifyPhotoDino({ imageBuffer, imageContentType, imageUrl, gardenId, references }) {
+  let querySegmentation
+  let queryEmbedding
+  let queryColorFeatures
+  let inferredForm
+  try {
+    querySegmentation = await segmentFlower({ buffer: imageBuffer, contentType: imageContentType, url: imageUrl })
+    ;[queryEmbedding, queryColorFeatures, inferredForm] = await Promise.all([
+      embedImageDino({ image: querySegmentation.image }),
+      computeColorFeatures(querySegmentation),
+      (async () => {
+        const clipEmbedding = await embedImage({ image: querySegmentation.image })
+        return classifyBestLabel(clipEmbedding, DAHLIA_FORM_OPTIONS, getFormLabelEmbeddings())
+      })(),
+    ])
+  } catch (error) {
+    console.warn('Photo identification embedding failed:', error)
+    return PhotoIdentificationResultSchema.parse({
+      status: 'needs_clarification',
+      message: 'I could not read that photo. Please try a different or clearer photo.',
+    })
+  }
+
+  const centroidDocs = await listCultivarCentroids(gardenId, DINO_MODEL_ID, PREPROCESSING_VERSION)
+  const centroidsByCultivar = new Map(centroidDocs.map((doc) => [normalizeCultivarKey(doc.cultivarName), doc]))
+
+  // Metric-learning fine-tuned projection (see backend/src/learnedProjection.js), applied at read time
+  // rather than baked into stored embeddings/centroids -- when none is active, `project` is a no-op and
+  // matching behaves exactly as it does today.
+  const activeProjection = await getActiveLearnedProjection({ embeddingModel: DINO_MODEL_ID, preprocessingVersion: PREPROCESSING_VERSION })
+  const project = activeProjection ? (vector) => applyProjection(vector, activeProjection.matrix) : (vector) => vector
+  queryEmbedding = project(queryEmbedding)
+
+  const byCultivar = new Map()
+  for (const reference of references) {
+    if (!Array.isArray(reference.embedding) || !reference.cultivarName) continue
+    const key = normalizeCultivarKey(reference.cultivarName)
+    const score = cosineSimilarity(queryEmbedding, project(reference.embedding))
+    const bucket = byCultivar.get(key) ?? { cultivarName: reference.cultivarName, scored: [] }
+    bucket.scored.push({ score, thumbnailUrl: reference.thumbnailUrl || reference.imageUrl, form: reference.form })
+    byCultivar.set(key, bucket)
+  }
+
+  const embWeight = embeddingWeight()
+  const centWeight = centroidWeight()
+  const colWeight = colorWeight()
+  const consistencyScale = consistencyBonusScale()
+  const formBoost = formMatchBoost()
+
+  const cultivarScores = []
+  for (const { cultivarName, scored } of byCultivar.values()) {
+    const sorted = [...scored].sort((a, b) => b.score - a.score)
+    const top3 = sorted.slice(0, 3)
+    const photoAvgSim = top3.reduce((sum, s) => sum + s.score, 0) / top3.length
+    const matchedCount = sorted.filter((s) => s.score >= photoAvgSim - 0.05).length
+    const consistencyBonus = (Math.min(matchedCount, 3) / 3) * consistencyScale
+
+    const centroidDoc = centroidsByCultivar.get(normalizeCultivarKey(cultivarName))
+    const hasCentroid = Boolean(centroidDoc?.centroids?.length)
+    const hasColor = Boolean(queryColorFeatures && centroidDoc?.colorCentroid)
+    const centroidSim = hasCentroid
+      ? Math.max(...centroidDoc.centroids.map((c) => cosineSimilarity(queryEmbedding, project(c.vector))))
+      : 0
+    const colorSim = hasColor ? colorFeatureSimilarity(queryColorFeatures, centroidDoc.colorCentroid) : 0
+    const cultivarFormMode = modeForm(scored.map((s) => s.form))
+    const formCompat = cultivarFormMode && cultivarFormMode === normalizeCultivarKey(inferredForm.label) ? formBoost : 0
+
+    // A cultivar whose centroid hasn't been (re)computed yet (e.g. a photo added since the last batch
+    // recompute, before the automatic per-cultivar recompute in ensureEmbeddingsForRecord catches up)
+    // must not be unfairly discounted relative to cultivars that do have one -- redistribute the
+    // missing terms' weight onto photoAvgSim (the one signal that's always available) instead of
+    // silently scoring them as zero.
+    const missingWeight = (hasCentroid ? 0 : centWeight) + (hasColor ? 0 : colWeight)
+    const effectiveEmbeddingWeight = embWeight + missingWeight
+
+    const score = photoAvgSim * effectiveEmbeddingWeight + centroidSim * centWeight + colorSim * colWeight + formCompat + consistencyBonus
+    cultivarScores.push({ name: cultivarName, score, thumbnailUrl: sorted[0].thumbnailUrl })
+  }
+
+  const threshold = minScoreThreshold()
+  const confidentMargin = confidentMarginThreshold()
+  const resultMargin = resultMarginThreshold()
+  const candidates = cultivarScores.filter((c) => c.score >= threshold).sort((a, b) => b.score - a.score)
+
+  if (candidates.length === 0) {
+    return PhotoIdentificationResultSchema.parse({
+      status: 'needs_clarification',
+      message: 'No close visual match was found among your saved cultivar photos. This may be a cultivar new to your collection.',
+    })
+  }
+
+  const top1 = candidates[0]
+  const top2 = candidates[1]
+  // The score distribution has no natural gap beyond the top match (see DEFAULT_RESULT_MARGIN), so the
+  // absolute floor alone would return every plausible-looking cultivar in the collection -- bound the
+  // returned list to those competitive with the leader instead. Some photos have no gap ANYWHERE in the
+  // distribution (dozens of cultivars within hundredths of a point of each other), so the margin alone
+  // can still admit far too many -- cap the tail as a final safety net.
+  const boundedCandidates = candidates.filter((c) => top1.score - c.score <= resultMargin).slice(0, maxSuggestions())
+  const suggestions = boundedCandidates.map((c) => ({ name: c.name, confidence: Math.max(0, Math.min(1, c.score)), thumbnailUrl: c.thumbnailUrl }))
+  const marginallyAboveFloor = top1.score - threshold < confidentMargin
+  const tooCloseToRunnerUp = Boolean(top2) && top1.score - top2.score < confidentMargin
+
+  if (marginallyAboveFloor || tooCloseToRunnerUp) {
+    return PhotoIdentificationResultSchema.parse({
+      status: 'uncertain',
+      suggestions,
+      message: 'These are possible matches, but I’m not confident enough to pick one — please confirm.',
+    })
+  }
+
+  return PhotoIdentificationResultSchema.parse({
+    status: 'answer',
+    suggestions,
+  })
+}
+
+export async function identifyPhoto({ imageBuffer, imageContentType, imageUrl, gardenId }) {
+  if (!imageBuffer && !imageUrl) {
+    return PhotoIdentificationResultSchema.parse({
+      status: 'needs_clarification',
+      message: 'No photo was provided to identify.',
+    })
+  }
+
+  if (photoMatchPipeline() === 'dino') {
+    const references = await listPhotoEmbeddings(gardenId)
+    const newGenerationReferences = references.filter(
+      (r) => r.embeddingModel === DINO_MODEL_ID && r.preprocessingVersion === PREPROCESSING_VERSION,
+    )
+    // A garden that hasn't been backfilled onto the new pipeline yet must not lose photo identification
+    // entirely -- fall back to the legacy CLIP pipeline using whatever (legacy) embeddings it does have.
+    if (newGenerationReferences.length > 0) {
+      return identifyPhotoDino({ imageBuffer, imageContentType, imageUrl, gardenId, references: newGenerationReferences })
+    }
+    return identifyPhotoLegacyClip({ imageBuffer, imageContentType, imageUrl, gardenId, references })
+  }
+
+  return identifyPhotoLegacyClip({ imageBuffer, imageContentType, imageUrl, gardenId })
 }

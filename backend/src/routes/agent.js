@@ -3,9 +3,12 @@ import multer from 'multer'
 import { z } from 'zod'
 import { identifyPhoto, ingestText, proposeMissedIssueCorrection, reviewRecordMapping, runMetricDrilldown, runMetricRequest } from '../agent.js'
 import { resolveGardenId } from '../gardens.js'
-import { forbidden } from '../httpHelpers.js'
+import { forbidden, requireGlobalAdminRoute } from '../httpHelpers.js'
 import { getSettings } from '../settings.js'
 import { trackException, trackTrace } from '../telemetry.js'
+import { getProjectionDriftStatus } from '../learnedProjection.js'
+import { DINO_MODEL_ID } from '../dino.js'
+import { PREPROCESSING_VERSION } from '../preprocessingVersion.js'
 
 const router = express.Router()
 const photoIdentifyUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } })
@@ -224,6 +227,18 @@ router.post('/agent/correction', async (req, res) => {
     console.error('Agent correction failed:', message)
     trackException(e, { operation: 'agent-correction' })
     res.status(503).json({ error: `Agent correction unavailable: ${message}` })
+  }
+})
+
+router.get('/agent/learned-projection-status', requireGlobalAdminRoute, async (req, res) => {
+  try {
+    const status = await getProjectionDriftStatus({ embeddingModel: DINO_MODEL_ID, preprocessingVersion: PREPROCESSING_VERSION })
+    res.json(status)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    console.error('Learned projection status check failed:', message)
+    trackException(e, { operation: 'agent-learned-projection-status' })
+    res.status(503).json({ error: `Learned projection status unavailable: ${message}` })
   }
 })
 

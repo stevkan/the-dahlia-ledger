@@ -154,3 +154,9 @@ vite.config.ts.timestamp-*
 /backend/DahliaList-April2026.xlsx
 AGENTS.md
 /CLAUDE.md
+
+# ml-training (offline metric-learning tool -- never deployed)
+/ml-training/.venv/
+/ml-training/output/
+/backend/scripts/fixtures/training-embeddings.json
+/backend/scripts/fixtures/photo-eval-results-*.json

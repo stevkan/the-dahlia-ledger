@@ -131,6 +131,16 @@ export type CurrentUserProfile = {
   globalAdmin: boolean
 }
 
+export type LearnedProjectionStatus = {
+  hasActiveProjection: boolean
+  retrainingRecommended: boolean
+  reason: string | null
+  currentPhotoCount?: number
+  trainedAtPhotoCount?: number
+  currentCultivarCount?: number
+  trainedAtCultivarCount?: number
+}
+
 export type Garden = {
   id: string
   name: string
@@ -245,6 +255,7 @@ export type AgentPhotoSuggestion = {
 export type AgentPhotoIdentificationResult =
   | { status: 'needs_clarification'; message: string }
   | { status: 'answer'; suggestions: AgentPhotoSuggestion[]; caveats?: string[] }
+  | { status: 'uncertain'; suggestions: AgentPhotoSuggestion[]; message: string; caveats?: string[] }
 
 export type MaintenanceReminder = {
   id: string
