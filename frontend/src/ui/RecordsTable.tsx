@@ -18,7 +18,18 @@ function compareGardenRows(a: string, b: string) {
   return a.localeCompare(b)
 }
 
+const NON_GARDEN_PLANTING_STATES = new Set(['purchased_container', 'garden_tray', 'not_planted', 'not_viable', 'did_not_grow'])
+
+function isNonGardenState(record: DahliaRecordSummary) {
+  return NON_GARDEN_PLANTING_STATES.has(record.meta?.plantingState ?? 'purchased_container')
+}
+
 function compareGardenLocations(a: DahliaRecordSummary, b: DahliaRecordSummary) {
+  const aNonGarden = isNonGardenState(a)
+  const bNonGarden = isNonGardenState(b)
+  if (aNonGarden !== bNonGarden) return aNonGarden ? 1 : -1
+  if (aNonGarden && bNonGarden) return formatGardenLocation(a).localeCompare(formatGardenLocation(b), undefined, { numeric: true })
+
   const areaCompare = String(a.meta?.gardenZone ?? a.meta?.gardenArea ?? '').localeCompare(String(b.meta?.gardenZone ?? b.meta?.gardenArea ?? ''))
   if (areaCompare !== 0) return areaCompare
 
@@ -61,7 +72,6 @@ function getInGardenRow(record: DahliaRecordSummary) {
 }
 
 const columnClassNames: Record<string, string> = {
-  recordNumber: 'colRecordNumber',
   thumb: 'colThumbnail',
   flowerName: 'colFlowerName',
   color: 'colColor',
@@ -100,7 +110,7 @@ export function RecordsTable({
   onLoadMore: () => void
   onOpen: (r: DahliaRecordSummary) => void
 }) {
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'gardenLocation', desc: false }])
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 25 })
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
@@ -117,10 +127,6 @@ export function RecordsTable({
 
   const columns = useMemo<ColumnDef<DahliaRecordSummary>[]>(
     () => [
-      {
-        header: '#',
-        accessorKey: 'recordNumber',
-      },
       {
         header: 'Photo',
         id: 'thumb',
@@ -403,7 +409,7 @@ export function RecordsTable({
                 checked={selectedGardenRows.length === 0}
                 onChange={() => {
                   setSelectedGardenRows([])
-                  setSorting([{ id: 'recordNumber', desc: false }])
+                  setSorting([{ id: 'gardenLocation', desc: false }])
                 }}
               />
               All rows/beds
@@ -478,7 +484,7 @@ export function RecordsTable({
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={8} className="empty">
+              <td colSpan={7} className="empty">
                 Loading records...
               </td>
             </tr>
@@ -486,7 +492,7 @@ export function RecordsTable({
             <>
               {virtualPaddingTop > 0 ? (
                 <tr aria-hidden="true">
-                  <td colSpan={8} className="virtualTableSpacer" style={{ height: virtualPaddingTop }} />
+                  <td colSpan={7} className="virtualTableSpacer" style={{ height: virtualPaddingTop }} />
                 </tr>
               ) : null}
               {virtualRows.map((virtualRow) => {
@@ -503,13 +509,13 @@ export function RecordsTable({
               })}
               {virtualPaddingBottom > 0 ? (
                 <tr aria-hidden="true">
-                  <td colSpan={8} className="virtualTableSpacer" style={{ height: virtualPaddingBottom }} />
+                  <td colSpan={7} className="virtualTableSpacer" style={{ height: virtualPaddingBottom }} />
                 </tr>
               ) : null}
             </>
           ) : (
             <tr>
-              <td colSpan={8} className="empty">
+              <td colSpan={7} className="empty">
                 No available data.
               </td>
             </tr>
