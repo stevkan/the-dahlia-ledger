@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { jsPDF } from 'jspdf'
 import type { AgentVisualization, Company, DahliaRecord } from '../types'
@@ -173,10 +173,8 @@ export function AnalyticsModal({
   onOpenOrder?: (orderId: string) => void
 }) {
   const [metric, setMetric] = useState<AnalyticsMetric>('flower_count_by_season')
-  const [selectedSeasonYears, setSelectedSeasonYears] = useState<number[]>(() => {
-    const years = records.map((record) => record.seasonYearStart).filter((year): year is number => year != null)
-    return years.length ? [Math.max(...years)] : []
-  })
+  const [selectedSeasonYears, setSelectedSeasonYears] = useState<number[]>([])
+  const defaultSeasonAppliedRef = useRef(false)
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [filters, setFilters] = useState<AnalyticsFilters>({ companies: [], gardenAreas: [], plantingStates: [], colors: [], forms: [] })
   const [sortBy, setSortBy] = useState<AnalyticsSort>('company')
@@ -199,6 +197,13 @@ export function AnalyticsModal({
       ),
     [records],
   )
+
+  useEffect(() => {
+    if (!defaultSeasonAppliedRef.current && selectedSeasonYears.length === 0 && seasonYears.length > 0) {
+      defaultSeasonAppliedRef.current = true
+      setSelectedSeasonYears([seasonYears[0]])
+    }
+  }, [seasonYears, selectedSeasonYears.length])
 
   const seasonFilterLabel = useMemo(() => {
     if (selectedSeasonYears.length === 0) return 'All seasons'
