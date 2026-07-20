@@ -315,7 +315,7 @@ export function AnalyticsModal({
   }
 
   const analyticsOptions = useMemo(() => ({
-    companies: companies.map((company) => company.name).filter(Boolean).sort((a, b) => a.localeCompare(b)),
+    companies: Array.from(new Set(companies.map((company) => company.name).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
     gardenAreas: sortedUnique(records.map((record) => record.meta?.gardenArea), 'Unassigned'),
     plantingStates: sortedPlantingStates(records.map((record) => plantingStateLabel(record.meta?.plantingState)), 'Unspecified'),
     colors: sortedUnique(records.map((record) => record.core?.color), 'Unspecified'),
