@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import type { Company, CompanyInput, Garden, Order, OrderFile, OrderInput } from '../types'
+import { DahliaPickerField } from './DahliaPickerField'
 import { DropdownField } from './DropdownField'
 import { FlowerNameField } from './FlowerNameField'
 
@@ -683,10 +684,15 @@ export function OrderModal({
     return (
       <div className="sectionBody orderForm">
         <div className="grid2">
-          <label className="field">
-            <FieldLabel label="Company" hint={ORDER_FIELD_HINTS.company} />
-            <DropdownField label="Company" value={companyId} options={[{ value: '', label: 'Use new company...' }, ...companies.map((company) => ({ value: company.id, label: company.name }))]} onChange={(value) => { setCompanyId(value); if (value) setNewCompanyName('') }} />
-          </label>
+          <DahliaPickerField
+            label="Company"
+            hint={ORDER_FIELD_HINTS.company}
+            value={companyId}
+            options={[{ value: '', label: 'Use new company...' }, ...companies.map((company) => ({ value: company.id, label: company.name })).sort((a, b) => a.label.localeCompare(b.label))]}
+            onChange={(value) => { setCompanyId(value ?? ''); if (value) setNewCompanyName('') }}
+            clearable={false}
+            columnMajor
+          />
         </div>
         <div className="subTitle">{formOrder ? 'Edit Invoice Record' : 'Invoice Details'}</div>
         <div className="grid2">

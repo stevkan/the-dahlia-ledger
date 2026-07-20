@@ -60,6 +60,7 @@ type CommonProps = {
   placeholder?: string
   layout?: 'grid' | 'list'
   columns?: number
+  columnMajor?: boolean
   modalWidth?: number | string
   centerOptionText?: boolean
   wrapOptionText?: boolean
@@ -94,6 +95,7 @@ export function DahliaPickerField(props: Props) {
     placeholder,
     layout = 'grid',
     columns,
+    columnMajor,
     modalWidth,
     centerOptionText,
     wrapOptionText,
@@ -109,6 +111,16 @@ export function DahliaPickerField(props: Props) {
     const whiteSpace = wrapOptionText ? 'normal' : undefined
     const wordBreak = wrapOptionText ? 'break-word' : undefined
     return width || textAlign || whiteSpace ? { width, textAlign, whiteSpace, wordBreak } : undefined
+  }
+
+  function gridStyle(): React.CSSProperties | undefined {
+    if (layout !== 'grid') return undefined
+    const cols = columns ?? 3
+    if (!columnMajor) return columns ? { gridTemplateColumns: `repeat(${cols}, 1fr)` } : undefined
+    const clearableSingle = !props.multiple && (props.clearable ?? true)
+    const total = options.length + (props.multiple ? 1 : clearableSingle ? 1 : 0)
+    const rows = Math.max(1, Math.ceil(total / cols))
+    return { gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, auto)`, gridAutoFlow: 'column' }
   }
 
   let displayValue: React.ReactNode
@@ -214,7 +226,7 @@ export function DahliaPickerField(props: Props) {
         </div>
         <div
           className={layout === 'list' ? 'dahliaFormPickerList' : 'dahliaFormPickerGrid'}
-          style={layout === 'grid' && columns ? { gridTemplateColumns: `repeat(${columns}, 1fr)` } : undefined}
+          style={gridStyle()}
         >
           {optionsBody}
         </div>
