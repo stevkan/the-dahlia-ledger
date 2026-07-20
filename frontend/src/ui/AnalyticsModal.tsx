@@ -4,7 +4,7 @@ import { jsPDF } from 'jspdf'
 import type { AgentVisualization, Company, DahliaRecord } from '../types'
 import { api } from '../api/client'
 import { DahliaPickerField } from './DahliaPickerField'
-import { resolveRecordPhoto } from './RecordsTable'
+import { formatGardenLocation, resolveRecordPhoto } from './RecordsTable'
 
 const AgentVisualizationView = lazy(async () => {
   const module = await import('./AgentVisualizationView')
@@ -378,7 +378,7 @@ export function AnalyticsModal({
     const rows = [...(drilldown?.records ?? [])]
     if (drilldownSort?.table !== 'records') return rows
     function sortFieldValue(row: AnalyticsDrilldownRecord) {
-      if (drilldownSort!.key === 'location') return [row.gardenArea, row.gardenRow, row.gardenPosition].filter(Boolean).join(' - ')
+      if (drilldownSort!.key === 'location') return formatGardenLocation(row.record)
       if (drilldownSort!.key === 'plantedDate') return row.record.core?.plantedDate ?? ''
       return row[drilldownSort!.key as keyof AnalyticsDrilldownRecord]
     }
@@ -458,7 +458,7 @@ export function AnalyticsModal({
         columns: pdfColumns.length ? pdfColumns : [{ key: 'flowerName', label: 'Flower' }],
         rows: sortedDrilldownRecords.map((row) => ({
           ...row,
-          location: [row.gardenArea, row.gardenRow, row.gardenPosition].filter(Boolean).join(' - '),
+          location: formatGardenLocation(row.record),
           plantedDate: row.record.core?.plantedDate ?? '',
         })),
       })
@@ -967,7 +967,7 @@ export function AnalyticsModal({
                               {drilldownColumnVisibility.color ? <td>{row.color ?? ''}</td> : null}
                               {drilldownColumnVisibility.size ? <td>{row.size ?? ''}</td> : null}
                               {drilldownColumnVisibility.height ? <td>{row.height ?? ''}</td> : null}
-                              {drilldownColumnVisibility.location ? <td>{[row.gardenArea, row.gardenRow, row.gardenPosition].filter(Boolean).join(' - ')}</td> : null}
+                              {drilldownColumnVisibility.location ? <td>{formatGardenLocation(row.record)}</td> : null}
                               {drilldownColumnVisibility.seasonYearStart ? <td>{row.seasonYearStart ?? ''}</td> : null}
                               {drilldownColumnVisibility.source ? <td>{row.source ?? ''}</td> : null}
                               {drilldownColumnVisibility.plantedDate ? <td>{row.record.core?.plantedDate ?? ''}</td> : null}

@@ -53,7 +53,7 @@ export function resolveRecordPhoto(record: DahliaRecordSummary) {
   return record.listThumbnailUrl || record.thumbnailUrl || record.imageUrl || record.cultivarListThumbnailUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl
 }
 
-function formatGardenLocation(record: DahliaRecordSummary) {
+export function formatGardenLocation(record: DahliaRecordSummary) {
   const plantingState = record.meta?.plantingState ?? 'purchased_container'
   if (plantingState === 'purchased_container') return 'Purchased Container'
   if (plantingState === 'garden_tray') return 'Garden Tray'
