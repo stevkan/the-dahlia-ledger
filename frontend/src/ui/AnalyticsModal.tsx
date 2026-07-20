@@ -875,6 +875,13 @@ export function AnalyticsModal({
 
                         <fieldset className="tableOptionsColumnsGroup">
                           <legend>Columns</legend>
+                          <button
+                            className="btn ghost compact tableOptionsColumnsReset"
+                            type="button"
+                            onClick={() => setDrilldownColumnVisibility(DEFAULT_DRILLDOWN_RECORD_COLUMN_VISIBILITY)}
+                          >
+                            Reset
+                          </button>
                           <div className="tableOptionsColumnList">
                             {DRILLDOWN_RECORD_COLUMN_CHECKLIST.map((column) => (
                               <label key={column.id} className="seasonFilterOption">

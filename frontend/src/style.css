@@ -797,6 +797,7 @@ body {
 }
 
 .tableOptionsColumnsGroup {
+  position: relative;
   margin: 0;
   padding: 12px;
   border: 1px solid var(--border-strong);
@@ -807,6 +808,12 @@ body {
   padding: 0 6px;
   color: var(--text-strong);
   font-weight: 700;
+}
+
+.tableOptionsColumnsReset {
+  position: absolute;
+  top: 8px;
+  right: 12px;
 }
 
 .tableOptionsColumnList {

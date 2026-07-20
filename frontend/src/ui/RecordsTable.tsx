@@ -650,6 +650,13 @@ export function RecordsTable({
 
               <fieldset className="tableOptionsColumnsGroup">
                 <legend>Columns</legend>
+                <button
+                  className="btn ghost compact tableOptionsColumnsReset"
+                  type="button"
+                  onClick={() => setColumnVisibility(DEFAULT_COLUMN_VISIBILITY)}
+                >
+                  Reset
+                </button>
                 <div className="tableOptionsColumnList">
                   {COLUMN_CHECKLIST.map((column) => (
                     <label key={column.id} className="seasonFilterOption">
