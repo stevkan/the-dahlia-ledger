@@ -172,12 +172,15 @@ export function AnalyticsModal({
   onOpenRecord?: (record: DahliaRecord) => void
   onOpenOrder?: (orderId: string) => void
 }) {
-  const [metric, setMetric] = useState<AnalyticsMetric>('flower_purchase_count_by_company')
-  const [selectedSeasonYears, setSelectedSeasonYears] = useState<number[]>([])
+  const [metric, setMetric] = useState<AnalyticsMetric>('flower_count_by_season')
+  const [selectedSeasonYears, setSelectedSeasonYears] = useState<number[]>(() => {
+    const years = records.map((record) => record.seasonYearStart).filter((year): year is number => year != null)
+    return years.length ? [Math.max(...years)] : []
+  })
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [filters, setFilters] = useState<AnalyticsFilters>({ companies: [], gardenAreas: [], plantingStates: [], colors: [], forms: [] })
   const [sortBy, setSortBy] = useState<AnalyticsSort>('company')
-  const [chartType, setChartType] = useState<AnalyticsChartType>('bar')
+  const [chartType, setChartType] = useState<AnalyticsChartType>('table')
   const [photoTypes, setPhotoTypes] = useState<Array<'any' | 'record' | 'cultivar' | 'none'>>(['any', 'none'])
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<string | null>(null)
@@ -398,6 +401,7 @@ export function AnalyticsModal({
     if (nextMetric === 'height_vs_bloom_size') return 'scatter'
     if (nextMetric === 'linked_vs_unlinked_purchase_records') return 'pie'
     if (nextMetric === 'flower_count_by_photo_type') return 'table'
+    if (nextMetric === 'flower_count_by_season') return 'table'
     if (['missing_data_summary', 'garden_area_by_planting_state', 'flower_count_by_company_and_season', 'garden_fill_by_area'].includes(nextMetric)) return 'table'
     if (nextMetric === 'invoice_total_by_season' || nextMetric === 'average_item_cost_by_season') return 'line'
     return 'bar'
@@ -555,13 +559,13 @@ export function AnalyticsModal({
                 wrapOptionText
                 value={metric}
                 options={[
+                  { value: 'flower_count_by_season', label: 'Flowers by Season' },
                   { value: 'flower_count_by_bloom_size', label: 'Flowers by Bloom Size' },
                   { value: 'flower_count_by_color', label: 'Flowers by Color' },
                   { value: 'flower_count_by_form', label: 'Flowers by Form' },
                   { value: 'flower_count_by_garden_area', label: 'Flowers by Garden Area' },
                   { value: 'flower_count_by_height', label: 'Flowers by Height' },
                   { value: 'flower_count_by_planting_state', label: 'Flowers by Planting State' },
-                  { value: 'flower_count_by_season', label: 'Flowers by Season' },
                   { value: 'flower_count_by_photo_type', label: 'Flowers by Photo Type' },
                   { value: 'flower_count_by_source', label: 'Flowers by Source' },
                   { value: 'flower_purchase_count_by_company', label: 'Flowers Purchased by Company' },
