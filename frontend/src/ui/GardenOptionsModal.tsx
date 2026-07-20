@@ -595,7 +595,7 @@ export function GardenOptionsModal({
               <button className="btn" type="button" disabled={!canSave} onClick={saveValue}>
                 {renameArmed ? 'Confirm Rename' : selectedValue ? 'Update Value' : 'Save'}
               </button>
-              <button className="btn" type="button" disabled={!canSave} onClick={clearForm}>Cancel</button>
+              <button className="btn ghost" type="button" disabled={!canSave} onClick={clearForm}>Cancel</button>
               {!values.length ? (
                 <button className="btn ghost gardenOptionRestoreDefaults" type="button" onClick={restoreDefaultValues}>
                   Use Default Values
