@@ -298,10 +298,23 @@ export function AnalyticsModal({
       .join(' ')
   }
 
+  const PLANTING_STATE_OPTION_ORDER = ['Garden Tray', 'In Garden', 'Did Not Grow', 'Not Planted', 'Not Viable', 'Purchased Container']
+
+  function sortedPlantingStates(values: Array<string | undefined | null>, fallback = 'Unspecified') {
+    return sortedUnique(values, fallback).sort((a, b) => {
+      const orderA = PLANTING_STATE_OPTION_ORDER.indexOf(a)
+      const orderB = PLANTING_STATE_OPTION_ORDER.indexOf(b)
+      if (orderA !== -1 && orderB !== -1) return orderA - orderB
+      if (orderA !== -1) return -1
+      if (orderB !== -1) return 1
+      return a.localeCompare(b)
+    })
+  }
+
   const analyticsOptions = useMemo(() => ({
     companies: companies.map((company) => company.name).filter(Boolean).sort((a, b) => a.localeCompare(b)),
     gardenAreas: sortedUnique(records.map((record) => record.meta?.gardenArea), 'Unassigned'),
-    plantingStates: sortedUnique(records.map((record) => plantingStateLabel(record.meta?.plantingState)), 'Unspecified'),
+    plantingStates: sortedPlantingStates(records.map((record) => plantingStateLabel(record.meta?.plantingState)), 'Unspecified'),
     colors: sortedUnique(records.map((record) => record.core?.color), 'Unspecified'),
     forms: sortedUnique(records.map((record) => record.core?.form), 'Unspecified'),
   }), [companies, records])
