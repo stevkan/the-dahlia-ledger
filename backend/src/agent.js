@@ -739,7 +739,7 @@ function computeFlowerCountByForm({ spec, records }) {
 
 function computeFlowerCountBySeason({ spec, records }) {
   return computeFlowerCountByField({
-    spec: { ...spec, seasonYearStart: undefined, seasonYearStarts: [] },
+    spec,
     records,
     labelKey: 'season',
     valueLabel: 'season',
