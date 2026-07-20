@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
@@ -126,6 +127,22 @@ const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
 
 const DEFAULT_SORTING: SortingState = [{ id: 'gardenLocation', desc: false }]
 
+const DEFAULT_COLUMN_WIDTH_PX: Record<string, number> = {
+  recordNumber: 60,
+  thumb: 70,
+  flowerName: 220,
+  cultivar: 180,
+  color: 160,
+  size: 90,
+  height: 90,
+  gardenLocation: 200,
+  seasonYearStart: 110,
+  source: 150,
+  plantedDate: 140,
+}
+
+const MIN_COLUMN_WIDTH_PX = 60
+
 const pageSizeOptions = [10, 25, 50, 100]
 const RECORD_THUMB_SIZE = 42
 
@@ -158,6 +175,7 @@ export function RecordsTable({
   const [sorting, setSorting] = useState<SortingState>(DEFAULT_SORTING)
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 25 })
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(DEFAULT_COLUMN_VISIBILITY)
+  const [columnSizes, setColumnSizes] = useState<Record<string, number>>({})
   const [tableOptionsOpen, setTableOptionsOpen] = useState(false)
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
@@ -372,6 +390,14 @@ export function RecordsTable({
     setPagination((previous) => ({ ...previous, pageIndex: 0 }))
   }, [search, selectedSeasonYears, selectedGardenRows])
 
+  const isDefaultColumnSet = COLUMN_DEFINITIONS.every(
+    (column) => Boolean(columnVisibility[column.id]) === Boolean(DEFAULT_COLUMN_VISIBILITY[column.id]),
+  )
+
+  useEffect(() => {
+    if (isDefaultColumnSet) setColumnSizes({})
+  }, [isDefaultColumnSet])
+
   const table = useReactTable({
     data: filteredRows,
     columns,
@@ -400,6 +426,52 @@ export function RecordsTable({
   const pageEnd = Math.min(filteredRows.length, pageStart + pageRows.length - 1)
   const loadedEndReached = pageEnd >= filteredRows.length
   const visibleColumnCount = table.getVisibleLeafColumns().length
+  const hasCustomColumnSizes = Object.keys(columnSizes).length > 0
+
+  function columnWidthStyle(columnId: string): React.CSSProperties | undefined {
+    if (!hasCustomColumnSizes) return undefined
+    const width = columnSizes[columnId] ?? DEFAULT_COLUMN_WIDTH_PX[columnId]
+    return width == null ? undefined : { width, minWidth: width }
+  }
+
+  function handleColumnResizeStart(columnId: string) {
+    return (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      const handle = event.currentTarget
+      const th = handle.closest('th')
+      const headerRow = th?.closest('tr')
+      if (!th || !headerRow) return
+      const startWidth = th.getBoundingClientRect().width
+      const startX = event.clientX
+      handle.setPointerCapture(event.pointerId)
+
+      // Seed every currently-visible column from its live rendered width the
+      // moment the table first switches into fixed-width mode, so nothing
+      // jumps to a stale default the instant a drag starts.
+      setColumnSizes((previous) => {
+        if (Object.keys(previous).length > 0) return previous
+        const seeded: Record<string, number> = {}
+        headerRow.querySelectorAll<HTMLElement>('th[data-column-id]').forEach((cell) => {
+          const id = cell.dataset.columnId
+          if (id) seeded[id] = Math.round(cell.getBoundingClientRect().width)
+        })
+        return seeded
+      })
+
+      function onPointerMove(moveEvent: PointerEvent) {
+        const nextWidth = Math.max(MIN_COLUMN_WIDTH_PX, Math.round(startWidth + (moveEvent.clientX - startX)))
+        setColumnSizes((previous) => ({ ...previous, [columnId]: nextWidth }))
+      }
+      function onPointerUp() {
+        handle.releasePointerCapture(event.pointerId)
+        handle.removeEventListener('pointermove', onPointerMove)
+        handle.removeEventListener('pointerup', onPointerUp)
+      }
+      handle.addEventListener('pointermove', onPointerMove)
+      handle.addEventListener('pointerup', onPointerUp)
+    }
+  }
 
   function setSortColumn(id: string) {
     setSorting((previous) => [{ id, desc: previous[0]?.desc ?? false }])
@@ -568,20 +640,27 @@ export function RecordsTable({
       ) : null}
 
       <div className="tableWrap" ref={tableWrapRef}>
-        <table className="table">
+        <table className="table" style={hasCustomColumnSizes ? { width: 'max-content', minWidth: '100%' } : undefined}>
         <thead>
           {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id}>
-              {hg.headers.map((h) => (
+              {hg.headers.map((h, index) => (
                 <th
                   key={h.id}
+                  data-column-id={h.column.id}
                   onClick={h.column.getToggleSortingHandler()}
                   className={`${columnClassNames[h.column.id] ?? ''}${h.column.getCanSort() ? ' sortable' : ''}`.trim()}
+                  style={columnWidthStyle(h.column.id)}
                 >
                   <span className="thInner">
                     {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                     {h.column.getIsSorted() === 'asc' ? ' ▲' : h.column.getIsSorted() === 'desc' ? ' ▼' : ''}
                   </span>
+                  <div
+                    className={`columnResizeHandle${index === hg.headers.length - 1 ? ' columnResizeHandleLast' : ''}`}
+                    onPointerDown={handleColumnResizeStart(h.column.id)}
+                    onClick={(event) => event.stopPropagation()}
+                  />
                 </th>
               ))}
             </tr>
@@ -606,7 +685,7 @@ export function RecordsTable({
                 return (
               <tr key={r.id} className="row" onClick={() => onOpen(r.original)}>
                 {r.getVisibleCells().map((c) => (
-                  <td key={c.id} className={columnClassNames[c.column.id]}>
+                  <td key={c.id} className={columnClassNames[c.column.id]} style={columnWidthStyle(c.column.id)}>
                     {flexRender(c.column.columnDef.cell, c.getContext())}
                   </td>
                 ))}

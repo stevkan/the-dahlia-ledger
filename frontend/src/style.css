@@ -936,6 +936,7 @@ body {
 
 th,
 td {
+  box-sizing: border-box;
   padding: 10px 8px;
   border-bottom: 1px solid var(--border-soft);
   font-size: 13px;
@@ -990,6 +991,27 @@ td {
 th.sortable {
   user-select: none;
   cursor: pointer;
+}
+
+.columnResizeHandle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  z-index: 3;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+  background: transparent;
+}
+
+.columnResizeHandle:hover,
+.columnResizeHandle:active {
+  background: var(--accent-border);
+}
+
+.columnResizeHandleLast {
+  right: 0;
 }
 
 .row {
