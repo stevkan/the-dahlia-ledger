@@ -707,12 +707,14 @@ body {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--surface-menu);
   color: var(--text);
   cursor: pointer;
   font-size: 13px;
   list-style: none;
-  text-align: center;
   white-space: nowrap;
 }
 
