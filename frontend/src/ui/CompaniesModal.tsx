@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Company, CompanyInput, DahliaRecord, Garden, KnownUser } from '../types'
-import { DropdownField } from './DropdownField'
+import { DahliaPickerField } from './DahliaPickerField'
 
 type FlowerUsageRecord = NonNullable<NonNullable<Company['usage']>['flowerRecords']>[number]
 
@@ -338,10 +338,18 @@ export function CompaniesModal({
           <div className="subTitle">Admin Ownership</div>
           <div className="muted">Select one or more companies and assign them to a known user.</div>
         </div>
-        <label className="field">
-          <div className="label">Assign selected companies to</div>
-          <DropdownField label="Assign selected companies to" value={reassignOwnerUserId} options={[{ value: '', label: 'Choose known user...' }, ...knownUsers.map((knownUser) => ({ value: knownUser.userId, label: knownUser.displayName || knownUser.email || knownUser.userId }))]} onChange={setReassignOwnerUserId} />
-        </label>
+        <DahliaPickerField
+          label="Assign selected companies to"
+          layout="list"
+          placeholder="Choose known user..."
+          options={knownUsers.map((knownUser) => {
+            const name = knownUser.displayName || knownUser.email || knownUser.userId
+            const label = knownUser.displayName && knownUser.email ? `${name} (${knownUser.email})` : name
+            return { value: knownUser.userId, label }
+          })}
+          value={reassignOwnerUserId || undefined}
+          onChange={(v) => setReassignOwnerUserId(v ?? '')}
+        />
         <div className="rowActions companyActions">
           <button className="btn ghost" type="button" disabled={!companies.length || reassigning} onClick={toggleAllCompanies}>{selectedCompanyIds.length === companies.length ? 'Clear Selection' : 'Select All'}</button>
           <button className="btn" type="button" disabled={!canReassign} onClick={() => void reassignSelectedCompanies()}>{reassigning ? 'Assigning...' : `Assign ${selectedCompanyIds.length || ''}`.trim()}</button>
