@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createUserWithEmailAndPassword,
@@ -320,9 +320,31 @@ export default function App() {
     ordersOpen || assetsOpen || gardenOptionsOpen
   )
 
-  useEffect(() => {
-    document.body.style.overflow = anyModalOpen ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
+  useLayoutEffect(() => {
+    if (!anyModalOpen) return
+    const scrollY = window.scrollY
+    const body = document.body
+    const prevPosition = body.style.position
+    const prevTop = body.style.top
+    const prevLeft = body.style.left
+    const prevRight = body.style.right
+    const prevWidth = body.style.width
+    const prevOverflow = body.style.overflow
+    body.style.position = 'fixed'
+    body.style.top = `-${scrollY}px`
+    body.style.left = '0'
+    body.style.right = '0'
+    body.style.width = '100%'
+    body.style.overflow = 'hidden'
+    return () => {
+      body.style.position = prevPosition
+      body.style.top = prevTop
+      body.style.left = prevLeft
+      body.style.right = prevRight
+      body.style.width = prevWidth
+      body.style.overflow = prevOverflow
+      window.scrollTo(0, scrollY)
+    }
   }, [anyModalOpen])
 
   useEffect(() => {

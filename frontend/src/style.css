@@ -1055,11 +1055,13 @@ th.sortable {
 .modalOverlay {
   position: fixed;
   inset: 0;
+  height: 100dvh;
   z-index: 1000;
   background: var(--modal-overlay);
   display: grid;
   place-items: center;
   padding: 16px;
+  overscroll-behavior: contain;
 }
 
 .stackedModalOverlay {
