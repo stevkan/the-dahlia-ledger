@@ -1780,10 +1780,26 @@ export function RecordModal({
         ) : null}
       </div>
 
-      <div className="modalFooter">
-        <div className="footerLeft" ref={confirmAreaRef}>
-          {confirmAction ? <div className="callout warn footerConfirmMessage">Click the highlighted action again to confirm.</div> : null}
+      <div className="modalFooter" ref={confirmAreaRef}>
+        <div className="footerLeft">
           <div className="footerActionRow">
+            <button className="btn" disabled={!canSave || !hasChanges || saving} onClick={() => void handleSave()}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button className="btn ghost" onClick={onClose}>
+              Cancel
+            </button>
+            {initial && onDuplicate ? (
+              <button className="btn ghost" type="button" onClick={handleDuplicateClick}>
+                {confirmAction === 'duplicate' ? 'Confirm Duplicate' : 'Duplicate'}
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <div className="footerStack">
+          {confirmAction ? <div className="callout warn footerConfirmMessage">Click the highlighted action again to confirm.</div> : null}
+          {closeError ? <div className="error inlineError footerError">{closeError}</div> : null}
+          <div className="footerRight">
             {onReview ? (
               <button className="btn ghost" type="button" disabled={reviewBusy} onClick={() => void handleReviewClick()}>
                 {reviewBusy ? 'Reviewing...' : confirmAction === 'review' ? 'Confirm Review' : 'Review With Debug Agent'}
@@ -1794,22 +1810,6 @@ export function RecordModal({
                 {confirmAction === 'delete' ? 'Confirm Delete' : 'Delete'}
               </button>
             ) : null}
-            {initial && onDuplicate ? (
-              <button className="btn ghost" type="button" onClick={handleDuplicateClick}>
-                {confirmAction === 'duplicate' ? 'Confirm Duplicate' : 'Duplicate'}
-              </button>
-            ) : null}
-          </div>
-        </div>
-        <div className="footerStack">
-          {closeError ? <div className="error inlineError footerError">{closeError}</div> : null}
-          <div className="footerRight">
-            <button className="btn ghost" onClick={onClose}>
-              Cancel
-            </button>
-            <button className="btn" disabled={!canSave || !hasChanges || saving} onClick={() => void handleSave()}>
-              {saving ? 'Saving…' : 'Save'}
-            </button>
           </div>
         </div>
       </div>
