@@ -763,12 +763,49 @@ body {
   font-weight: 650;
 }
 
-.pageSizeFilter {
-  width: 72px;
+.tableOptionsButton {
+  white-space: nowrap;
 }
 
-.pageSizeOptions {
-  min-width: 100%;
+.tableOptionsModal {
+  width: fit-content;
+  min-width: min(520px, 100%);
+  max-width: min(92vw, 640px);
+}
+
+.tableOptionsBody {
+  display: grid;
+  gap: 18px;
+}
+
+.tableOptionsControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.tableOptionsControls .field {
+  flex: 1;
+  min-width: 140px;
+}
+
+.tableOptionsColumnsGroup {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+}
+
+.tableOptionsColumnsGroup legend {
+  padding: 0 6px;
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+.tableOptionsColumnList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .tablePagination {
@@ -918,6 +955,10 @@ td {
   width: 21%;
 }
 
+.colCultivar {
+  width: 15%;
+}
+
 .colColor {
   width: 17%;
 }
@@ -936,6 +977,14 @@ td {
 
 .colSeasonYear {
   width: 14%;
+}
+
+.colSource {
+  width: 12%;
+}
+
+.colPlantedDate {
+  width: 12%;
 }
 
 th.sortable {

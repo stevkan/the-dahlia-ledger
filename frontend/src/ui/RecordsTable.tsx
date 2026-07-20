@@ -9,8 +9,10 @@ import {
   useReactTable,
   type PaginationState,
   type SortingState,
+  type VisibilityState,
 } from '@tanstack/react-table'
 import { useState } from 'react'
+import { DropdownField } from './DropdownField'
 import type { DahliaRecordSummary, Order } from '../types'
 
 function compareGardenRows(a: string, b: string) {
@@ -72,14 +74,57 @@ function getInGardenRow(record: DahliaRecordSummary) {
 }
 
 const columnClassNames: Record<string, string> = {
+  recordNumber: 'colRecordNumber',
   thumb: 'colThumbnail',
   flowerName: 'colFlowerName',
+  cultivar: 'colCultivar',
   color: 'colColor',
   size: 'colSize',
   height: 'colHeight',
   gardenLocation: 'colGardenLocation',
   seasonYearStart: 'colSeasonYear',
+  source: 'colSource',
+  plantedDate: 'colPlantedDate',
 }
+
+type ColumnDefinition = {
+  id: string
+  label: string
+  sortable?: boolean
+}
+
+const COLUMN_DEFINITIONS: ColumnDefinition[] = [
+  { id: 'recordNumber', label: '#' },
+  { id: 'thumb', label: 'Photo', sortable: false },
+  { id: 'flowerName', label: 'Flower Name' },
+  { id: 'cultivar', label: 'Cultivar' },
+  { id: 'color', label: 'Color' },
+  { id: 'size', label: 'W (in.)' },
+  { id: 'height', label: 'H (ft.)' },
+  { id: 'gardenLocation', label: 'Location' },
+  { id: 'seasonYearStart', label: 'Season' },
+  { id: 'source', label: 'Company' },
+  { id: 'plantedDate', label: 'Planting Date' },
+]
+
+const ALPHABETICAL_COLUMN_DEFINITIONS = [...COLUMN_DEFINITIONS].sort((a, b) => a.label.localeCompare(b.label))
+const SORTABLE_COLUMN_DEFINITIONS = ALPHABETICAL_COLUMN_DEFINITIONS.filter((column) => column.sortable !== false)
+
+const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
+  recordNumber: false,
+  thumb: true,
+  flowerName: true,
+  cultivar: false,
+  color: true,
+  size: true,
+  height: true,
+  gardenLocation: true,
+  seasonYearStart: true,
+  source: false,
+  plantedDate: false,
+}
+
+const DEFAULT_SORTING: SortingState = [{ id: 'gardenLocation', desc: false }]
 
 const pageSizeOptions = [10, 25, 50, 100]
 const RECORD_THUMB_SIZE = 42
@@ -110,23 +155,28 @@ export function RecordsTable({
   onLoadMore: () => void
   onOpen: (r: DahliaRecordSummary) => void
 }) {
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'gardenLocation', desc: false }])
+  const [sorting, setSorting] = useState<SortingState>(DEFAULT_SORTING)
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 25 })
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(DEFAULT_COLUMN_VISIBILITY)
+  const [tableOptionsOpen, setTableOptionsOpen] = useState(false)
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
   const [selectedSeasonYears, setSelectedSeasonYears] = useState<number[]>([])
   const [selectedGardenRows, setSelectedGardenRows] = useState<string[]>([])
   const [seasonFilterOpen, setSeasonFilterOpen] = useState(false)
   const [gardenRowFilterOpen, setGardenRowFilterOpen] = useState(false)
-  const [pageSizeFilterOpen, setPageSizeFilterOpen] = useState(false)
   const defaultSeasonAppliedRef = useRef(false)
   const seasonFilterRef = useRef<HTMLDetailsElement>(null)
   const gardenRowFilterRef = useRef<HTMLDetailsElement>(null)
-  const pageSizeFilterRef = useRef<HTMLDetailsElement>(null)
   const tableWrapRef = useRef<HTMLDivElement>(null)
 
   const columns = useMemo<ColumnDef<DahliaRecordSummary>[]>(
     () => [
+      {
+        header: '#',
+        id: 'recordNumber',
+        accessorKey: 'recordNumber',
+      },
       {
         header: 'Photo',
         id: 'thumb',
@@ -139,6 +189,11 @@ export function RecordsTable({
       {
         header: 'Flower Name',
         accessorKey: 'flowerName',
+      },
+      {
+        header: 'Cultivar',
+        id: 'cultivar',
+        accessorFn: (record) => record.core.cultivar ?? '',
       },
       {
         header: 'Color',
@@ -164,6 +219,16 @@ export function RecordsTable({
       {
         header: 'Season',
         accessorKey: 'seasonYearStart',
+      },
+      {
+        header: 'Company',
+        id: 'source',
+        accessorFn: (record) => record.tuber.source ?? '',
+      },
+      {
+        header: 'Planting Date',
+        id: 'plantedDate',
+        accessorFn: (record) => record.core.plantedDate ?? '',
       },
     ],
     [],
@@ -304,28 +369,16 @@ export function RecordsTable({
   }, [gardenRowFilterOpen])
 
   useEffect(() => {
-    if (!pageSizeFilterOpen) return
-
-    function closeOnOutsideClick(event: PointerEvent) {
-      if (!pageSizeFilterRef.current?.contains(event.target as Node)) {
-        setPageSizeFilterOpen(false)
-      }
-    }
-
-    document.addEventListener('pointerdown', closeOnOutsideClick)
-    return () => document.removeEventListener('pointerdown', closeOnOutsideClick)
-  }, [pageSizeFilterOpen])
-
-  useEffect(() => {
     setPagination((previous) => ({ ...previous, pageIndex: 0 }))
   }, [search, selectedSeasonYears, selectedGardenRows])
 
   const table = useReactTable({
     data: filteredRows,
     columns,
-    state: { sorting, pagination },
+    state: { sorting, pagination, columnVisibility },
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -346,6 +399,15 @@ export function RecordsTable({
   const pageStart = filteredRows.length === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1
   const pageEnd = Math.min(filteredRows.length, pageStart + pageRows.length - 1)
   const loadedEndReached = pageEnd >= filteredRows.length
+  const visibleColumnCount = table.getVisibleLeafColumns().length
+
+  function setSortColumn(id: string) {
+    setSorting((previous) => [{ id, desc: previous[0]?.desc ?? false }])
+  }
+
+  function setSortDirection(desc: boolean) {
+    setSorting((previous) => [{ id: previous[0]?.id ?? DEFAULT_SORTING[0].id, desc }])
+  }
 
   return (
     <div className="recordsTableStack">
@@ -409,7 +471,7 @@ export function RecordsTable({
                 checked={selectedGardenRows.length === 0}
                 onChange={() => {
                   setSelectedGardenRows([])
-                  setSorting([{ id: 'gardenLocation', desc: false }])
+                  setSorting(DEFAULT_SORTING)
                 }}
               />
               All rows/beds
@@ -429,41 +491,81 @@ export function RecordsTable({
         </details>
 
         <div className="tableToolbarRightControls">
-          <div className="pageSizeControl">
-            <span className="pageSizeLabel">Rows</span>
-            <details className="seasonFilter pageSizeFilter" ref={pageSizeFilterRef} open={pageSizeFilterOpen}>
-              <summary
-                className="input seasonFilterSummary"
-                onClick={(event) => {
-                  event.preventDefault()
-                  setPageSizeFilterOpen((open) => !open)
-                }}
-              >
-                {pagination.pageSize}
-              </summary>
-              <fieldset className="seasonFilterOptions pageSizeOptions">
-                <legend className="srOnly">Rows per page</legend>
-                {pageSizeOptions.map((pageSize) => (
-                  <label key={pageSize} className="seasonFilterOption">
-                    <input
-                      type="radio"
-                      name="recordsPageSize"
-                      value={pageSize}
-                      checked={pagination.pageSize === pageSize}
-                      onChange={() => {
-                        table.setPageSize(pageSize)
-                        setPageSizeFilterOpen(false)
-                      }}
-                    />
-                    {pageSize}
-                  </label>
-                ))}
-              </fieldset>
-            </details>
-          </div>
-
+          <button className="btn ghost tableOptionsButton" type="button" onClick={() => setTableOptionsOpen(true)}>
+            Table Options
+          </button>
         </div>
       </div>
+
+      {tableOptionsOpen ? (
+        <div
+          className="modalOverlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="table-options-title"
+          onMouseDown={() => setTableOptionsOpen(false)}
+        >
+          <div className="modal tableOptionsModal" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modalHeader">
+              <div>
+                <div className="modalTitle" id="table-options-title">Table Options</div>
+                <div className="modalSub">Choose rows per page, visible columns, and sort order.</div>
+              </div>
+              <button className="btn ghost" type="button" onClick={() => setTableOptionsOpen(false)}>Close</button>
+            </div>
+            <div className="modalBody tableOptionsBody">
+              <div className="tableOptionsControls">
+                <label className="field">
+                  <div className="label fieldLabel"><span>Rows per page</span></div>
+                  <DropdownField
+                    label="Rows per page"
+                    value={String(pagination.pageSize)}
+                    options={pageSizeOptions.map((pageSize) => ({ value: String(pageSize), label: String(pageSize) }))}
+                    onChange={(value) => table.setPageSize(Number(value))}
+                  />
+                </label>
+                <label className="field">
+                  <div className="label fieldLabel"><span>Sort by</span></div>
+                  <DropdownField
+                    label="Sort by"
+                    value={sorting[0]?.id ?? DEFAULT_SORTING[0].id}
+                    options={SORTABLE_COLUMN_DEFINITIONS.map((column) => ({ value: column.id, label: column.label }))}
+                    onChange={setSortColumn}
+                  />
+                </label>
+                <label className="field">
+                  <div className="label fieldLabel"><span>Direction</span></div>
+                  <DropdownField
+                    label="Sort direction"
+                    value={sorting[0]?.desc ? 'desc' : 'asc'}
+                    options={[
+                      { value: 'asc', label: 'Ascending' },
+                      { value: 'desc', label: 'Descending' },
+                    ]}
+                    onChange={(value) => setSortDirection(value === 'desc')}
+                  />
+                </label>
+              </div>
+
+              <fieldset className="tableOptionsColumnsGroup">
+                <legend>Columns</legend>
+                <div className="tableOptionsColumnList">
+                  {ALPHABETICAL_COLUMN_DEFINITIONS.map((column) => (
+                    <label key={column.id} className="seasonFilterOption">
+                      <input
+                        type="checkbox"
+                        checked={table.getColumn(column.id)?.getIsVisible() ?? true}
+                        onChange={(event) => table.getColumn(column.id)?.toggleVisibility(event.target.checked)}
+                      />
+                      {column.label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="tableWrap" ref={tableWrapRef}>
         <table className="table">
@@ -471,7 +573,11 @@ export function RecordsTable({
           {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id}>
               {hg.headers.map((h) => (
-                <th key={h.id} onClick={h.column.getToggleSortingHandler()} className={`${columnClassNames[h.column.id] ?? ''}${h.column.getCanSort() ? ' sortable' : ''}`.trim()}>
+                <th
+                  key={h.id}
+                  onClick={h.column.getToggleSortingHandler()}
+                  className={`${columnClassNames[h.column.id] ?? ''}${h.column.getCanSort() ? ' sortable' : ''}`.trim()}
+                >
                   <span className="thInner">
                     {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                     {h.column.getIsSorted() === 'asc' ? ' ▲' : h.column.getIsSorted() === 'desc' ? ' ▼' : ''}
@@ -484,7 +590,7 @@ export function RecordsTable({
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={7} className="empty">
+              <td colSpan={visibleColumnCount} className="empty">
                 Loading records...
               </td>
             </tr>
@@ -492,7 +598,7 @@ export function RecordsTable({
             <>
               {virtualPaddingTop > 0 ? (
                 <tr aria-hidden="true">
-                  <td colSpan={7} className="virtualTableSpacer" style={{ height: virtualPaddingTop }} />
+                  <td colSpan={visibleColumnCount} className="virtualTableSpacer" style={{ height: virtualPaddingTop }} />
                 </tr>
               ) : null}
               {virtualRows.map((virtualRow) => {
@@ -509,13 +615,13 @@ export function RecordsTable({
               })}
               {virtualPaddingBottom > 0 ? (
                 <tr aria-hidden="true">
-                  <td colSpan={7} className="virtualTableSpacer" style={{ height: virtualPaddingBottom }} />
+                  <td colSpan={visibleColumnCount} className="virtualTableSpacer" style={{ height: virtualPaddingBottom }} />
                 </tr>
               ) : null}
             </>
           ) : (
             <tr>
-              <td colSpan={7} className="empty">
+              <td colSpan={visibleColumnCount} className="empty">
                 No available data.
               </td>
             </tr>
