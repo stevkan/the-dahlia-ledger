@@ -1,9 +1,9 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { jsPDF } from 'jspdf'
 import type { AgentVisualization, Company, DahliaRecord } from '../types'
 import { api } from '../api/client'
-import { DropdownField } from './DropdownField'
+import { DahliaPickerField } from './DahliaPickerField'
 
 const AgentVisualizationView = lazy(async () => {
   const module = await import('./AgentVisualizationView')
@@ -174,14 +174,12 @@ export function AnalyticsModal({
 }) {
   const [metric, setMetric] = useState<AnalyticsMetric>('flower_purchase_count_by_company')
   const [selectedSeasonYears, setSelectedSeasonYears] = useState<number[]>([])
-  const [seasonFilterOpen, setSeasonFilterOpen] = useState(false)
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [filters, setFilters] = useState<AnalyticsFilters>({ companies: [], gardenAreas: [], plantingStates: [], colors: [], forms: [] })
   const [sortBy, setSortBy] = useState<AnalyticsSort>('company')
   const [chartType, setChartType] = useState<AnalyticsChartType>('bar')
   const [photoTypes, setPhotoTypes] = useState<Array<'any' | 'record' | 'cultivar' | 'none'>>(['any', 'none'])
   const [busy, setBusy] = useState(false)
-  const [expandedDropdownOptions, setExpandedDropdownOptions] = useState(0)
   const [result, setResult] = useState<string | null>(null)
   const [visualization, setVisualization] = useState<AgentVisualization | null>(null)
   const [drilldown, setDrilldown] = useState<AnalyticsDrilldown | null>(null)
@@ -189,7 +187,6 @@ export function AnalyticsModal({
   const [drilldownBusy, setDrilldownBusy] = useState(false)
   const [clarify, setClarify] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const seasonFilterRef = useRef<HTMLDetailsElement>(null)
   const chartExportRef = useRef<HTMLDivElement>(null)
 
   const seasonYears = useMemo(
@@ -397,26 +394,6 @@ export function AnalyticsModal({
     void runExport(targetWindow)
   }
 
-  useEffect(() => {
-    if (!seasonFilterOpen) return
-
-    function closeOnOutsideClick(event: PointerEvent) {
-      if (!seasonFilterRef.current?.contains(event.target as Node)) {
-        setSeasonFilterOpen(false)
-      }
-    }
-
-    document.addEventListener('pointerdown', closeOnOutsideClick)
-    return () => document.removeEventListener('pointerdown', closeOnOutsideClick)
-  }, [seasonFilterOpen])
-
-  function toggleSeasonYear(year: number, checked: boolean) {
-    setSelectedSeasonYears((previous) => {
-      const next = checked ? Array.from(new Set([...previous, year])) : previous.filter((selectedYear) => selectedYear !== year)
-      return next.sort((a, b) => b - a)
-    })
-  }
-
   function defaultChartTypeForMetric(nextMetric: AnalyticsMetric): AnalyticsChartType {
     if (nextMetric === 'height_vs_bloom_size') return 'scatter'
     if (nextMetric === 'linked_vs_unlinked_purchase_records') return 'pie'
@@ -429,10 +406,6 @@ export function AnalyticsModal({
   function selectMetric(nextMetric: AnalyticsMetric) {
     setMetric(nextMetric)
     setChartType(defaultChartTypeForMetric(nextMetric))
-  }
-
-  function updateExpandedDropdown(open: boolean, optionCount: number) {
-    setExpandedDropdownOptions(open ? optionCount : 0)
   }
 
   function canDrilldown(nextMetric: AnalyticsMetric) {
@@ -572,86 +545,75 @@ export function AnalyticsModal({
         <div className="modalBody">
           <div className="agent analyticsPanel">
             <div className="muted">Choose a supported chart, set parameters, then generate the visualization from saved records.</div>
-            <div
-              className="analyticsControls"
-              style={expandedDropdownOptions ? { paddingBottom: Math.min(expandedDropdownOptions * 40, 220) + 4 } : undefined}
-            >
-              <label className="field">
-                <div className="label">Query</div>
-                <DropdownField
-                  label="Query"
-                  value={metric}
-                  options={[
-                    { value: 'flower_count_by_bloom_size', label: 'Flowers by Bloom Size' },
-                    { value: 'flower_count_by_color', label: 'Flowers by Color' },
-                    { value: 'flower_count_by_form', label: 'Flowers by Form' },
-                    { value: 'flower_count_by_garden_area', label: 'Flowers by Garden Area' },
-                    { value: 'flower_count_by_height', label: 'Flowers by Height' },
-                    { value: 'flower_count_by_planting_state', label: 'Flowers by Planting State' },
-                    { value: 'flower_count_by_season', label: 'Flowers by Season' },
-                    { value: 'flower_count_by_photo_type', label: 'Flowers by Photo Type' },
-                    { value: 'flower_count_by_source', label: 'Flowers by Source' },
-                    { value: 'flower_purchase_count_by_company', label: 'Flowers Purchased by Company' },
-                    { value: 'not_planted_reason_summary', label: 'Not Planted Reason Summary' },
-                    { value: 'not_viable_reason_summary', label: 'Not Viable Reason Summary' },
-                    { value: '', label: '', separator: true },
-                    { value: 'average_item_cost_by_company', label: 'Average Item Cost by Company' },
-                    { value: 'average_item_cost_by_form', label: 'Average Item Cost by Form' },
-                    { value: 'average_item_cost_by_season', label: 'Average Item Cost by Season' },
-                    { value: 'flower_count_by_company_and_season', label: 'Flower Count by Company and Season' },
-                    { value: 'garden_area_by_planting_state', label: 'Garden Area by Planting State' },
-                    { value: 'garden_fill_by_area', label: 'Garden Fill by Area' },
-                    { value: 'height_vs_bloom_size', label: 'Height vs Bloom Size' },
-                    { value: 'invoice_total_by_company', label: 'Invoice Total by Company' },
-                    { value: 'invoice_total_by_season', label: 'Invoice Total by Season' },
-                    { value: 'linked_vs_unlinked_purchase_records', label: 'Linked vs Unlinked Purchase Records' },
-                    { value: 'missing_data_summary', label: 'Missing Data Summary' },
-                    { value: 'order_count_by_company', label: 'Order Count by Company' },
-                  ]}
-                  onChange={(value) => selectMetric(value as AnalyticsMetric)}
-                  onOpenChange={updateExpandedDropdown}
-                />
-              </label>
-              <label className="field">
-                <div className="label">Season year</div>
-                <details className="seasonFilter analyticsSeasonFilter" ref={seasonFilterRef} open={seasonFilterOpen}>
-                  <summary
-                    className="input seasonFilterSummary"
-                    onClick={(event) => {
-                      event.preventDefault()
-                      setSeasonFilterOpen((open) => !open)
-                    }}
-                  >
-                    {seasonFilterLabel}
-                  </summary>
-                  <fieldset className="seasonFilterOptions">
-                    <legend className="srOnly">Filter analytics by season year</legend>
-                    <label className="seasonFilterOption">
-                      <input type="checkbox" checked={selectedSeasonYears.length === 0} onChange={() => setSelectedSeasonYears([])} />
-                      All seasons
-                    </label>
-                    {seasonYears.map((year) => (
-                      <label key={year} className="seasonFilterOption">
-                        <input
-                          type="checkbox"
-                          value={year}
-                          checked={selectedSeasonYears.includes(year)}
-                          onChange={(event) => toggleSeasonYear(year, event.target.checked)}
-                        />
-                        {year}
-                      </label>
-                    ))}
-                  </fieldset>
-                </details>
-              </label>
-              <label className="field">
-                <div className="label">Sort by</div>
-                <DropdownField label="Sort by" value={sortBy} options={[{ value: 'company', label: 'Name' }, { value: 'value_desc', label: 'Highest count first' }, { value: 'value_asc', label: 'Lowest count first' }]} onChange={(value) => setSortBy(value as AnalyticsSort)} onOpenChange={updateExpandedDropdown} />
-              </label>
-              <label className="field">
-                <div className="label">Display</div>
-                <DropdownField label="Display" value={chartType} options={[{ value: 'bar', label: 'Bar chart' }, { value: 'line', label: 'Line chart' }, { value: 'pie', label: 'Pie chart' }, { value: 'scatter', label: 'Scatter plot' }, { value: 'table', label: 'Table' }]} onChange={(value) => setChartType(value as AnalyticsChartType)} onOpenChange={updateExpandedDropdown} />
-              </label>
+            <div className="analyticsControls">
+              <DahliaPickerField
+                label="Query"
+                required
+                clearable={false}
+                layout="grid"
+                columns={2}
+                wrapOptionText
+                value={metric}
+                options={[
+                  { value: 'flower_count_by_bloom_size', label: 'Flowers by Bloom Size' },
+                  { value: 'flower_count_by_color', label: 'Flowers by Color' },
+                  { value: 'flower_count_by_form', label: 'Flowers by Form' },
+                  { value: 'flower_count_by_garden_area', label: 'Flowers by Garden Area' },
+                  { value: 'flower_count_by_height', label: 'Flowers by Height' },
+                  { value: 'flower_count_by_planting_state', label: 'Flowers by Planting State' },
+                  { value: 'flower_count_by_season', label: 'Flowers by Season' },
+                  { value: 'flower_count_by_photo_type', label: 'Flowers by Photo Type' },
+                  { value: 'flower_count_by_source', label: 'Flowers by Source' },
+                  { value: 'flower_purchase_count_by_company', label: 'Flowers Purchased by Company' },
+                  { value: 'not_planted_reason_summary', label: 'Not Planted Reason Summary' },
+                  { value: 'not_viable_reason_summary', label: 'Not Viable Reason Summary' },
+                  { value: 'average_item_cost_by_company', label: 'Average Item Cost by Company' },
+                  { value: 'average_item_cost_by_form', label: 'Average Item Cost by Form' },
+                  { value: 'average_item_cost_by_season', label: 'Average Item Cost by Season' },
+                  { value: 'flower_count_by_company_and_season', label: 'Flower Count by Company and Season' },
+                  { value: 'garden_area_by_planting_state', label: 'Garden Area by Planting State' },
+                  { value: 'garden_fill_by_area', label: 'Garden Fill by Area' },
+                  { value: 'height_vs_bloom_size', label: 'Height vs Bloom Size' },
+                  { value: 'invoice_total_by_company', label: 'Invoice Total by Company' },
+                  { value: 'invoice_total_by_season', label: 'Invoice Total by Season' },
+                  { value: 'linked_vs_unlinked_purchase_records', label: 'Linked vs Unlinked Purchase Records' },
+                  { value: 'missing_data_summary', label: 'Missing Data Summary' },
+                  { value: 'order_count_by_company', label: 'Order Count by Company' },
+                ]}
+                onChange={(value) => selectMetric(value as AnalyticsMetric)}
+              />
+              <DahliaPickerField
+                label="Season year"
+                multiple
+                layout="grid"
+                columns={3}
+                allLabel="All seasons"
+                summary={seasonFilterLabel}
+                values={selectedSeasonYears.map(String)}
+                options={seasonYears.map(String)}
+                onChange={(values) => setSelectedSeasonYears(values.map(Number).sort((a, b) => b - a))}
+              />
+              <DahliaPickerField
+                label="Sort by"
+                required
+                clearable={false}
+                layout="list"
+                centerOptionText
+                modalWidth="min(320px, 100%)"
+                value={sortBy}
+                options={[{ value: 'company', label: 'Name' }, { value: 'value_desc', label: 'Highest count first' }, { value: 'value_asc', label: 'Lowest count first' }]}
+                onChange={(value) => setSortBy(value as AnalyticsSort)}
+              />
+              <DahliaPickerField
+                label="Display"
+                required
+                clearable={false}
+                layout="grid"
+                columns={2}
+                value={chartType}
+                options={[{ value: 'bar', label: 'Bar chart' }, { value: 'line', label: 'Line chart' }, { value: 'pie', label: 'Pie chart' }, { value: 'scatter', label: 'Scatter plot' }, { value: 'table', label: 'Table' }]}
+                onChange={(value) => setChartType(value as AnalyticsChartType)}
+              />
             </div>
             <div className="agentInputFooter analyticsActions">
               <button className="btn" disabled={busy} onClick={() => void submit()}>

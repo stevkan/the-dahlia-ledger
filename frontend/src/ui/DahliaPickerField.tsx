@@ -52,81 +52,171 @@ function FieldHintLabel({ label, hint, required, action }: { label: string; hint
   )
 }
 
-export function DahliaPickerField({
-  label,
-  hint,
-  title,
-  options,
-  value,
-  placeholder,
-  onChange,
-  layout = 'grid',
-  clearable = true,
-  labelAction,
-  required,
-  disabled,
-}: {
+type CommonProps = {
   label: string
   hint?: string
   title?: string
   options: PickerOption[]
-  value: string | undefined
   placeholder?: string
-  onChange: (v: string | undefined) => void
   layout?: 'grid' | 'list'
-  clearable?: boolean
+  columns?: number
+  modalWidth?: number | string
+  centerOptionText?: boolean
+  wrapOptionText?: boolean
   labelAction?: React.ReactNode
   required?: boolean
   disabled?: boolean
-}) {
+}
+
+type SingleSelectProps = CommonProps & {
+  multiple?: false
+  value: string | undefined
+  onChange: (v: string | undefined) => void
+  clearable?: boolean
+}
+
+type MultiSelectProps = CommonProps & {
+  multiple: true
+  values: string[]
+  onChange: (values: string[]) => void
+  summary?: string
+  allLabel?: string
+}
+
+type Props = SingleSelectProps | MultiSelectProps
+
+export function DahliaPickerField(props: Props) {
+  const {
+    label,
+    hint,
+    title,
+    options,
+    placeholder,
+    layout = 'grid',
+    columns,
+    modalWidth,
+    centerOptionText,
+    wrapOptionText,
+    labelAction,
+    required,
+    disabled,
+  } = props
   const [open, setOpen] = useState(false)
 
-  const matched = value !== undefined ? options.find((opt) => optionValue(opt) === value) : undefined
-  const displayValue = value !== undefined ? (matched ? optionLabel(matched) : value) : undefined
-
-  function select(v: string) {
-    onChange(v)
-    setOpen(false)
+  function optionStyle(): React.CSSProperties | undefined {
+    const width = layout === 'list' && columns ? `${100 / columns}%` : undefined
+    const textAlign = centerOptionText ? 'center' : wrapOptionText ? 'left' : undefined
+    const whiteSpace = wrapOptionText ? 'normal' : undefined
+    const wordBreak = wrapOptionText ? 'break-word' : undefined
+    return width || textAlign || whiteSpace ? { width, textAlign, whiteSpace, wordBreak } : undefined
   }
 
-  function clear() {
-    onChange(undefined)
-    setOpen(false)
+  let displayValue: React.ReactNode
+  let optionsBody: React.ReactNode
+
+  if (props.multiple) {
+    const { values, onChange, summary, allLabel = 'All' } = props
+
+    function toggle(v: string) {
+      onChange(values.includes(v) ? values.filter((item) => item !== v) : [...values, v])
+    }
+
+    function clearAll() {
+      onChange([])
+      setOpen(false)
+    }
+
+    displayValue = summary ?? (values.length === 0 ? undefined : values.length === 1 ? values[0] : `${values.length} selected`)
+
+    optionsBody = (
+      <>
+        <button
+          className={`dahliaFormOption dahliaFormOptionNone${values.length === 0 ? ' selected' : ''}`}
+          type="button"
+          style={optionStyle()}
+          onClick={clearAll}
+        >
+          {allLabel}
+        </button>
+        {options.map((opt) => {
+          const v = optionValue(opt)
+          const l = optionLabel(opt)
+          const optDisabled = optionDisabled(opt)
+          return (
+            <button
+              key={v}
+              className={`dahliaFormOption${values.includes(v) ? ' selected' : ''}`}
+              type="button"
+              disabled={optDisabled}
+              style={optionStyle()}
+              onClick={() => toggle(v)}
+            >
+              {l}
+            </button>
+          )
+        })}
+      </>
+    )
+  } else {
+    const { value, onChange, clearable = true } = props
+    const matched = value !== undefined ? options.find((opt) => optionValue(opt) === value) : undefined
+    displayValue = value !== undefined ? (matched ? optionLabel(matched) : value) : undefined
+
+    function select(v: string) {
+      onChange(v)
+      setOpen(false)
+    }
+
+    function clear() {
+      onChange(undefined)
+      setOpen(false)
+    }
+
+    optionsBody = (
+      <>
+        {clearable ? (
+          <button
+            className={`dahliaFormOption dahliaFormOptionNone${!value ? ' selected' : ''}`}
+            type="button"
+            style={optionStyle()}
+            onClick={clear}
+          >
+            None
+          </button>
+        ) : null}
+        {options.map((opt) => {
+          const v = optionValue(opt)
+          const l = optionLabel(opt)
+          const optDisabled = optionDisabled(opt)
+          return (
+            <button
+              key={v}
+              className={`dahliaFormOption${value === v ? ' selected' : ''}`}
+              type="button"
+              disabled={optDisabled}
+              style={optionStyle()}
+              onClick={() => select(v)}
+            >
+              {l}
+            </button>
+          )
+        })}
+      </>
+    )
   }
 
   const picker = (
     <div className="dahliaFormOverlay">
-      <div className="dahliaFormPicker">
+      <div className="dahliaFormPicker" style={modalWidth ? { width: typeof modalWidth === 'number' ? `${modalWidth}px` : modalWidth } : undefined}>
         <div className="dahliaFormPickerHeader">
           <span className="dahliaFormPickerTitle">{title ?? label}</span>
           <button className="btn ghost compact" type="button" onClick={() => setOpen(false)}>Close</button>
         </div>
-        <div className={layout === 'list' ? 'dahliaFormPickerList' : 'dahliaFormPickerGrid'}>
-          {clearable ? (
-            <button
-              className={`dahliaFormOption dahliaFormOptionNone${!value ? ' selected' : ''}`}
-              type="button"
-              onClick={clear}
-            >
-              None
-            </button>
-          ) : null}
-          {options.map((opt) => {
-            const v = optionValue(opt)
-            const l = optionLabel(opt)
-            const disabled = optionDisabled(opt)
-            return (
-              <button
-                key={v}
-                className={`dahliaFormOption${value === v ? ' selected' : ''}`}
-                type="button"
-                disabled={disabled}
-                onClick={() => select(v)}
-              >
-                {l}
-              </button>
-            )
-          })}
+        <div
+          className={layout === 'list' ? 'dahliaFormPickerList' : 'dahliaFormPickerGrid'}
+          style={layout === 'grid' && columns ? { gridTemplateColumns: `repeat(${columns}, 1fr)` } : undefined}
+        >
+          {optionsBody}
         </div>
       </div>
     </div>
