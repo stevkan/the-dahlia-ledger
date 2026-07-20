@@ -13,7 +13,7 @@ import {
   type VisibilityState,
 } from '@tanstack/react-table'
 import { useState } from 'react'
-import { DropdownField } from './DropdownField'
+import { DahliaPickerField } from './DahliaPickerField'
 import type { DahliaRecordSummary, Order } from '../types'
 
 function compareGardenRows(a: string, b: string) {
@@ -46,7 +46,7 @@ function compareGardenLocations(a: DahliaRecordSummary, b: DahliaRecordSummary) 
   return formatGardenLocation(a).localeCompare(formatGardenLocation(b), undefined, { numeric: true })
 }
 
-function resolveRecordPhoto(record: DahliaRecordSummary) {
+export function resolveRecordPhoto(record: DahliaRecordSummary) {
   if (record.defaultPhotoScope === 'cultivar') {
     return record.cultivarListThumbnailUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl || record.listThumbnailUrl || record.thumbnailUrl || record.imageUrl
   }
@@ -95,13 +95,13 @@ type ColumnDefinition = {
 }
 
 const COLUMN_DEFINITIONS: ColumnDefinition[] = [
-  { id: 'recordNumber', label: '#' },
+  { id: 'recordNumber', label: 'Record #' },
   { id: 'thumb', label: 'Photo', sortable: false },
   { id: 'flowerName', label: 'Flower Name' },
   { id: 'cultivar', label: 'Cultivar' },
   { id: 'color', label: 'Color' },
-  { id: 'size', label: 'W (in.)' },
-  { id: 'height', label: 'H (ft.)' },
+  { id: 'size', label: 'Bloom Width' },
+  { id: 'height', label: 'Height' },
   { id: 'gardenLocation', label: 'Location' },
   { id: 'seasonYearStart', label: 'Season' },
   { id: 'source', label: 'Company' },
@@ -110,6 +110,30 @@ const COLUMN_DEFINITIONS: ColumnDefinition[] = [
 
 const ALPHABETICAL_COLUMN_DEFINITIONS = [...COLUMN_DEFINITIONS].sort((a, b) => a.label.localeCompare(b.label))
 const SORTABLE_COLUMN_DEFINITIONS = ALPHABETICAL_COLUMN_DEFINITIONS.filter((column) => column.sortable !== false)
+
+function toColumnMajorOrder<T>(items: T[], columns: number) {
+  const rows = Math.ceil(items.length / columns)
+  const ordered: T[] = []
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < columns; col++) {
+      const index = col * rows + row
+      if (index < items.length) ordered.push(items[index])
+    }
+  }
+  return ordered
+}
+
+const COLUMN_CHECKLIST_READING_ORDER = [
+  ...COLUMN_DEFINITIONS.filter((column) => column.id === 'recordNumber'),
+  ...ALPHABETICAL_COLUMN_DEFINITIONS.filter((column) => column.id !== 'recordNumber'),
+]
+const COLUMN_CHECKLIST = toColumnMajorOrder(COLUMN_CHECKLIST_READING_ORDER, 2)
+
+const SORTABLE_COLUMN_READING_ORDER = [
+  ...SORTABLE_COLUMN_DEFINITIONS.filter((column) => column.id === 'recordNumber'),
+  ...SORTABLE_COLUMN_DEFINITIONS.filter((column) => column.id !== 'recordNumber'),
+]
+const SORTABLE_COLUMN_CHECKLIST = toColumnMajorOrder(SORTABLE_COLUMN_READING_ORDER, 2)
 
 const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
   recordNumber: false,
@@ -587,42 +611,47 @@ export function RecordsTable({
             </div>
             <div className="modalBody tableOptionsBody">
               <div className="tableOptionsControls">
-                <label className="field">
-                  <div className="label fieldLabel"><span>Rows per page</span></div>
-                  <DropdownField
-                    label="Rows per page"
-                    value={String(pagination.pageSize)}
-                    options={pageSizeOptions.map((pageSize) => ({ value: String(pageSize), label: String(pageSize) }))}
-                    onChange={(value) => table.setPageSize(Number(value))}
-                  />
-                </label>
-                <label className="field">
-                  <div className="label fieldLabel"><span>Sort by</span></div>
-                  <DropdownField
-                    label="Sort by"
-                    value={sorting[0]?.id ?? DEFAULT_SORTING[0].id}
-                    options={SORTABLE_COLUMN_DEFINITIONS.map((column) => ({ value: column.id, label: column.label }))}
-                    onChange={setSortColumn}
-                  />
-                </label>
-                <label className="field">
-                  <div className="label fieldLabel"><span>Direction</span></div>
-                  <DropdownField
-                    label="Sort direction"
-                    value={sorting[0]?.desc ? 'desc' : 'asc'}
-                    options={[
-                      { value: 'asc', label: 'Ascending' },
-                      { value: 'desc', label: 'Descending' },
-                    ]}
-                    onChange={(value) => setSortDirection(value === 'desc')}
-                  />
-                </label>
+                <DahliaPickerField
+                  label="Rows per page"
+                  required
+                  clearable={false}
+                  layout="list"
+                  centerOptionText
+                  modalWidth="min(320px, 100%)"
+                  value={String(pagination.pageSize)}
+                  options={pageSizeOptions.map((pageSize) => ({ value: String(pageSize), label: String(pageSize) }))}
+                  onChange={(value) => table.setPageSize(Number(value))}
+                />
+                <DahliaPickerField
+                  label="Sort by"
+                  required
+                  clearable={false}
+                  layout="grid"
+                  columns={2}
+                  value={sorting[0]?.id ?? DEFAULT_SORTING[0].id}
+                  options={SORTABLE_COLUMN_CHECKLIST.map((column) => ({ value: column.id, label: column.label }))}
+                  onChange={(value) => setSortColumn(value as string)}
+                />
+                <DahliaPickerField
+                  label="Direction"
+                  required
+                  clearable={false}
+                  layout="list"
+                  centerOptionText
+                  modalWidth="min(320px, 100%)"
+                  value={sorting[0]?.desc ? 'desc' : 'asc'}
+                  options={[
+                    { value: 'asc', label: 'Ascending' },
+                    { value: 'desc', label: 'Descending' },
+                  ]}
+                  onChange={(value) => setSortDirection(value === 'desc')}
+                />
               </div>
 
               <fieldset className="tableOptionsColumnsGroup">
                 <legend>Columns</legend>
                 <div className="tableOptionsColumnList">
-                  {ALPHABETICAL_COLUMN_DEFINITIONS.map((column) => (
+                  {COLUMN_CHECKLIST.map((column) => (
                     <label key={column.id} className="seasonFilterOption">
                       <input
                         type="checkbox"
