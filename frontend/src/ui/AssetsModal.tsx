@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import type { Asset, AssetFile, AssetInput, Company, CompanyInput, Order } from '../types'
-import { DropdownField } from './DropdownField'
+import { DahliaPickerField } from './DahliaPickerField'
 
 const CATEGORIES = ['Soil', 'Container', 'Tool', 'Support', 'Label', 'Fertilizer', 'Other']
 
@@ -494,10 +494,13 @@ export function AssetsModal({
         <div className="subTitle">{formAsset ? 'Edit Asset' : 'New Asset'}</div>
         <div className="grid2">
           <Field label="Asset" hint={ASSET_FIELD_HINTS.asset} value={asset} onChange={setAsset} />
-          <label className="field">
-            <FieldLabel label="Category" hint={ASSET_FIELD_HINTS.category} />
-            <DropdownField label="Category" value={category} options={[{ value: '', label: 'Select...' }, ...CATEGORIES.map((option) => ({ value: option, label: option }))]} onChange={setCategory} />
-          </label>
+          <DahliaPickerField
+            label="Category"
+            hint={ASSET_FIELD_HINTS.category}
+            value={category || undefined}
+            options={CATEGORIES}
+            onChange={(value) => setCategory(value ?? '')}
+          />
           <Field label="Quantity" hint={ASSET_FIELD_HINTS.quantity} type="number" value={quantity} onChange={setQuantity} />
           <Field
             label="Total Cost"
@@ -512,24 +515,22 @@ export function AssetsModal({
         </div>
         <TextArea label="Notes" hint={ASSET_FIELD_HINTS.notes} value={notes} onChange={setNotes} />
         <div className="subTitle">Invoice</div>
-        <label className="field linkedOrderSelect">
-          <FieldLabel label="Invoice Items" hint={ASSET_FIELD_HINTS.invoiceItems} />
-          <DropdownField
-            label="Invoice Items"
-            value=""
-            options={[
-              { value: '', label: 'Select...' },
-              ...orders.flatMap((order) => order.items.map((item) => ({
-                value: item.id,
-                label: `${order.company?.name ?? 'Company'} ${order.invoiceNumber ? `- ${order.invoiceNumber}` : ''} - ${item.flowerName}`,
-              }))),
-            ]}
-            onChange={(value) => {
-              if (!value) return
-              setLinkedOrderItemIds((current) => Array.from(new Set([...current, value])))
-            }}
-          />
-        </label>
+        <DahliaPickerField
+          label="Invoice Items"
+          hint={ASSET_FIELD_HINTS.invoiceItems}
+          layout="list"
+          clearable={false}
+          placeholder="Select..."
+          value={undefined}
+          options={orders.flatMap((order) => order.items.map((item) => ({
+            value: item.id,
+            label: `${order.company?.name ?? 'Company'} ${order.invoiceNumber ? `- ${order.invoiceNumber}` : ''} - ${item.flowerName}`,
+          })))}
+          onChange={(value) => {
+            if (!value) return
+            setLinkedOrderItemIds((current) => Array.from(new Set([...current, value])))
+          }}
+        />
         {linkedOrderRows.length ? (
           <div className="tableWrap miniTable">
             <table className="table">
@@ -553,10 +554,14 @@ export function AssetsModal({
           <div className="label">Custom Entry</div>
           <div className="customEntryBox">
         <div className="grid2">
-          <label className="field">
-            <FieldLabel label="Company" hint={ASSET_FIELD_HINTS.company} />
-            <DropdownField label="Company" value={companyId} options={[{ value: '', label: 'Select...' }, ...companies.map((company) => ({ value: company.id, label: company.name }))]} onChange={setCompanyId} />
-          </label>
+          <DahliaPickerField
+            label="Company"
+            hint={ASSET_FIELD_HINTS.company}
+            layout="list"
+            value={companyId || undefined}
+            options={companies.map((company) => ({ value: company.id, label: company.name }))}
+            onChange={(value) => setCompanyId(value ?? '')}
+          />
           <Field label="Purchase Date" hint={ASSET_FIELD_HINTS.purchaseDate} type="date" value={purchaseDate} onChange={setPurchaseDate} />
         </div>
           </div>
