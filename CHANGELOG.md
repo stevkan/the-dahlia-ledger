@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.31.0 - 2026-07-20
+
+- Replaced the Firebase App Check debug token's reliance on browser-local storage (regenerated, and needing re-registration in Firebase Console, every time a user cleared their browser cache) with an admin-generated token stored in Firestore (`appConfig/appCheck`, `backend/src/appCheckConfig.js`). A new "App Check Debug Token" control in the Settings modal's Account blade, visible only to the global admin, displays the current value and lets the admin mint a new one (`GET`/`POST /api/app-check/debug-token[/generate]`, `requireGlobalAdminRoute`). `frontend/src/firebase.ts` now fetches the stored token for the signed-in user before initializing App Check, falling back to the existing `VITE_FIREBASE_APP_CHECK_DEBUG_TOKEN` env var for local dev, and to normal reCAPTCHA verification otherwise; both debug-token endpoints are exempt from the App Check requirement itself to avoid a bootstrapping deadlock.
+
 ## 0.30.0 - 2026-07-19
 
 - Added metric-learning fine-tuning support for photo identification: an offline (`ml-training/`, Python, never deployed) triplet-loss trainer produces a small linear projection on top of frozen DINOv2 embeddings, stored externally in a new `learnedProjections` Firestore collection and applied at read time in `identifyPhotoDino` (`backend/src/agent.js`) — activating a newly trained projection is a data change (`backend/scripts/import-learned-projection.js --activate`), not a redeploy, and matching is unchanged until one is actually activated. New `backend/scripts/export-embeddings-for-training.js` exports current reference embeddings for training.

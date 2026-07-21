@@ -505,6 +505,19 @@ body {
   border-top: 1px solid var(--border-soft);
 }
 
+.appCheckDebugTokenRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.appCheckDebugTokenRow .knownUserIdButton {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .settingTitle {
   color: var(--text);
   font-size: 12px;

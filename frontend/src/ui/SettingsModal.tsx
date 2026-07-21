@@ -2,7 +2,7 @@ import { useState, type CSSProperties } from 'react'
 import type { ExcelImportResult } from '../types'
 
 type Theme = 'dark' | 'light'
-type SettingsBlade = 'appearance' | 'imports' | 'account'
+type SettingsBlade = 'appearance' | 'imports' | 'account' | 'firebaseToken'
 
 function Overlay({ children }: { children: React.ReactNode }) {
   return (
@@ -33,6 +33,11 @@ export function SettingsModal({
   onRevertExcel,
   signedInAs,
   onSignOut,
+  isGlobalAdmin,
+  appCheckDebugToken,
+  appCheckDebugTokenLoading,
+  appCheckDebugTokenGenerating,
+  onGenerateAppCheckDebugToken,
   onClose,
 }: {
   initialBlade: SettingsBlade
@@ -53,10 +58,18 @@ export function SettingsModal({
   onRevertExcel: () => void
   signedInAs: string
   onSignOut: () => void
+  isGlobalAdmin: boolean
+  appCheckDebugToken: string | null
+  appCheckDebugTokenLoading: boolean
+  appCheckDebugTokenGenerating: boolean
+  onGenerateAppCheckDebugToken: () => void
   onClose: () => void
 }) {
   const [blade, setBlade] = useState<SettingsBlade>(initialBlade)
-  const activeBlade: SettingsBlade = blade === 'imports' && !showFileImports ? 'appearance' : blade
+  const activeBlade: SettingsBlade =
+    (blade === 'imports' && !showFileImports) || (blade === 'firebaseToken' && !isGlobalAdmin)
+      ? 'appearance'
+      : blade
 
   function renderAppearance() {
     return (
@@ -160,6 +173,15 @@ export function SettingsModal({
     )
   }
 
+  async function copyAppCheckDebugToken() {
+    if (!appCheckDebugToken) return
+    try {
+      await navigator.clipboard?.writeText(appCheckDebugToken)
+    } catch {
+      // Ignore clipboard failures; the value is still visible to copy manually.
+    }
+  }
+
   function renderAccount() {
     return (
       <div className="settingsBladeSection">
@@ -169,6 +191,41 @@ export function SettingsModal({
           <button className="btn ghost compact" type="button" onClick={onSignOut}>
             Sign Out
           </button>
+        </div>
+      </div>
+    )
+  }
+
+  function renderFirebaseToken() {
+    return (
+      <div className="settingsBladeSection">
+        <div className="subTitle">Firebase Token</div>
+        <div className="oneNoteImportSetting">
+          <div>
+            <div className="settingTitle">App Check Debug Token</div>
+            <div className="settingHint">
+              Stored in Firestore so it survives a browser cache clear. Register it once in Firebase Console → App Check → Manage debug tokens.
+            </div>
+          </div>
+          <div className="appCheckDebugTokenRow">
+            <button
+              className="btn ghost compact knownUserIdButton"
+              type="button"
+              disabled={!appCheckDebugToken}
+              aria-label="Copy App Check debug token"
+              onClick={() => void copyAppCheckDebugToken()}
+            >
+              {appCheckDebugTokenLoading ? 'Loading...' : appCheckDebugToken ?? 'Not generated yet'}
+            </button>
+            <button
+              className="btn ghost compact"
+              type="button"
+              disabled={appCheckDebugTokenGenerating}
+              onClick={onGenerateAppCheckDebugToken}
+            >
+              {appCheckDebugTokenGenerating ? 'Generating...' : 'Generate new token'}
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -186,12 +243,28 @@ export function SettingsModal({
       <div className="modalBody settingsLayout">
         <div className="settingsBladeList">
           <button
+            className={`settingsBladeOption${activeBlade === 'account' ? ' selected' : ''}`}
+            type="button"
+            onClick={() => setBlade('account')}
+          >
+            Account
+          </button>
+          <button
             className={`settingsBladeOption${activeBlade === 'appearance' ? ' selected' : ''}`}
             type="button"
             onClick={() => setBlade('appearance')}
           >
             Appearance
           </button>
+          {isGlobalAdmin ? (
+            <button
+              className={`settingsBladeOption${activeBlade === 'firebaseToken' ? ' selected' : ''}`}
+              type="button"
+              onClick={() => setBlade('firebaseToken')}
+            >
+              Firebase Token
+            </button>
+          ) : null}
           {showFileImports ? (
             <button
               className={`settingsBladeOption${activeBlade === 'imports' ? ' selected' : ''}`}
@@ -201,18 +274,12 @@ export function SettingsModal({
               File Imports
             </button>
           ) : null}
-          <button
-            className={`settingsBladeOption${activeBlade === 'account' ? ' selected' : ''}`}
-            type="button"
-            onClick={() => setBlade('account')}
-          >
-            Account
-          </button>
         </div>
         <div className="settingsBladeContent">
-          {activeBlade === 'appearance' ? renderAppearance() : null}
-          {activeBlade === 'imports' ? renderFileImports() : null}
           {activeBlade === 'account' ? renderAccount() : null}
+          {activeBlade === 'appearance' ? renderAppearance() : null}
+          {activeBlade === 'firebaseToken' ? renderFirebaseToken() : null}
+          {activeBlade === 'imports' ? renderFileImports() : null}
         </div>
       </div>
     </Overlay>

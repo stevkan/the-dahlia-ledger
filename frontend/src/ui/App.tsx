@@ -12,7 +12,7 @@ import {
 import type { AgentCorrectionResult, AgentReviewResult, Asset, AssetInput, Company, CompanyInput, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, ExcelImportResult, ExcelImportRevertResult, Invite, LearnedProjectionStatus, MaintenanceReminder, MaintenanceReminderInput, Order, OrderInput } from '../types'
 import type { GardenOptionKey } from '../types'
 import { auth, authHeaders, hasFirebaseConfig, initializeAuthPersistence } from '../firebase'
-import { api, API_BASE, uploadPhoto } from '../api/client'
+import { api, API_BASE, fetchAppCheckDebugToken, generateAppCheckDebugToken, uploadPhoto } from '../api/client'
 import { type InfiniteRecordsData } from '../recordUtils'
 import { useGardens, gardenOptionLabel, gardensQueryKey } from '../hooks/useGardens'
 import { useRecords, recordsQueryKey, recordSummariesQueryKey, flowerNamesQueryKey, colorsQueryKey } from '../hooks/useRecords'
@@ -266,6 +266,26 @@ export default function App() {
     enabled: Boolean(user) && globalAdmin,
     staleTime: 5 * 60_000,
   })
+  const appCheckDebugTokenQuery = useQuery({
+    queryKey: ['app-check-debug-token'],
+    queryFn: fetchAppCheckDebugToken,
+    enabled: Boolean(user) && globalAdmin,
+    staleTime: 60_000,
+  })
+  const [appCheckDebugTokenGenerating, setAppCheckDebugTokenGenerating] = useState(false)
+
+  async function generateAppCheckDebugTokenHandler() {
+    setAppCheckDebugTokenGenerating(true)
+    setError(null)
+    try {
+      await generateAppCheckDebugToken()
+      await queryClient.invalidateQueries({ queryKey: ['app-check-debug-token'] })
+    } catch (e: any) {
+      setError(e?.message ?? String(e))
+    } finally {
+      setAppCheckDebugTokenGenerating(false)
+    }
+  }
   const assetsQuery = useQuery({
     queryKey: assetsQueryKey,
     queryFn: async () => (await api<{ assets: Asset[] }>('/api/assets')).assets,
@@ -1479,6 +1499,11 @@ export default function App() {
             setSettingsModalOpen(false)
             if (auth) void signOut(auth)
           }}
+          isGlobalAdmin={globalAdmin}
+          appCheckDebugToken={appCheckDebugTokenQuery.data ?? null}
+          appCheckDebugTokenLoading={appCheckDebugTokenQuery.isLoading}
+          appCheckDebugTokenGenerating={appCheckDebugTokenGenerating}
+          onGenerateAppCheckDebugToken={() => void generateAppCheckDebugTokenHandler()}
           oneNoteImporting={oneNoteImporting}
           oneNoteImportProgress={oneNoteImportProgress}
           oneNoteImportMessage={oneNoteImportMessage}

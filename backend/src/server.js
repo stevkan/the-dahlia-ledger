@@ -25,6 +25,7 @@ import flowerNamesRouter from './routes/flowerNames.js'
 import colorsRouter from './routes/colors.js'
 import agentRouter from './routes/agent.js'
 import settingsRouter from './routes/settings.js'
+import appCheckRouter from './routes/appCheck.js'
 
 const app = express()
 const __filename = fileURLToPath(import.meta.url)
@@ -45,6 +46,10 @@ app.get('/api/health', (req, res) => {
 
 const requireAppCheck = process.env.REQUIRE_FIREBASE_APP_CHECK === 'true'
 
+// These admin-only endpoints hand out (or rotate) the App Check debug token itself, so they
+// must stay reachable even when a client has no valid App Check token yet.
+const APP_CHECK_BOOTSTRAP_PATHS = new Set(['/app-check/debug-token', '/app-check/debug-token/generate'])
+
 app.use('/api', async (req, res, next) => {
   if (req.path === '/health') return next()
 
@@ -58,7 +63,7 @@ app.use('/api', async (req, res, next) => {
     return res.status(401).json({ error: 'unauthenticated', message: 'Invalid Firebase ID token.' })
   }
 
-  if (!requireAppCheck) return next()
+  if (!requireAppCheck || APP_CHECK_BOOTSTRAP_PATHS.has(req.path)) return next()
 
   const appCheckToken = req.get('x-firebase-appcheck')
   if (!appCheckToken) return res.status(401).json({ error: 'app_check_required', message: 'Missing Firebase App Check token.' })
@@ -88,6 +93,7 @@ app.use('/api', flowerNamesRouter)
 app.use('/api', colorsRouter)
 app.use('/api', agentRouter)
 app.use('/api', settingsRouter)
+app.use('/api', appCheckRouter)
 
 const frontendDist = path.resolve(__dirname, '../../frontend/dist')
 app.use(express.static(frontendDist))

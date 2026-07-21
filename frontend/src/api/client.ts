@@ -31,6 +31,14 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T
 }
 
+export async function fetchAppCheckDebugToken(): Promise<string | null> {
+  return (await api<{ debugToken: string | null }>('/api/app-check/debug-token')).debugToken
+}
+
+export async function generateAppCheckDebugToken(): Promise<string> {
+  return (await api<{ debugToken: string }>('/api/app-check/debug-token/generate', { method: 'POST' })).debugToken
+}
+
 export async function uploadPhoto(file: File): Promise<{ imageUrl: string; thumbnailUrl?: string; listThumbnailUrl?: string }> {
   const body = new FormData()
   body.append('file', file)
