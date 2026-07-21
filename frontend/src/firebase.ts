@@ -83,8 +83,35 @@ async function initAppCheck(): Promise<AppCheck | null> {
 let appCheckPromise: Promise<AppCheck | null> | null = null
 
 function getAppCheck(): Promise<AppCheck | null> {
-  if (!appCheckPromise) appCheckPromise = initAppCheck()
+  if (!appCheckPromise) {
+    // Don't let a hung first-time init (e.g. a stalled debug-token fetch) wedge every
+    // future request for the rest of the session — let a later call retry from scratch.
+    appCheckPromise = initAppCheck().catch((err) => {
+      appCheckPromise = null
+      throw err
+    })
+  }
   return appCheckPromise
+}
+
+// Mobile connections can stall completely (backgrounding the tab for the camera app,
+// a dropped cell connection) without the underlying request ever rejecting, which leaves
+// callers awaiting these forever with no error to surface. Bound them so a stuck token
+// refresh fails fast instead of hanging the caller indefinitely.
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (err) => {
+        clearTimeout(timer)
+        reject(err)
+      },
+    )
+  })
 }
 
 export async function initializeAuthPersistence() {
@@ -96,12 +123,21 @@ export async function authHeaders() {
   const headers: Record<string, string> = {}
 
   if (auth?.currentUser) {
-    headers.Authorization = `Bearer ${await auth.currentUser.getIdToken()}`
+    const idToken = await withTimeout(
+      auth.currentUser.getIdToken(),
+      15000,
+      'Timed out refreshing your sign-in. Check your connection and try again.',
+    )
+    headers.Authorization = `Bearer ${idToken}`
   }
 
   const appCheck = await getAppCheck()
   if (appCheck) {
-    const { token } = await getToken(appCheck)
+    const { token } = await withTimeout(
+      getToken(appCheck),
+      15000,
+      'Timed out verifying this device. Check your connection and try again.',
+    )
     headers['X-Firebase-AppCheck'] = token
   }
 

@@ -3,14 +3,35 @@ import type { AgentPhotoIdentificationResult } from '../types'
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
+// Mobile connections can stall completely (screen lock, camera app backgrounding the tab, a
+// dropped cell connection) without the fetch ever settling, leaving callers awaiting it forever
+// with no error surfaced. Abort after a bound so the caller gets a real failure instead of a hang.
+function withRequestTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), ms)
+  return { signal: controller.signal, cancel: () => clearTimeout(timer) }
+}
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(await apiHeaders(init?.headers)),
-    },
-    ...init,
-  })
+  const { signal, cancel } = withRequestTimeout(30000)
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(await apiHeaders(init?.headers)),
+      },
+      signal,
+      ...init,
+    })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Request timed out. Check your connection and try again.')
+    }
+    throw err
+  } finally {
+    cancel()
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     let message = text || `Request failed: ${res.status}`
@@ -43,11 +64,23 @@ export async function uploadPhoto(file: File): Promise<{ imageUrl: string; thumb
   const body = new FormData()
   body.append('file', file)
 
-  const res = await fetch(`${API_BASE}/api/upload`, {
-    method: 'POST',
-    headers: await authHeaders(),
-    body,
-  })
+  const { signal, cancel } = withRequestTimeout(90000)
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}/api/upload`, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body,
+      signal,
+    })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Upload timed out. Check your connection and try again.')
+    }
+    throw err
+  } finally {
+    cancel()
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(text || `Upload failed: ${res.status}`)

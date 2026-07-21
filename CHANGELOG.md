@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.32.1 - 2026-07-21
+
+- Fixed the record photo gallery's Save Photo button occasionally getting stuck on "Saving..." forever with no error shown, most often on mobile. The upload's ID-token refresh, App Check token fetch, and the `/api/upload` request itself had no timeout, so a stalled mobile connection (e.g. the tab backgrounding for the camera app, or a dropped cell connection) left the save promise neither resolving nor rejecting. `frontend/src/firebase.ts`'s `authHeaders()` now bounds the token refreshes to 15s each and no longer permanently wedges future requests if the first App Check init hangs; `frontend/src/api/client.ts`'s `api()` and `uploadPhoto()` now abort via `AbortController` after 30s/90s respectively, so a stalled request fails with a surfaced, retryable error instead of hanging indefinitely.
+- Fixed the Photo Galleries "Save Photo" button appearing stuck greyed-out right after choosing a photo, until the screen was touched or scrolled elsewhere. This was a WKWebView/iOS Safari repaint bug: after the native photo picker's `onChange` fires, the button's style/disabled updates were applied to the DOM but not actually repainted until the next touch/scroll. `frontend/src/ui/RecordModal.tsx` now nudges a repaint of the photo action buttons immediately after a photo is selected.
+
 ## 0.32.0 - 2026-07-20
 
 - Added a "Group location by even/odd" Table Options checkbox to the Records and Analytics drilldown tables, sorting each Row/Bed's positions even-first-then-odd instead of strictly ascending (`frontend/src/ui/RecordsTable.tsx`, `frontend/src/ui/AnalyticsModal.tsx`).

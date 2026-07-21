@@ -649,6 +649,7 @@ export function RecordModal({
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const galleriesFileInputRef = useRef<HTMLInputElement | null>(null)
   const confirmAreaRef = useRef<HTMLDivElement | null>(null)
+  const photoActionButtonsRef = useRef<HTMLDivElement | null>(null)
   const [open, setOpen] = useState<Record<SectionKey, boolean>>({
     core: true,
     growth: false,
@@ -750,6 +751,21 @@ export function RecordModal({
       resetFormToSource()
     }
   }, [initial])
+
+  useEffect(() => {
+    // iOS/WKWebView sometimes fails to repaint a button's style/disabled state after it
+    // changes in the onChange handler of a native file picker, leaving "Save Photo" looking
+    // greyed out until the next touch or scroll forces a repaint. Nudge one immediately.
+    if (!photoFile) return
+    const el = photoActionButtonsRef.current
+    if (!el) return
+    requestAnimationFrame(() => {
+      el.style.transform = 'translateZ(0)'
+      requestAnimationFrame(() => {
+        el.style.transform = ''
+      })
+    })
+  }, [photoFile])
 
   useEffect(() => {
     if (!confirmAction) return
@@ -1938,7 +1954,7 @@ export function RecordModal({
                       <span>This record only</span>
                     </label>
                   </div>
-                  <div className="photoActionButtons">
+                  <div className="photoActionButtons" ref={photoActionButtonsRef}>
                     <button
                       className={photoFile ? 'btn photoActionPrimary' : 'btn ghost photoActionPrimary'}
                       type="button"
