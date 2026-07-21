@@ -46,6 +46,33 @@ function compareGardenLocations(a: DahliaRecordSummary, b: DahliaRecordSummary) 
   return formatGardenLocation(a).localeCompare(formatGardenLocation(b), undefined, { numeric: true })
 }
 
+export function compareGardenLocationsGrouped(a: DahliaRecordSummary, b: DahliaRecordSummary) {
+  const aNonGarden = isNonGardenState(a)
+  const bNonGarden = isNonGardenState(b)
+  if (aNonGarden !== bNonGarden) return aNonGarden ? 1 : -1
+  if (aNonGarden && bNonGarden) return formatGardenLocation(a).localeCompare(formatGardenLocation(b), undefined, { numeric: true })
+
+  const areaCompare = String(a.meta?.gardenZone ?? a.meta?.gardenArea ?? '').localeCompare(String(b.meta?.gardenZone ?? b.meta?.gardenArea ?? ''))
+  if (areaCompare !== 0) return areaCompare
+
+  const rowCompare = compareGardenRows(a.meta?.rowOrBed ?? a.meta?.gardenRow ?? '', b.meta?.rowOrBed ?? b.meta?.gardenRow ?? '')
+  if (rowCompare !== 0) return rowCompare
+
+  const aPosition = Number(a.meta?.position ?? a.meta?.gardenPosition)
+  const bPosition = Number(b.meta?.position ?? b.meta?.gardenPosition)
+  const aHasPosition = Number.isFinite(aPosition)
+  const bHasPosition = Number.isFinite(bPosition)
+  if (aHasPosition !== bHasPosition) return aHasPosition ? -1 : 1
+  if (aHasPosition && bHasPosition) {
+    const aParity = aPosition % 2 === 0 ? 0 : 1
+    const bParity = bPosition % 2 === 0 ? 0 : 1
+    if (aParity !== bParity) return aParity - bParity
+    if (aPosition !== bPosition) return aPosition - bPosition
+  }
+
+  return formatGardenLocation(a).localeCompare(formatGardenLocation(b), undefined, { numeric: true })
+}
+
 export function resolveRecordPhoto(record: DahliaRecordSummary) {
   if (record.defaultPhotoScope === 'cultivar') {
     return record.cultivarListThumbnailUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl || record.listThumbnailUrl || record.thumbnailUrl || record.imageUrl
@@ -201,6 +228,7 @@ export function RecordsTable({
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(DEFAULT_COLUMN_VISIBILITY)
   const [columnSizes, setColumnSizes] = useState<Record<string, number>>({})
   const [tableOptionsOpen, setTableOptionsOpen] = useState(false)
+  const [groupEvenOddPositions, setGroupEvenOddPositions] = useState(false)
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
   const [selectedSeasonYears, setSelectedSeasonYears] = useState<number[]>([])
@@ -256,7 +284,10 @@ export function RecordsTable({
         header: 'Location',
         id: 'gardenLocation',
         accessorFn: formatGardenLocation,
-        sortingFn: (a, b) => compareGardenLocations(a.original, b.original),
+        sortingFn: (a, b) =>
+          groupEvenOddPositions
+            ? compareGardenLocationsGrouped(a.original, b.original)
+            : compareGardenLocations(a.original, b.original),
       },
       {
         header: 'Season',
@@ -273,7 +304,7 @@ export function RecordsTable({
         accessorFn: (record) => record.core.plantedDate ?? '',
       },
     ],
-    [],
+    [groupEvenOddPositions],
   )
 
   const seasonYears = useMemo(
@@ -646,6 +677,22 @@ export function RecordsTable({
                   ]}
                   onChange={(value) => setSortDirection(value === 'desc')}
                 />
+                {sorting[0]?.id === 'gardenLocation' ? (
+                  <label className="seasonFilterOption">
+                    <input
+                      type="checkbox"
+                      checked={groupEvenOddPositions}
+                      onChange={(event) => {
+                        setGroupEvenOddPositions(event.target.checked)
+                        // getSortedRowModel memoizes on [sorting, preSortedRowModel] and never
+                        // re-checks columns, so a fresh sorting reference is needed to force it
+                        // to pick up the swapped sortingFn.
+                        setSorting((current) => [...current])
+                      }}
+                    />
+                    Group location by even/odd
+                  </label>
+                ) : null}
               </div>
 
               <fieldset className="tableOptionsColumnsGroup">

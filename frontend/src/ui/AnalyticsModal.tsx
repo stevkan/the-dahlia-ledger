@@ -4,7 +4,7 @@ import { jsPDF } from 'jspdf'
 import type { AgentVisualization, Company, DahliaRecord } from '../types'
 import { api } from '../api/client'
 import { DahliaPickerField } from './DahliaPickerField'
-import { formatGardenLocation, resolveRecordPhoto } from './RecordsTable'
+import { compareGardenLocationsGrouped, formatGardenLocation, resolveRecordPhoto } from './RecordsTable'
 
 const AgentVisualizationView = lazy(async () => {
   const module = await import('./AgentVisualizationView')
@@ -263,6 +263,7 @@ export function AnalyticsModal({
   const [drilldownSort, setDrilldownSort] = useState<DrilldownSort | null>(null)
   const [drilldownColumnVisibility, setDrilldownColumnVisibility] = useState<Record<DrilldownRecordColumnId, boolean>>(DEFAULT_DRILLDOWN_RECORD_COLUMN_VISIBILITY)
   const [drilldownTableOptionsOpen, setDrilldownTableOptionsOpen] = useState(false)
+  const [drilldownGroupEvenOdd, setDrilldownGroupEvenOdd] = useState(false)
   const [drilldownBusy, setDrilldownBusy] = useState(false)
   const [clarify, setClarify] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -394,14 +395,19 @@ export function AnalyticsModal({
   const sortedDrilldownRecords = useMemo(() => {
     const rows = [...(drilldown?.records ?? [])]
     if (drilldownSort?.table !== 'records') return rows
+    const direction = drilldownSort.direction === 'asc' ? 1 : -1
+    if (drilldownSort.key === 'location' && drilldownGroupEvenOdd) {
+      rows.sort((a, b) => compareGardenLocationsGrouped(a.record, b.record) * direction)
+      return rows
+    }
     function sortFieldValue(row: AnalyticsDrilldownRecord) {
       if (drilldownSort!.key === 'location') return formatGardenLocation(row.record)
       if (drilldownSort!.key === 'plantedDate') return row.record.core?.plantedDate ?? ''
       return row[drilldownSort!.key as keyof AnalyticsDrilldownRecord]
     }
-    rows.sort((a, b) => compareValues(sortFieldValue(a), sortFieldValue(b)) * (drilldownSort.direction === 'asc' ? 1 : -1))
+    rows.sort((a, b) => compareValues(sortFieldValue(a), sortFieldValue(b)) * direction)
     return rows
-  }, [drilldown?.records, drilldownSort])
+  }, [drilldown?.records, drilldownSort, drilldownGroupEvenOdd])
 
   async function exportAnalyticsChart(targetWindow?: Window | null) {
     try {
@@ -890,6 +896,17 @@ export function AnalyticsModal({
                             }
                           />
                         </div>
+
+                        {(drilldownSort?.table === 'records' ? drilldownSort.key : DEFAULT_DRILLDOWN_RECORD_SORT.key) === 'location' ? (
+                          <label className="seasonFilterOption">
+                            <input
+                              type="checkbox"
+                              checked={drilldownGroupEvenOdd}
+                              onChange={(event) => setDrilldownGroupEvenOdd(event.target.checked)}
+                            />
+                            Group location by even/odd
+                          </label>
+                        ) : null}
 
                         <fieldset className="tableOptionsColumnsGroup">
                           <legend>Columns</legend>
