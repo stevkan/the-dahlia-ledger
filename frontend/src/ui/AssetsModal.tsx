@@ -194,12 +194,17 @@ export function AssetsModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
+  const [formSnapshot, setFormSnapshot] = useState('')
 
   const sortedAssets = useMemo(() => [...assets].sort(sortAssets), [assets])
   const assetById = useMemo(() => new Map(assets.map((row) => [row.id, row])), [assets])
   const selectedAsset = view.mode === 'detail' ? assetById.get(view.assetId) ?? null : null
   const formAsset = view.mode === 'form' && view.assetId ? assetById.get(view.assetId) ?? null : null
   const canSave = asset.trim()
+  const formHasChanges = useMemo(() => {
+    if (view.mode !== 'form') return false
+    return JSON.stringify({ asset, category, quantity, totalCost, purchaseDate, notes, linkedOrderItemIds, companyId, newCompanyName }) !== formSnapshot
+  }, [view.mode, asset, category, quantity, totalCost, purchaseDate, notes, linkedOrderItemIds, companyId, newCompanyName, formSnapshot])
   const linkedOrderRows = (view.mode === 'form' ? linkedOrderItemIds : selectedAsset?.linkedOrderItemIds ?? []).flatMap((itemId) => {
     for (const order of orders) {
       const item = order.items.find((candidate) => candidate.id === itemId)
@@ -228,32 +233,49 @@ export function AssetsModal({
     setNewCompanyName('')
   }
 
+  function snapshotOf(values: { asset: string; category: string; quantity: string; totalCost: string; purchaseDate: string; notes: string; linkedOrderItemIds: string[]; companyId: string; newCompanyName: string }) {
+    return JSON.stringify(values)
+  }
+
   function openCreateForm() {
     cancelConfirm()
     setError(null)
     resetForm()
+    setFormSnapshot(snapshotOf({ asset: '', category: '', quantity: '', totalCost: '', purchaseDate: '', notes: '', linkedOrderItemIds: [], companyId: '', newCompanyName: '' }))
     setView({ mode: 'form' })
   }
 
   function openEditForm(row: Asset) {
     cancelConfirm()
     setError(null)
-    setAsset(row.asset)
-    setCategory(row.category ?? '')
-    setQuantity(row.quantity === undefined ? '' : String(row.quantity))
-    setTotalCost(row.totalCost === undefined ? '' : formatMoneyInput(String(row.totalCost)))
-    setPurchaseDate(row.purchaseDate ?? '')
-    setNotes(row.notes ?? '')
-    setLinkedOrderItemIds(row.linkedOrderItemIds ?? [])
-    setCompanyId(row.companyId ?? '')
-    setNewCompanyName('')
+    const next = {
+      asset: row.asset,
+      category: row.category ?? '',
+      quantity: row.quantity === undefined ? '' : String(row.quantity),
+      totalCost: row.totalCost === undefined ? '' : formatMoneyInput(String(row.totalCost)),
+      purchaseDate: row.purchaseDate ?? '',
+      notes: row.notes ?? '',
+      linkedOrderItemIds: row.linkedOrderItemIds ?? [],
+      companyId: row.companyId ?? '',
+      newCompanyName: '',
+    }
+    setAsset(next.asset)
+    setCategory(next.category)
+    setQuantity(next.quantity)
+    setTotalCost(next.totalCost)
+    setPurchaseDate(next.purchaseDate)
+    setNotes(next.notes)
+    setLinkedOrderItemIds(next.linkedOrderItemIds)
+    setCompanyId(next.companyId)
+    setNewCompanyName(next.newCompanyName)
+    setFormSnapshot(snapshotOf(next))
     setView({ mode: 'form', assetId: row.id })
   }
 
-  function returnFromForm(assetId?: string) {
-    resetForm()
-    setError(null)
-    setView(assetId ? { mode: 'detail', assetId } : { mode: 'list' })
+  function cancelFormEdits() {
+    if (!formHasChanges) return
+    if (formAsset) openEditForm(formAsset)
+    else openCreateForm()
   }
 
   async function convertImageToPdf(file: File) {
@@ -567,7 +589,7 @@ export function AssetsModal({
           </div>
         </div>
         <div className="rowActions">
-          <button className="btn ghost" type="button" onClick={() => returnFromForm(formAsset?.id)}>Cancel</button>
+          <button className="btn ghost" type="button" disabled={!formHasChanges} onClick={cancelFormEdits}>Cancel</button>
           <button className="btn" type="button" disabled={!canSave || saving} onClick={() => void saveAsset()}>{saving ? 'Saving...' : formAsset ? 'Update Asset' : 'Save Asset'}</button>
         </div>
       </div>

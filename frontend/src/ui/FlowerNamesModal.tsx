@@ -106,7 +106,7 @@ export function FlowerNamesModal({
                               {saving ? 'Saving...' : 'Save'}
                             </button>
                           )}
-                          <button className="btn ghost compact" type="button" disabled={saving} onClick={cancelEdit}>
+                          <button className="btn ghost compact" type="button" disabled={saving || editValue === editingName} onClick={cancelEdit}>
                             Cancel
                           </button>
                         </div>

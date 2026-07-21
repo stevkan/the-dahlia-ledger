@@ -204,6 +204,7 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
   const [confirmingDeleteReminderId, setConfirmingDeleteReminderId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [formSnapshot, setFormSnapshot] = useState('')
 
   const visibleReminders = reminders.filter((reminder) => canCurrentUserViewReminder(reminder, currentUserId))
   const dueReminders = sortActiveReminders(visibleReminders.filter((reminder) => isDue(reminder)))
@@ -218,6 +219,7 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
   const assigneeOptions = [{ value: '', label: 'Unassigned' }, ...members.map((member) => ({ value: member.userId, label: member.displayName || member.email || member.userId }))]
   const showRelatedRecordOptions = relatedRecordSearchFocused && relatedRecordOptions.length > 0
   const canSaveReminder = Boolean(title.trim() && dueDate && visibility)
+  const formHasChanges = view === 'form' && JSON.stringify({ title, notes, dueDate, relatedRecordId, relatedRecordSearch, assignedToUserId, visibility, priority }) !== formSnapshot
 
   function selectRelatedRecord(record: DahliaRecord) {
     setRelatedRecordId(record.id)
@@ -282,6 +284,7 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
   function openCreateForm() {
     setConfirmingDeleteReminderId(null)
     resetForm()
+    setFormSnapshot(JSON.stringify({ title: '', notes: '', dueDate: '', relatedRecordId: '', relatedRecordSearch: '', assignedToUserId: '', visibility: 'garden', priority: 'normal' }))
     setView('form')
   }
 
@@ -294,18 +297,36 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
   function editReminder(reminder: MaintenanceReminder) {
     const relatedRecord = records.find((record) => record.id === reminder.relatedRecordIds?.[0])
     setConfirmingDeleteReminderId(null)
-    setTitle(reminder.title)
-    setNotes(reminder.notes ?? '')
-    setDueDate(reminder.dueDate ?? '')
-    setRelatedRecordId(relatedRecord?.id ?? '')
-    setRelatedRecordSearch(relatedRecord ? recordLabel(relatedRecord) : '')
-    setAssignedToUserId(reminder.assignedToUserId ?? '')
-    setVisibility(reminder.visibility ?? 'garden')
-    setPriority(reminder.priority ?? 'normal')
+    const next = {
+      title: reminder.title,
+      notes: reminder.notes ?? '',
+      dueDate: reminder.dueDate ?? '',
+      relatedRecordId: relatedRecord?.id ?? '',
+      relatedRecordSearch: relatedRecord ? recordLabel(relatedRecord) : '',
+      assignedToUserId: reminder.assignedToUserId ?? '',
+      visibility: reminder.visibility ?? 'garden',
+      priority: reminder.priority ?? 'normal',
+    }
+    setTitle(next.title)
+    setNotes(next.notes)
+    setDueDate(next.dueDate)
+    setRelatedRecordId(next.relatedRecordId)
+    setRelatedRecordSearch(next.relatedRecordSearch)
+    setAssignedToUserId(next.assignedToUserId)
+    setVisibility(next.visibility)
+    setPriority(next.priority)
     setEditingReminderId(reminder.id)
+    setFormSnapshot(JSON.stringify(next))
     setView('form')
     setError(null)
     modalBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function cancelFormEdits() {
+    if (!formHasChanges) return
+    const editingReminder = editingReminderId ? reminders.find((reminder) => reminder.id === editingReminderId) : null
+    if (editingReminder) editReminder(editingReminder)
+    else openCreateForm()
   }
 
   function renderReminder(reminder: MaintenanceReminder) {
@@ -504,7 +525,7 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
               </div>
               <div className="rowActions reminderComposerActions">
                 <button className="btn" type="button" disabled={busy || !canSaveReminder} onClick={() => void submit()}>{busy ? 'Saving...' : editingReminderId ? 'Update Reminder' : 'Save Reminder'}</button>
-                <button className="btn ghost" type="button" disabled={busy} onClick={returnToList}>{editingReminderId ? 'Cancel Edit' : 'Cancel'}</button>
+                <button className="btn ghost" type="button" disabled={busy || !formHasChanges} onClick={cancelFormEdits}>Cancel</button>
                 {error ? <div className="error inlineError">{error}</div> : null}
               </div>
             </section>

@@ -106,7 +106,7 @@ export function ColorsModal({
                               {saving ? 'Saving...' : 'Save'}
                             </button>
                           )}
-                          <button className="btn ghost compact" type="button" disabled={saving} onClick={cancelEdit}>
+                          <button className="btn ghost compact" type="button" disabled={saving || editValue === editingColor} onClick={cancelEdit}>
                             Cancel
                           </button>
                         </div>

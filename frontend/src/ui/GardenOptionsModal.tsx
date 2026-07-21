@@ -249,6 +249,7 @@ export function GardenOptionsModal({
   const canSave = formValue.trim().length > 0
   const normalizedFormValue = normalizeOption(formValue)
   const isRename = Boolean(selectedValue && normalizedFormValue && selectedValue !== normalizedFormValue)
+  const formHasChanges = selectedValue ? formValue !== selectedValue : formValue.trim().length > 0
 
   useEffect(() => {
     if (activeGroup !== 'gardenRows') return
@@ -327,6 +328,13 @@ export function GardenOptionsModal({
       return
     }
     onClose()
+  }
+
+  function cancelFormEdits() {
+    if (!formHasChanges) return
+    setFormValue(selectedValue || '')
+    setRenameArmed(false)
+    setError(null)
   }
 
   function cancelEdit() {
@@ -595,7 +603,7 @@ export function GardenOptionsModal({
               <button className="btn" type="button" disabled={!canSave} onClick={saveValue}>
                 {renameArmed ? 'Confirm Rename' : selectedValue ? 'Update Value' : 'Save'}
               </button>
-              <button className="btn ghost" type="button" disabled={!canSave} onClick={clearForm}>Cancel</button>
+              <button className="btn ghost" type="button" disabled={!formHasChanges} onClick={cancelFormEdits}>Cancel</button>
               {!values.length ? (
                 <button className="btn ghost gardenOptionRestoreDefaults" type="button" onClick={restoreDefaultValues}>
                   Use Default Values

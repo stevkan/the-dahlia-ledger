@@ -737,14 +737,17 @@ export function RecordModal({
     return photoFile !== null || normalizeInputForComparison(form) !== initialSnapshot
   }, [form, initialSnapshot, photoFile])
 
+  function resetFormToSource() {
+    const original = inputFromInitialRecord(initial, draft)
+    setForm(inputWithNormalizedBloomWidth(original))
+    setInitialSnapshot(normalizeInputForComparison(original))
+    setDeletedInheritedCultivarUrls([])
+    setDirtyPhotoSection(null)
+  }
+
   useEffect(() => {
     if (initial) {
-      const original = recordToInput(initial)
-      const next = inputWithNormalizedBloomWidth(original)
-      setForm(next)
-      setInitialSnapshot(normalizeInputForComparison(original))
-      setDeletedInheritedCultivarUrls([])
-      setDirtyPhotoSection(null)
+      resetFormToSource()
     }
   }, [initial])
 
@@ -767,6 +770,14 @@ export function RecordModal({
       return
     }
     onClose()
+  }
+
+  function handleCancelChanges() {
+    if (!hasChanges) return
+    resetFormToSource()
+    cancelPhotoSelection()
+    setCloseError(null)
+    setConfirmAction(null)
   }
 
   async function selectPhoto(file: File | undefined) {
@@ -1857,7 +1868,7 @@ export function RecordModal({
             <button className="btn" disabled={!canSave || !hasChanges || saving} onClick={() => void handleSave()}>
               {saving ? 'Saving…' : 'Save'}
             </button>
-            <button className="btn ghost" onClick={onClose}>
+            <button className="btn ghost" disabled={!hasChanges} onClick={handleCancelChanges}>
               Cancel
             </button>
             {initial && onDuplicate ? (

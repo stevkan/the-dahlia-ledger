@@ -244,6 +244,7 @@ export function OrderModal({
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
   const [selectedFilterCompanyId, setSelectedFilterCompanyId] = useState('')
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR)
+  const [formSnapshot, setFormSnapshot] = useState('')
 
   const orderById = useMemo(() => new Map(orders.map((order) => [order.id, order])), [orders])
   const knownFlowerNames = useMemo(() => {
@@ -254,6 +255,10 @@ export function OrderModal({
   const selectedOrder = view.mode === 'detail' ? orderById.get(view.orderId) ?? null : null
   const formOrder = view.mode === 'form' && view.orderId ? orderById.get(view.orderId) ?? null : null
   const canSave = (companyId || newCompanyName.trim()) && invoiceNumber.trim() && totalCost.trim() && orderDate.trim()
+  const formHasChanges = useMemo(() => {
+    if (view.mode !== 'form') return false
+    return JSON.stringify({ companyId, newCompanyName, invoiceNumber, orderDate, totalCost, notes, items }) !== formSnapshot
+  }, [view.mode, companyId, newCompanyName, invoiceNumber, orderDate, totalCost, notes, items, formSnapshot])
 
   const companySummaries = useMemo(() => {
     return companies
@@ -338,42 +343,52 @@ export function OrderModal({
     cancelConfirm()
     setError(null)
     resetForm()
+    setFormSnapshot(JSON.stringify({ companyId: '', newCompanyName: '', invoiceNumber: '', orderDate: '', totalCost: '', notes: '', items: [EMPTY_ITEM] }))
     setView({ mode: 'form' })
   }
 
   function openEditForm(order: Order) {
     cancelConfirm()
     setError(null)
-    setCompanyId(order.companyId)
-    setNewCompanyName('')
-    setInvoiceNumber(order.invoiceNumber ?? '')
-    setOrderDate(order.orderDate ?? '')
-    setTotalCost(order.totalCost === undefined ? '' : formatMoneyInput(String(order.totalCost)))
-    setNotes(order.notes ?? '')
-    setItems(
-      order.items.length
-        ? order.items.map((item) => ({
-            id: item.id,
-            orderId: item.orderId,
-            gardenId: item.gardenId,
-            itemNo: item.itemNo,
-            flowerName: item.flowerName,
-            cultivarName: item.cultivarName,
-            itemCost: item.itemCost === undefined ? '' : formatMoneyInput(String(item.itemCost)),
-            quantity: item.quantity,
-            notes: item.notes,
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt,
-          }))
-        : [EMPTY_ITEM],
-    )
+    const nextItems = order.items.length
+      ? order.items.map((item) => ({
+          id: item.id,
+          orderId: item.orderId,
+          gardenId: item.gardenId,
+          itemNo: item.itemNo,
+          flowerName: item.flowerName,
+          cultivarName: item.cultivarName,
+          itemCost: item.itemCost === undefined ? '' : formatMoneyInput(String(item.itemCost)),
+          quantity: item.quantity,
+          notes: item.notes,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+        }))
+      : [EMPTY_ITEM]
+    const next = {
+      companyId: order.companyId,
+      newCompanyName: '',
+      invoiceNumber: order.invoiceNumber ?? '',
+      orderDate: order.orderDate ?? '',
+      totalCost: order.totalCost === undefined ? '' : formatMoneyInput(String(order.totalCost)),
+      notes: order.notes ?? '',
+      items: nextItems,
+    }
+    setCompanyId(next.companyId)
+    setNewCompanyName(next.newCompanyName)
+    setInvoiceNumber(next.invoiceNumber)
+    setOrderDate(next.orderDate)
+    setTotalCost(next.totalCost)
+    setNotes(next.notes)
+    setItems(next.items)
+    setFormSnapshot(JSON.stringify(next))
     setView({ mode: 'form', orderId: order.id })
   }
 
-  function returnFromForm(orderId?: string) {
-    resetForm()
-    setError(null)
-    setView(orderId ? { mode: 'detail', orderId } : { mode: 'companies' })
+  function cancelFormEdits() {
+    if (!formHasChanges) return
+    if (formOrder) openEditForm(formOrder)
+    else openCreateForm()
   }
 
   async function convertImageToPdf(file: File) {
@@ -754,7 +769,7 @@ export function OrderModal({
         </div>
         <div className="rowActions">
           <button className="btn ghost" type="button" onClick={() => setItems((p) => [...p, { ...EMPTY_ITEM }])}>Add Item</button>
-          <button className="btn ghost" type="button" onClick={() => returnFromForm(formOrder?.id)}>Cancel</button>
+          <button className="btn ghost" type="button" disabled={!formHasChanges} onClick={cancelFormEdits}>Cancel</button>
           <button className="btn" type="button" disabled={!canSave || saving} onClick={() => void saveOrder()}>{saving ? 'Saving...' : formOrder ? 'Update Invoice Record' : 'Save Invoice Record'}</button>
         </div>
       </div>
