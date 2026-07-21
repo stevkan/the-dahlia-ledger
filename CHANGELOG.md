@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.32.0 - 2026-07-20
+
+- Added a "Group location by even/odd" Table Options checkbox to the Records and Analytics drilldown tables, sorting each Row/Bed's positions even-first-then-odd instead of strictly ascending (`frontend/src/ui/RecordsTable.tsx`, `frontend/src/ui/AnalyticsModal.tsx`).
+- Fixed Cancel button behavior across the record, asset, order, company, garden option, reminder, color, and flower name modals: Cancel now reverts fields to their last-saved state, keeps the modal open, and stays disabled until there are unsaved changes, instead of inconsistently discarding edits, closing outright, or resetting to blank.
+
 ## 0.31.0 - 2026-07-20
 
 - Replaced the Firebase App Check debug token's reliance on browser-local storage (regenerated, and needing re-registration in Firebase Console, every time a user cleared their browser cache) with an admin-generated token stored in Firestore (`appConfig/appCheck`, `backend/src/appCheckConfig.js`). A new "App Check Debug Token" control in the Settings modal's Account blade, visible only to the global admin, displays the current value and lets the admin mint a new one (`GET`/`POST /api/app-check/debug-token[/generate]`, `requireGlobalAdminRoute`). `frontend/src/firebase.ts` now fetches the stored token for the signed-in user before initializing App Check, falling back to the existing `VITE_FIREBASE_APP_CHECK_DEBUG_TOKEN` env var for local dev, and to normal reCAPTCHA verification otherwise; both debug-token endpoints are exempt from the App Check requirement itself to avoid a bootstrapping deadlock.
