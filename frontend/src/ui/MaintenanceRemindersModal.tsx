@@ -438,7 +438,7 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
           </div>
           <div className="rowActions modalHeaderActions">
             {view === 'list' ? <button className="btn" type="button" onClick={openCreateForm}>Add Reminder</button> : null}
-            <button className="btn ghost compact" type="button" onClick={onClose}>Close</button>
+            <button className="btn ghost compact" type="button" onClick={() => (view === 'form' ? returnToList() : onClose())}>Close</button>
           </div>
         </div>
         <div className="modalBody remindersBody" ref={modalBodyRef}>
