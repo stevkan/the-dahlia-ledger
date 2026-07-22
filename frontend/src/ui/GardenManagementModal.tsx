@@ -384,7 +384,8 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
           <div className="memberCardGrid">
             {gardenMembers.map((member) => {
               const selected = selectedGardenMemberIds.includes(member.id)
-              return <div className={`memberCard${selected ? ' selected' : ''}`} key={member.id}><div className="memberCardBody"><span className="memberName">{member.displayName || member.email || member.userId}</span><span className="memberRoleBadge">{member.role}</span></div><label className="photoTileSelect" aria-label="Select garden member"><input type="checkbox" checked={selected} onChange={(event) => toggleSelectedGardenMember(member.id, event.target.checked)} /><span /></label></div>
+              const displayLabel = member.displayName || member.email || member.userId
+              return <div className={`memberCard${selected ? ' selected' : ''}`} key={member.id}><div className="memberCardBody"><span className="memberName">{displayLabel}</span>{member.email && member.email !== displayLabel ? <span className="muted memberMeta">{member.email}</span> : null}<span className="memberRoleBadge">{member.role}</span></div><label className="photoTileSelect" aria-label="Select garden member"><input type="checkbox" checked={selected} onChange={(event) => toggleSelectedGardenMember(member.id, event.target.checked)} /><span /></label></div>
             })}
           </div>
         </div>
