@@ -1,13 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DahliaRecord, GardenMember, MaintenanceReminder, MaintenanceReminderInput } from '../types'
+import { DahliaPickerField } from './DahliaPickerField'
 
 type RelatedRecordSeasonFilter = 'current' | 'all'
 type ReminderView = 'list' | 'form'
-
-type ReminderDropdownOption = {
-  value: string
-  label: string
-}
 
 type Props = {
   reminders: MaintenanceReminder[]
@@ -67,50 +63,6 @@ function FieldLabel({ label, hint }: { label: string; hint?: string }) {
           ?
           {visible ? <span className="helpTooltip" role="tooltip">{hint}</span> : null}
         </button>
-      ) : null}
-    </div>
-  )
-}
-
-function ReminderDropdown({ label, value, options, onChange }: { label: string; value: string; options: ReminderDropdownOption[]; onChange: (value: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const selectedOption = options.find((option) => option.value === value) ?? options[0]
-
-  function selectOption(optionValue: string) {
-    onChange(optionValue)
-    setOpen(false)
-  }
-
-  return (
-    <div className="reminderDropdown" onBlur={(e) => {
-      if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false)
-    }}>
-      <button
-        className="reminderDropdownButton select"
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={label}
-        onClick={() => setOpen((current) => !current)}
-      >
-        {selectedOption?.label ?? ''}
-      </button>
-      {open ? (
-        <div className="reminderDropdownOptions" role="listbox" aria-label={label}>
-          {options.map((option) => (
-            <button
-              className="reminderDropdownOption"
-              key={option.value}
-              type="button"
-              role="option"
-              aria-selected={option.value === value}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => selectOption(option.value)}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
       ) : null}
     </div>
   )
@@ -450,22 +402,33 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
                   <FieldLabel label="Title" hint={REMINDER_FIELD_HINTS.title} />
                   <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Check storage notes for overwintered tubers" />
                 </label>
-                <label className="field">
-                  <FieldLabel label="Assigned User ID" hint={REMINDER_FIELD_HINTS.assignedUser} />
-                  {members.length ? (
-                    <ReminderDropdown label="Assigned User ID" value={assignedToUserId} options={assigneeOptions} onChange={setAssignedToUserId} />
-                  ) : (
+                {members.length ? (
+                  <DahliaPickerField
+                    label="Assigned User ID"
+                    hint={REMINDER_FIELD_HINTS.assignedUser}
+                    value={assignedToUserId}
+                    options={assigneeOptions}
+                    onChange={(value) => setAssignedToUserId(value ?? '')}
+                    clearable={false}
+                  />
+                ) : (
+                  <label className="field">
+                    <FieldLabel label="Assigned User ID" hint={REMINDER_FIELD_HINTS.assignedUser} />
                     <input className="input" value={assignedToUserId} onChange={(e) => setAssignedToUserId(e.target.value)} placeholder="Optional user ID" />
-                  )}
-                </label>
+                  </label>
+                )}
                 <label className="field">
                   <FieldLabel label="Due Date" hint={REMINDER_FIELD_HINTS.dueDate} />
                   <input className="input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
                 </label>
-                <label className="field">
-                  <FieldLabel label="Visibility" hint={REMINDER_FIELD_HINTS.visibility} />
-                  <ReminderDropdown label="Visibility" value={visibility ?? 'garden'} options={[{ value: 'private', label: 'Private' }, { value: 'garden', label: 'Garden' }]} onChange={(value) => setVisibility(value as MaintenanceReminder['visibility'])} />
-                </label>
+                <DahliaPickerField
+                  label="Visibility"
+                  hint={REMINDER_FIELD_HINTS.visibility}
+                  value={visibility ?? 'garden'}
+                  options={[{ value: 'private', label: 'Private' }, { value: 'garden', label: 'Garden' }]}
+                  onChange={(value) => setVisibility((value ?? 'garden') as MaintenanceReminder['visibility'])}
+                  clearable={false}
+                />
                 <div className="field relatedRecordField">
                   <div className="relatedRecordHeader">
                     <FieldLabel label="Related Record" hint={REMINDER_FIELD_HINTS.relatedRecord} />

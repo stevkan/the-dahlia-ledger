@@ -1549,25 +1549,18 @@ th.sortable {
   white-space: nowrap;
 }
 
-.reminderDropdown {
-  position: relative;
-}
-
-.dropdownButton,
-.reminderDropdownButton {
+.dropdownButton {
   display: block;
   text-align: left;
   cursor: pointer;
 }
 
-.dropdownButton:focus-visible,
-.reminderDropdownButton:focus-visible {
+.dropdownButton:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
-.dropdownOptions,
-.reminderDropdownOptions {
+.dropdownOptions {
   position: absolute;
   z-index: 30;
   top: calc(100% + 4px);
@@ -1582,8 +1575,7 @@ th.sortable {
   box-shadow: var(--shadow-menu);
 }
 
-.dropdownOption,
-.reminderDropdownOption {
+.dropdownOption {
   padding: 9px 10px;
   border: 0;
   border-bottom: 1px solid var(--border-soft);
@@ -1594,14 +1586,12 @@ th.sortable {
   cursor: pointer;
 }
 
-.dropdownOption:first-child,
-.reminderDropdownOption:first-child {
+.dropdownOption:first-child {
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
 }
 
-.dropdownOption:last-child,
-.reminderDropdownOption:last-child {
+.dropdownOption:last-child {
   border-bottom: 0;
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 12px;
@@ -1620,9 +1610,7 @@ th.sortable {
 }
 
 .dropdownOption:hover:not(:disabled),
-.dropdownOption[aria-selected="true"],
-.reminderDropdownOption:hover,
-.reminderDropdownOption[aria-selected="true"] {
+.dropdownOption[aria-selected="true"] {
   background: var(--surface-hover);
   color: var(--text-strong);
 }
