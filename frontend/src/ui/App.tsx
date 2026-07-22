@@ -15,6 +15,7 @@ import { auth, authHeaders, hasFirebaseConfig, initializeAuthPersistence } from 
 import { api, API_BASE, fetchAppCheckDebugToken, generateAppCheckDebugToken, uploadPhoto } from '../api/client'
 import { type InfiniteRecordsData } from '../recordUtils'
 import { useGardens, gardenOptionLabel, gardensQueryKey } from '../hooks/useGardens'
+import { onGardenAccessRevoked } from '../api/gardenAccessEvents'
 import { useRecords, recordsQueryKey, recordSummariesQueryKey, flowerNamesQueryKey, colorsQueryKey } from '../hooks/useRecords'
 import { useDataAudit } from '../hooks/useDataAudit'
 import { useIsWeakConnection } from '../hooks/useIsWeakConnection'
@@ -339,6 +340,10 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(RECORDS_REFRESH_INTERVAL_STORAGE_KEY, String(recordsRefreshIntervalMs))
   }, [recordsRefreshIntervalMs])
+
+  useEffect(() => onGardenAccessRevoked(() => {
+    setError('Your access to this garden has changed. Switched you to your available gardens.')
+  }), [])
 
   const anyModalOpen = Boolean(
     active || createOpen || agentHelperOpen || analyticsOpen || photoIdentifyOpen ||
