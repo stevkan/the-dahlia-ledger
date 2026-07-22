@@ -2610,6 +2610,10 @@ th.sortable {
   font-size: 12px;
 }
 
+.inviteInlineError {
+  margin-bottom: 8px;
+}
+
 @media (max-width: 720px) {
   .photoDropzone {
     grid-template-columns: 1fr;

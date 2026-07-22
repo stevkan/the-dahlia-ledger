@@ -196,17 +196,11 @@ export function useGardens({
   }
 
   async function deleteGarden(gardenId: string) {
-    setError(null)
-    try {
-      await api<{ ok: true }>(`/api/gardens/${encodeURIComponent(gardenId)}`, {
-        method: 'DELETE',
-      })
-      if (selectedGardenId === gardenId) setSelectedGardenId('')
-      await queryClient.invalidateQueries({ queryKey: gardensQueryKey })
-    } catch (e: any) {
-      setError(e?.message ?? String(e))
-      throw e
-    }
+    await api<{ ok: true }>(`/api/gardens/${encodeURIComponent(gardenId)}`, {
+      method: 'DELETE',
+    })
+    if (selectedGardenId === gardenId) setSelectedGardenId('')
+    await queryClient.invalidateQueries({ queryKey: gardensQueryKey })
   }
 
   async function listGardenMembers(gardenId: string) {

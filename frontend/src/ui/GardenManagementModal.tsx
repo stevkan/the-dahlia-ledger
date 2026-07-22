@@ -103,12 +103,15 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
   const [gardenAddress, setGardenAddress] = useState('')
   const [gardenNotes, setGardenNotes] = useState('')
   const [deleteGardenArmed, setDeleteGardenArmed] = useState(false)
+  const [deleteGardenError, setDeleteGardenError] = useState<string | null>(null)
   const [deleteKnownUserArmedId, setDeleteKnownUserArmedId] = useState('')
   const [gardenKnownUserId, setGardenKnownUserId] = useState('')
   const [gardenRole, setGardenRole] = useState<GardenRole>('viewer')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('viewer')
   const [deleteInviteArmedId, setDeleteInviteArmedId] = useState('')
+  const [removeMembersError, setRemoveMembersError] = useState<string | null>(null)
+  const [deleteInviteError, setDeleteInviteError] = useState<{ id: string; message: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [knownUserError, setKnownUserError] = useState<string | null>(null)
@@ -142,10 +145,13 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
     setGardenAddress(selectedGarden?.address ?? '')
     setGardenNotes(selectedGarden?.notes ?? '')
     setDeleteGardenArmed(false)
+    setDeleteGardenError(null)
   }, [selectedGarden])
 
   async function refreshGarden(gardenId: string) {
     setError(null)
+    setRemoveMembersError(null)
+    setDeleteInviteError(null)
     try {
       const [members, invites] = await Promise.all([onListGardenMembers(gardenId), onListInvites({ gardenId })])
       setGardenMembers(members)
@@ -189,15 +195,23 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
     if (!selectedGardenId || !selectedGarden) return
     if (!deleteGardenArmed) {
       setDeleteGardenArmed(true)
+      setDeleteGardenError(null)
       return
     }
     const deletedGardenId = selectedGardenId
-    await run(async () => {
+    setBusy(true)
+    setDeleteGardenError(null)
+    try {
       await onDeleteGarden(deletedGardenId)
       const nextGarden = fallbackGarden(gardens.filter((garden) => garden.id !== deletedGardenId))
       setSelectedGardenId(nextGarden?.id ?? '')
       setDeleteGardenArmed(false)
-    })
+    } catch (e: any) {
+      setDeleteGardenError(formatError(e))
+      setDeleteGardenArmed(false)
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function saveGardenMember() {
@@ -247,13 +261,21 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
     if (!selectedGardenId) return
     if (deleteInviteArmedId !== invite.id) {
       setDeleteInviteArmedId(invite.id)
+      setDeleteInviteError(null)
       return
     }
-    await run(async () => {
+    setBusy(true)
+    setDeleteInviteError(null)
+    try {
       await onDeleteInvite(invite.id)
       setDeleteInviteArmedId('')
       await refreshGarden(selectedGardenId)
-    })
+    } catch (e: any) {
+      setDeleteInviteError({ id: invite.id, message: formatError(e) })
+      setDeleteInviteArmedId('')
+    } finally {
+      setBusy(false)
+    }
   }
 
   function toggleSelectedGardenMember(memberId: string, selected: boolean) {
@@ -265,11 +287,17 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
 
   async function removeSelectedGardenMembers() {
     if (!selectedGardenId || !selectedGardenMemberIds.length) return
-    await run(async () => {
+    setBusy(true)
+    setRemoveMembersError(null)
+    try {
       for (const memberId of selectedGardenMemberIds) await onDeleteGardenMember(selectedGardenId, memberId)
       setSelectedGardenMemberIds([])
       await refreshGarden(selectedGardenId)
-    })
+    } catch (e: any) {
+      setRemoveMembersError(formatError(e))
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function deleteKnownUser(userId: string) {
@@ -350,6 +378,7 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
                 <label className="field gridSpanFull"><FieldLabel label="Address" hint={GARDEN_FIELD_HINTS.address} /><input className="input" value={gardenAddress} onChange={(event) => setGardenAddress(event.target.value)} /></label>
                 <label className="field gridSpanFull"><FieldLabel label="Notes" hint={GARDEN_FIELD_HINTS.notes} /><textarea className="textarea" value={gardenNotes} rows={3} onChange={(event) => setGardenNotes(event.target.value)} /></label>
               </div>
+              {deleteGardenError ? <div className="error inlineError">{deleteGardenError}</div> : null}
               <div className="gardenDetailsActionRow">
                 <div className="rowActions reminderComposerActions">
                   {selectedGarden ? <button className="btn ghost compact" type="button" onClick={onOpenPlacementOptions}>Options</button> : null}
@@ -386,6 +415,7 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
             <DropdownField label="Role" value={gardenRole} options={GARDEN_ROLES.map((role) => ({ value: role, label: role }))} onChange={(value) => setGardenRole(value as GardenRole)} />
           </label>
         </div>
+        {removeMembersError ? <div className="error inlineError">{removeMembersError}</div> : null}
         <div className="memberActionRow"><button className="btn ghost compact" type="button" disabled={busy || !gardenMemberInput()} onClick={() => void saveGardenMember()}>Save Member</button><button className="btn danger compact" type="button" disabled={busy || !selectedGardenMemberIds.length} onClick={() => void removeSelectedGardenMembers()}>Remove Selected</button></div>
         <div className="gardenMemberListSection">
           <div className="subTitle">Members ({memberCountLabel})</div>
@@ -427,6 +457,7 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
                 <FieldLabel label="Invite link" hint={GARDEN_FIELD_HINTS.inviteLink} />
                 <input className="input" readOnly value={inviteUrl(invite.token)} onFocus={(event) => event.currentTarget.select()} />
               </div>
+              {deleteInviteError && deleteInviteError.id === invite.id ? <div className="error inlineError inviteInlineError">{deleteInviteError.message}</div> : null}
               <div className="rowActions reminderComposerActions">
                 {!accepted ? <button className="btn ghost compact" type="button" disabled={busy} onClick={() => void resendGardenInvite(invite.id)}>Resend</button> : null}
                 <button className="btn danger compact" type="button" disabled={busy} onClick={() => void deleteGardenInvite(invite)}>{armed ? (accepted ? 'Confirm Delete' : 'Confirm Revoke') : (accepted ? 'Delete' : 'Revoke')}</button>
