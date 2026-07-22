@@ -111,6 +111,7 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
   const [deleteInviteArmedId, setDeleteInviteArmedId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [knownUserError, setKnownUserError] = useState<string | null>(null)
 
   const isNewGarden = selectedGardenId === '__new__'
   const selectedGarden = gardens.find((garden) => garden.id === selectedGardenId) ?? null
@@ -276,14 +277,21 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
 
     if (deleteKnownUserArmedId !== userId) {
       setDeleteKnownUserArmedId(userId)
+      setKnownUserError(null)
       return
     }
 
-    await run(async () => {
+    setBusy(true)
+    setKnownUserError(null)
+    try {
       await onDeleteKnownUser(userId)
       setDeleteKnownUserArmedId('')
       if (gardenKnownUserId === userId) resetGardenMemberInputs()
-    })
+    } catch (e: any) {
+      setKnownUserError(formatError(e))
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function run(action: () => Promise<void>) {
@@ -435,6 +443,7 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
       <section className="reminderComposer">
         <div className="reminderSectionHeader"><div><div className="subTitle">Known Users</div><div className="photoGalleryCount">{knownUsers.length} user{knownUsers.length === 1 ? '' : 's'}</div></div></div>
         <div className="muted">Deletes only the saved user document used for member pickers. Existing garden memberships and Firebase Auth accounts are not removed.</div>
+        {knownUserError ? <div className="error inlineError">{knownUserError}</div> : null}
         <div className="memberCardGrid">
           {knownUsers.map((knownUser) => {
             const label = knownUser.displayName || knownUser.email || knownUser.userId

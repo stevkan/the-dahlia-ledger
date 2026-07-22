@@ -69,7 +69,7 @@ export async function deleteKnownUser(userId, usage = {}) {
 
   if (usage.ownsGarden || usage.addedByAnotherUser) {
     const reasons = []
-    if (usage.ownsGarden) reasons.push('owns a garden')
+    if (usage.ownsGarden) reasons.push('own a garden')
     if (usage.addedByAnotherUser) reasons.push('was added to a garden by another user')
     const error = new Error(`This user cannot be deleted because they ${reasons.join(' and ')}. Remove them from that garden first.`)
     error.code = 'known_user_in_use'
