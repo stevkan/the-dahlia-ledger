@@ -3,7 +3,7 @@ import path from 'node:path'
 
 import sharp from 'sharp'
 
-import { getBucket } from './firebase.js'
+import { downloadBlobBuffer, uploadPublicBlob } from './blobStorage.js'
 
 const PHOTO_CACHE_CONTROL = 'public, max-age=31536000, immutable'
 const THUMBNAIL_WIDTH = 320
@@ -14,38 +14,9 @@ function safeExtension(extension = '') {
   return ext && ext.length <= 8 ? ext : ''
 }
 
-function publicStorageObjectName(publicUrl) {
-  if (!publicUrl) return undefined
-
-  try {
-    const url = new URL(publicUrl)
-    const bucketName = getBucket().name
-    let objectPath = ''
-
-    if (url.pathname.includes('/o/')) {
-      objectPath = url.pathname.split('/o/')[1] ?? ''
-    } else {
-      objectPath = url.pathname.replace(/^\/+/, '')
-      if (objectPath.startsWith(`${bucketName}/`)) objectPath = objectPath.slice(bucketName.length + 1)
-    }
-
-    objectPath = decodeURIComponent(objectPath.split('?')[0] ?? '')
-    return objectPath || undefined
-  } catch {
-    return undefined
-  }
-}
-
-async function uploadPublicFile(objectName, buffer, contentType) {
-  const file = getBucket().file(objectName)
-  await file.save(buffer, {
-    metadata: {
-      contentType,
-      cacheControl: PHOTO_CACHE_CONTROL,
-    },
-  })
-  await file.makePublic()
-  return file.publicUrl()
+async function uploadPublicFile(blobPath, buffer, contentType) {
+  const url = await uploadPublicBlob(blobPath, buffer, contentType, PHOTO_CACHE_CONTROL)
+  return { url, blobPath }
 }
 
 async function resizeToWebp(buffer, width) {
@@ -67,47 +38,52 @@ export async function createListThumbnail(buffer) {
 export async function uploadPhotoBuffer(buffer, contentType, extension = '') {
   const id = `${Date.now()}-${crypto.randomUUID()}`
   const safeExt = safeExtension(extension)
-  const originalObjectName = `dahlia-photos/originals/${id}${safeExt}`
-  const thumbnailObjectName = `dahlia-photos/thumbnails/${id}.webp`
-  const listThumbnailObjectName = `dahlia-photos/thumbnails-list/${id}.webp`
+  const originalBlobPath = `originals/${id}${safeExt}`
+  const thumbnailBlobPath = `thumbnails/${id}.webp`
+  const listThumbnailBlobPath = `thumbnails-list/${id}.webp`
 
-  const [imageUrl, thumbnailBuffer, listThumbnailBuffer] = await Promise.all([
-    uploadPublicFile(originalObjectName, buffer, contentType),
+  const [original, thumbnailBuffer, listThumbnailBuffer] = await Promise.all([
+    uploadPublicFile(originalBlobPath, buffer, contentType),
     createThumbnail(buffer),
     createListThumbnail(buffer),
   ])
-  const [thumbnailUrl, listThumbnailUrl] = await Promise.all([
-    uploadPublicFile(thumbnailObjectName, thumbnailBuffer, 'image/webp'),
-    uploadPublicFile(listThumbnailObjectName, listThumbnailBuffer, 'image/webp'),
+  const [thumbnail, listThumbnail] = await Promise.all([
+    uploadPublicFile(thumbnailBlobPath, thumbnailBuffer, 'image/webp'),
+    uploadPublicFile(listThumbnailBlobPath, listThumbnailBuffer, 'image/webp'),
   ])
 
-  return { imageUrl, thumbnailUrl, listThumbnailUrl }
+  return {
+    imageUrl: original.url,
+    thumbnailUrl: thumbnail.url,
+    listThumbnailUrl: listThumbnail.url,
+    imageBlobPath: original.blobPath,
+    thumbnailBlobPath: thumbnail.blobPath,
+    listThumbnailBlobPath: listThumbnail.blobPath,
+  }
 }
 
-async function downloadPhotoBuffer(imageUrl) {
-  const objectName = publicStorageObjectName(imageUrl)
-  if (!objectName) return undefined
-
-  const [buffer] = await getBucket().file(objectName).download()
-  return { objectName, buffer }
+async function downloadPhotoBuffer(blobPath) {
+  if (!blobPath) return undefined
+  const buffer = await downloadBlobBuffer(blobPath)
+  return { blobPath, buffer }
 }
 
-export async function createThumbnailForPhotoUrl(imageUrl) {
-  const downloaded = await downloadPhotoBuffer(imageUrl)
+export async function createThumbnailForPhotoUrl(blobPath) {
+  const downloaded = await downloadPhotoBuffer(blobPath)
   if (!downloaded) return undefined
 
   const thumbnailBuffer = await createThumbnail(downloaded.buffer)
-  const parsed = path.parse(downloaded.objectName)
-  const thumbnailName = `dahlia-photos/thumbnails/${parsed.name || `${Date.now()}-${crypto.randomUUID()}`}.webp`
-  return await uploadPublicFile(thumbnailName, thumbnailBuffer, 'image/webp')
+  const parsed = path.parse(downloaded.blobPath)
+  const thumbnailBlobPath = `thumbnails/${parsed.name || `${Date.now()}-${crypto.randomUUID()}`}.webp`
+  return await uploadPublicFile(thumbnailBlobPath, thumbnailBuffer, 'image/webp')
 }
 
-export async function createListThumbnailForPhotoUrl(imageUrl) {
-  const downloaded = await downloadPhotoBuffer(imageUrl)
+export async function createListThumbnailForPhotoUrl(blobPath) {
+  const downloaded = await downloadPhotoBuffer(blobPath)
   if (!downloaded) return undefined
 
   const listThumbnailBuffer = await createListThumbnail(downloaded.buffer)
-  const parsed = path.parse(downloaded.objectName)
-  const listThumbnailName = `dahlia-photos/thumbnails-list/${parsed.name || `${Date.now()}-${crypto.randomUUID()}`}.webp`
-  return await uploadPublicFile(listThumbnailName, listThumbnailBuffer, 'image/webp')
+  const parsed = path.parse(downloaded.blobPath)
+  const listThumbnailBlobPath = `thumbnails-list/${parsed.name || `${Date.now()}-${crypto.randomUUID()}`}.webp`
+  return await uploadPublicFile(listThumbnailBlobPath, listThumbnailBuffer, 'image/webp')
 }

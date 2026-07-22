@@ -5,6 +5,9 @@ export const DahliaPhotoSchema = z.object({
   imageUrl: z.string().min(1),
   thumbnailUrl: z.string().optional().nullable(),
   listThumbnailUrl: z.string().optional().nullable(),
+  imageBlobPath: z.string().optional().nullable(),
+  thumbnailBlobPath: z.string().optional().nullable(),
+  listThumbnailBlobPath: z.string().optional().nullable(),
   scope: z.enum(['record', 'cultivar']),
   createdAt: z.string().optional().nullable(),
 })

@@ -172,16 +172,16 @@ export function useRecords({
     return data.pages.flatMap((page) => page.records)
   }
 
-  async function openRecordFromSummary(summary: DahliaRecordSummary) {
+  async function openRecordById(id: string) {
     setError(null)
-    const cachedRecord = records.find((record) => record.id === summary.id)
+    const cachedRecord = records.find((record) => record.id === id)
     if (cachedRecord) {
       setActive(cachedRecord)
       return
     }
 
     const data = await api<{ record: DahliaRecord }>(
-      `/api/records/${encodeURIComponent(summary.id)}${gardenQuery}`,
+      `/api/records/${encodeURIComponent(id)}${gardenQuery}`,
     )
     queryClient.setQueryData<DahliaRecord[]>(recordsQueryKey(activeGardenId), (previous) => {
       if (!previous) return previous
@@ -190,6 +190,10 @@ export function useRecords({
         : [...previous, data.record]
     })
     setActive(data.record)
+  }
+
+  async function openRecordFromSummary(summary: DahliaRecordSummary) {
+    await openRecordById(summary.id)
   }
 
   async function onCreate(input: DahliaRecordInput) {
@@ -321,6 +325,7 @@ export function useRecords({
     refreshRecordSummaries,
     patchRecordSummaryCache,
     openRecordFromSummary,
+    openRecordById,
     onCreate,
     onUpdate,
     onDelete,

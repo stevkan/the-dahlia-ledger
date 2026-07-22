@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "0.32.1",
+  "version": "0.33.0",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
@@ -27,7 +27,14 @@
     "export:training-embeddings": "node scripts/export-embeddings-for-training.js",
     "import:learned-projection": "node scripts/import-learned-projection.js",
     "import:learned-projection:dry-run": "node scripts/import-learned-projection.js --dry-run",
-    "deactivate:learned-projection": "node scripts/deactivate-learned-projection.js"
+    "deactivate:learned-projection": "node scripts/deactivate-learned-projection.js",
+    "migrate": "node-pg-migrate --envPath .env",
+    "migrate:up": "node-pg-migrate up --envPath .env",
+    "migrate:down": "node-pg-migrate down --envPath .env",
+    "migrate:records-to-postgres": "node scripts/migrate-records-to-postgres.js",
+    "migrate:records-to-postgres:apply": "node scripts/migrate-records-to-postgres.js --apply",
+    "migrate:photos-to-blob": "node scripts/migrate-photos-to-azure-blob.js",
+    "migrate:photos-to-blob:apply": "node scripts/migrate-photos-to-azure-blob.js --apply"
   },
   "keywords": [],
   "author": "",
@@ -37,6 +44,7 @@
     "exec": "node --require ./src/appinsights.cjs src/server.js"
   },
   "dependencies": {
+    "@azure/storage-blob": "^12.33.0",
     "@huggingface/transformers": "^4.2.0",
     "applicationinsights": "^3.15.1",
     "compression": "^1.8.1",
@@ -46,11 +54,13 @@
     "firebase-admin": "^13.9.0",
     "multer": "^2.1.1",
     "openai": "^6.37.0",
+    "pg": "^8.22.0",
     "sharp": "^0.34.5",
     "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "node-pg-migrate": "^9.0.0",
     "nodemon": "^3.1.14",
     "vitest": "^3.2.7"
   }

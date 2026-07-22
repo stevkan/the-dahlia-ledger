@@ -534,6 +534,71 @@ body {
   color: var(--accent);
 }
 
+.settingHint.error {
+  color: var(--danger);
+}
+
+.dataAuditToolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dataAuditPager {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dataAuditList {
+  display: grid;
+  gap: 12px;
+}
+
+.dataAuditEntry {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-subtle);
+}
+
+.dataAuditEntryHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dataAuditEntryActions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dataAuditTable {
+  margin-top: 8px;
+}
+
+.dataAuditTable .colField {
+  width: 22%;
+}
+
+.dataAuditTable .colSnapshotValue,
+.dataAuditTable .colLiveValue {
+  width: 39%;
+}
+
+.driftOldValue {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.driftNewValue {
+  color: var(--text);
+  font-weight: 650;
+}
+
 .importFileButton {
   position: relative;
   display: flex;
@@ -3007,6 +3072,10 @@ th.sortable {
   overflow: hidden;
 }
 
+.settingsLayout.settingsLayoutWide {
+  grid-template-columns: minmax(auto, 1fr) minmax(auto, 3fr);
+}
+
 .modalBody.settingsLayout {
   flex: 1;
   overflow: hidden;
@@ -3335,7 +3404,8 @@ th.sortable {
     max-height: 320px;
   }
 
-  .settingsLayout {
+  .settingsLayout,
+  .settingsLayout.settingsLayoutWide {
     grid-template-columns: 1fr;
     overflow: auto;
   }

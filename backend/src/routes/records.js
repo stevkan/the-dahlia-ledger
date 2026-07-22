@@ -1,11 +1,23 @@
 import express from 'express'
 import { z } from 'zod'
 import { DahliaPhotoSchema, DahliaRecordInputSchema } from '../schema.js'
-import { createRecord, deleteCultivarPhoto, deleteRecord, getRecord, hasLegacyUnassignedRecords, listRecords, listRecordsPage, listRecordSummaries, listRecordSummariesPage, updateCultivarPhoto, updateCultivarPhotoDefault, updateRecord, updateRecordPhotoDefault } from '../records.js'
+import { createRecord, deleteCultivarPhoto, deleteRecord, getRecord, hasLegacyUnassignedRecords, listRecordDrift, listRecords, listRecordsPage, listRecordSummaries, listRecordSummariesPage, markRecordDriftReviewed, updateCultivarPhoto, updateCultivarPhotoDefault, updateRecord, updateRecordPhotoDefault } from '../records.js'
 import { isFallbackGarden, requireGardenAccess, requireGardenWriteAccess, resolveGardenId, resolveWritableGardenId } from '../gardens.js'
-import { forbidden } from '../httpHelpers.js'
+import { forbidden, requireGlobalAdminRoute } from '../httpHelpers.js'
 
 const router = express.Router()
+
+// Admin-only audit of drift between the frozen Postgres migration snapshot and live records.
+// Registered ahead of '/records/:id' so 'audit' never matches as an :id.
+router.get('/records/audit/drift', requireGlobalAdminRoute, async (req, res) => {
+  res.json(await listRecordDrift())
+})
+
+router.post('/records/audit/drift/:id/reviewed', requireGlobalAdminRoute, async (req, res) => {
+  const ok = await markRecordDriftReviewed(req.params.id)
+  if (!ok) return res.status(404).json({ error: 'not_found' })
+  res.json({ ok: true })
+})
 
 router.get('/records', async (req, res) => {
   try {

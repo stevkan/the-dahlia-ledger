@@ -1988,38 +1988,15 @@ function maxSuggestions() {
   return Number.isFinite(configured) ? configured : DEFAULT_MAX_SUGGESTIONS
 }
 
-function modeForm(forms) {
-  const counts = new Map()
-  for (const form of forms) {
-    if (!form) continue
-    const key = normalizeCultivarKey(form)
-    counts.set(key, (counts.get(key) ?? 0) + 1)
-  }
-  let best = null
-  let bestCount = 0
-  for (const [key, count] of counts) {
-    if (count > bestCount) {
-      bestCount = count
-      best = key
-    }
-  }
-  return best
-}
-
 async function identifyPhotoDino({ imageBuffer, imageContentType, imageUrl, gardenId, references }) {
   let querySegmentation
   let queryEmbedding
   let queryColorFeatures
-  let inferredForm
   try {
     querySegmentation = await segmentFlower({ buffer: imageBuffer, contentType: imageContentType, url: imageUrl })
-    ;[queryEmbedding, queryColorFeatures, inferredForm] = await Promise.all([
+    ;[queryEmbedding, queryColorFeatures] = await Promise.all([
       embedImageDino({ image: querySegmentation.image }),
       computeColorFeatures(querySegmentation),
-      (async () => {
-        const clipEmbedding = await embedImage({ image: querySegmentation.image })
-        return classifyBestLabel(clipEmbedding, DAHLIA_FORM_OPTIONS, getFormLabelEmbeddings())
-      })(),
     ])
   } catch (error) {
     console.warn('Photo identification embedding failed:', error)
@@ -2053,7 +2030,6 @@ async function identifyPhotoDino({ imageBuffer, imageContentType, imageUrl, gard
   const centWeight = centroidWeight()
   const colWeight = colorWeight()
   const consistencyScale = consistencyBonusScale()
-  const formBoost = formMatchBoost()
 
   const cultivarScores = []
   for (const { cultivarName, scored } of byCultivar.values()) {
@@ -2070,8 +2046,6 @@ async function identifyPhotoDino({ imageBuffer, imageContentType, imageUrl, gard
       ? Math.max(...centroidDoc.centroids.map((c) => cosineSimilarity(queryEmbedding, project(c.vector))))
       : 0
     const colorSim = hasColor ? colorFeatureSimilarity(queryColorFeatures, centroidDoc.colorCentroid) : 0
-    const cultivarFormMode = modeForm(scored.map((s) => s.form))
-    const formCompat = cultivarFormMode && cultivarFormMode === normalizeCultivarKey(inferredForm.label) ? formBoost : 0
 
     // A cultivar whose centroid hasn't been (re)computed yet (e.g. a photo added since the last batch
     // recompute, before the automatic per-cultivar recompute in ensureEmbeddingsForRecord catches up)
@@ -2081,7 +2055,7 @@ async function identifyPhotoDino({ imageBuffer, imageContentType, imageUrl, gard
     const missingWeight = (hasCentroid ? 0 : centWeight) + (hasColor ? 0 : colWeight)
     const effectiveEmbeddingWeight = embWeight + missingWeight
 
-    const score = photoAvgSim * effectiveEmbeddingWeight + centroidSim * centWeight + colorSim * colWeight + formCompat + consistencyBonus
+    const score = photoAvgSim * effectiveEmbeddingWeight + centroidSim * centWeight + colorSim * colWeight + consistencyBonus
     cultivarScores.push({ name: cultivarName, score, thumbnailUrl: sorted[0].thumbnailUrl })
   }
 

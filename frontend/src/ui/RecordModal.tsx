@@ -633,7 +633,7 @@ export function RecordModal({
   correctionResult?: AgentCorrectionResult | null
   reviewBusy?: boolean
   correctionBusy?: boolean
-  onUploadPhoto?: (file: File) => Promise<{ imageUrl: string; thumbnailUrl?: string; listThumbnailUrl?: string }>
+  onUploadPhoto?: (file: File) => Promise<{ imageUrl: string; thumbnailUrl?: string; listThumbnailUrl?: string; imageBlobPath?: string; thumbnailBlobPath?: string; listThumbnailBlobPath?: string }>
   onCreateCompany?: (input: CompanyInput) => Promise<Company>
   onOpenCompanies?: () => void
   onOpenGardenOptions?: (group: GardenOptionKey) => void
@@ -1233,6 +1233,9 @@ export function RecordModal({
           imageUrl: uploaded.imageUrl,
           thumbnailUrl: uploaded.thumbnailUrl ?? uploaded.imageUrl,
           listThumbnailUrl: uploaded.listThumbnailUrl ?? uploaded.thumbnailUrl ?? uploaded.imageUrl,
+          imageBlobPath: uploaded.imageBlobPath,
+          thumbnailBlobPath: uploaded.thumbnailBlobPath,
+          listThumbnailBlobPath: uploaded.listThumbnailBlobPath,
           scope: photoScope,
           createdAt: new Date().toISOString(),
         }

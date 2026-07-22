@@ -81,6 +81,9 @@ export type DahliaPhoto = {
   imageUrl: string
   thumbnailUrl?: string
   listThumbnailUrl?: string
+  imageBlobPath?: string
+  thumbnailBlobPath?: string
+  listThumbnailBlobPath?: string
   scope: 'record' | 'cultivar'
   createdAt?: string
 }
@@ -210,6 +213,34 @@ export type DahliaRecordSummary = Pick<
   growth: Pick<DahliaRecord['growth'], 'height'>
   tuber: Pick<DahliaRecord['tuber'], 'source' | 'linkedOrderItemIds'>
   meta: Pick<DahliaRecord['meta'], 'gardenArea' | 'gardenRow' | 'gardenPosition' | 'gardenZone' | 'rowOrBed' | 'position' | 'plantingState'>
+}
+
+export type RecordDriftField = {
+  path: string
+  snapshotValue: unknown
+  liveValue: unknown
+}
+
+export type RecordDrift = {
+  id: string
+  recordNumber: number
+  gardenId?: string
+  flowerName: string
+  gardenLocation?: string
+  meta: DahliaRecordSummary['meta']
+  fields: RecordDriftField[]
+}
+
+export type RecordDriftMissingEntry = {
+  id: string
+  recordNumber?: number
+  flowerName?: string
+}
+
+export type RecordDriftResponse = {
+  drift: RecordDrift[]
+  missingLive: RecordDriftMissingEntry[]
+  missingSnapshot: RecordDriftMissingEntry[]
 }
 
 export type AgentReviewFinding = {

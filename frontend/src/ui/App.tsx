@@ -16,6 +16,7 @@ import { api, API_BASE, fetchAppCheckDebugToken, generateAppCheckDebugToken, upl
 import { type InfiniteRecordsData } from '../recordUtils'
 import { useGardens, gardenOptionLabel, gardensQueryKey } from '../hooks/useGardens'
 import { useRecords, recordsQueryKey, recordSummariesQueryKey, flowerNamesQueryKey, colorsQueryKey } from '../hooks/useRecords'
+import { useDataAudit } from '../hooks/useDataAudit'
 import { useIsWeakConnection } from '../hooks/useIsWeakConnection'
 import { RecordsTable } from './RecordsTable'
 import { RecordModal } from './RecordModal'
@@ -310,7 +311,7 @@ export default function App() {
 
   const {
     records, recordSummaries, flowerNames, colors, loading, recordSummariesQuery,
-    refreshRecords, refreshRecordSummaries, openRecordFromSummary,
+    refreshRecords, refreshRecordSummaries, openRecordFromSummary, openRecordById,
     onCreate, onUpdate, onDelete,
     onUpdateCultivarPhoto, onSetRecordPhotoDefault, onSetCultivarPhotoDefault, onDeleteCultivarPhoto,
   } = useRecords({
@@ -323,6 +324,11 @@ export default function App() {
     onRefreshCompanies: refreshCompanies,
     setError,
   })
+
+  const {
+    drift: driftRecords, loading: driftLoading, error: driftError,
+    refresh: refreshDrift, markReviewed: markDriftReviewed,
+  } = useDataAudit(Boolean(user) && globalAdmin && settingsModalOpen)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -1504,6 +1510,12 @@ export default function App() {
           appCheckDebugTokenLoading={appCheckDebugTokenQuery.isLoading}
           appCheckDebugTokenGenerating={appCheckDebugTokenGenerating}
           onGenerateAppCheckDebugToken={() => void generateAppCheckDebugTokenHandler()}
+          driftRecords={driftRecords}
+          driftLoading={driftLoading}
+          driftError={driftError}
+          onRefreshDrift={refreshDrift}
+          onMarkReviewed={(id) => { markDriftReviewed(id).catch((e: any) => setError(e?.message ?? String(e))) }}
+          onOpenDriftedRecord={(id) => void openRecordById(id)}
           oneNoteImporting={oneNoteImporting}
           oneNoteImportProgress={oneNoteImportProgress}
           oneNoteImportMessage={oneNoteImportMessage}

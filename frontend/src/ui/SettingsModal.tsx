@@ -1,8 +1,16 @@
 import { useState, type CSSProperties } from 'react'
-import type { ExcelImportResult } from '../types'
+import type { ExcelImportResult, RecordDrift } from '../types'
 
 type Theme = 'dark' | 'light'
-type SettingsBlade = 'appearance' | 'imports' | 'account' | 'firebaseToken'
+type SettingsBlade = 'appearance' | 'imports' | 'account' | 'firebaseToken' | 'dataAudit'
+
+const DATA_AUDIT_PAGE_SIZE = 25
+
+function formatDriftValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '(empty)'
+  if (Array.isArray(value)) return value.length ? value.join(', ') : '(empty)'
+  return String(value)
+}
 
 function Overlay({ children }: { children: React.ReactNode }) {
   return (
@@ -38,6 +46,12 @@ export function SettingsModal({
   appCheckDebugTokenLoading,
   appCheckDebugTokenGenerating,
   onGenerateAppCheckDebugToken,
+  driftRecords,
+  driftLoading,
+  driftError,
+  onRefreshDrift,
+  onMarkReviewed,
+  onOpenDriftedRecord,
   onClose,
 }: {
   initialBlade: SettingsBlade
@@ -63,13 +77,29 @@ export function SettingsModal({
   appCheckDebugTokenLoading: boolean
   appCheckDebugTokenGenerating: boolean
   onGenerateAppCheckDebugToken: () => void
+  driftRecords: RecordDrift[]
+  driftLoading: boolean
+  driftError: string | null
+  onRefreshDrift: () => void
+  onMarkReviewed: (id: string) => void
+  onOpenDriftedRecord: (id: string) => void
   onClose: () => void
 }) {
   const [blade, setBlade] = useState<SettingsBlade>(initialBlade)
   const activeBlade: SettingsBlade =
-    (blade === 'imports' && !showFileImports) || (blade === 'firebaseToken' && !isGlobalAdmin)
+    (blade === 'imports' && !showFileImports)
+    || (blade === 'firebaseToken' && !isGlobalAdmin)
+    || (blade === 'dataAudit' && !isGlobalAdmin)
       ? 'appearance'
       : blade
+
+  const [driftPage, setDriftPage] = useState(0)
+  const driftPageCount = Math.max(1, Math.ceil(driftRecords.length / DATA_AUDIT_PAGE_SIZE))
+  const clampedDriftPage = Math.min(driftPage, driftPageCount - 1)
+  const pagedDriftRecords = driftRecords.slice(
+    clampedDriftPage * DATA_AUDIT_PAGE_SIZE,
+    (clampedDriftPage + 1) * DATA_AUDIT_PAGE_SIZE,
+  )
 
   function renderAppearance() {
     return (
@@ -231,6 +261,94 @@ export function SettingsModal({
     )
   }
 
+  function renderDataAudit() {
+    return (
+      <div className="settingsBladeSection">
+        <div className="subTitle">Data Audit</div>
+        <div className="settingHint">
+          Records where the frozen pre-migration summary disagrees with the live record. Check each one against
+          the actual garden, fix it in the record if needed, then mark it reviewed.
+        </div>
+        <div className="dataAuditToolbar">
+          <button className="btn ghost compact" type="button" onClick={onRefreshDrift} disabled={driftLoading}>
+            {driftLoading ? 'Refreshing...' : 'Refresh'}
+          </button>
+          {driftRecords.length > 0 ? (
+            <div className="dataAuditPager">
+              <button
+                className="btn ghost compact"
+                type="button"
+                disabled={clampedDriftPage === 0}
+                onClick={() => setDriftPage((p) => Math.max(0, p - 1))}
+              >
+                Previous
+              </button>
+              <span className="settingHint">
+                {clampedDriftPage * DATA_AUDIT_PAGE_SIZE + 1}
+                –{Math.min(driftRecords.length, (clampedDriftPage + 1) * DATA_AUDIT_PAGE_SIZE)}
+                {' of '}{driftRecords.length}
+              </span>
+              <button
+                className="btn ghost compact"
+                type="button"
+                disabled={clampedDriftPage >= driftPageCount - 1}
+                onClick={() => setDriftPage((p) => Math.min(driftPageCount - 1, p + 1))}
+              >
+                Next
+              </button>
+            </div>
+          ) : null}
+          {driftError ? <span className="settingHint error">{driftError}</span> : null}
+        </div>
+        {!driftLoading && driftRecords.length === 0 ? (
+          <div className="settingHint success">No unreviewed drift found.</div>
+        ) : null}
+        <div className="dataAuditList">
+          {pagedDriftRecords.map((drift) => (
+            <div className="dataAuditEntry" key={drift.id}>
+              <div className="dataAuditEntryHeader">
+                <div>
+                  <div className="settingTitle">#{drift.recordNumber} {drift.flowerName}</div>
+                  <div className="settingHint">
+                    {[drift.meta?.gardenZone, drift.gardenLocation].filter(Boolean).join(' · ') || 'No garden location recorded'}
+                  </div>
+                </div>
+                <div className="dataAuditEntryActions">
+                  <button className="btn ghost compact" type="button" onClick={() => onOpenDriftedRecord(drift.id)}>
+                    Open
+                  </button>
+                  <button className="btn ghost compact" type="button" onClick={() => onMarkReviewed(drift.id)}>
+                    Mark Reviewed
+                  </button>
+                </div>
+              </div>
+              <div className="tableWrap miniTable">
+                <table className="table dataAuditTable">
+                  <thead>
+                    <tr>
+                      <th className="colField">Field</th>
+                      <th className="colSnapshotValue">Snapshot (pre-migration)</th>
+                      <th className="colLiveValue">Live (current)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drift.fields.map((field) => (
+                      <tr key={field.path}>
+                        <td className="colField">{field.path}</td>
+                        <td className="colSnapshotValue driftOldValue">{formatDriftValue(field.snapshotValue)}</td>
+                        <td className="colLiveValue driftNewValue">{formatDriftValue(field.liveValue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <Overlay>
       <div className="modalHeader">
@@ -240,7 +358,7 @@ export function SettingsModal({
         </div>
         <button className="btn ghost" onClick={onClose}>Close</button>
       </div>
-      <div className="modalBody settingsLayout">
+      <div className={`modalBody settingsLayout${activeBlade === 'dataAudit' || activeBlade === 'firebaseToken' ? ' settingsLayoutWide' : ''}`}>
         <div className="settingsBladeList">
           <button
             className={`settingsBladeOption${activeBlade === 'account' ? ' selected' : ''}`}
@@ -265,6 +383,15 @@ export function SettingsModal({
               Firebase Token
             </button>
           ) : null}
+          {isGlobalAdmin ? (
+            <button
+              className={`settingsBladeOption${activeBlade === 'dataAudit' ? ' selected' : ''}`}
+              type="button"
+              onClick={() => setBlade('dataAudit')}
+            >
+              Data Audit
+            </button>
+          ) : null}
           {showFileImports ? (
             <button
               className={`settingsBladeOption${activeBlade === 'imports' ? ' selected' : ''}`}
@@ -279,6 +406,7 @@ export function SettingsModal({
           {activeBlade === 'account' ? renderAccount() : null}
           {activeBlade === 'appearance' ? renderAppearance() : null}
           {activeBlade === 'firebaseToken' ? renderFirebaseToken() : null}
+          {activeBlade === 'dataAudit' ? renderDataAudit() : null}
           {activeBlade === 'imports' ? renderFileImports() : null}
         </div>
       </div>

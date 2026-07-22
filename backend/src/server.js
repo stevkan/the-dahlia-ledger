@@ -6,7 +6,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import './env.js'
-import { warmEmbeddingModel } from './embeddings.js'
+import { warmDinoModel } from './dino.js'
+import { warmSegmentationModel } from './segmentation.js'
 import { verifyFirebaseAppCheckToken, verifyFirebaseIdToken } from './firebase.js'
 import { isGlobalAdmin, upsertKnownUser } from './users.js'
 import { bearerToken } from './httpHelpers.js'
@@ -111,8 +112,8 @@ app.use((err, req, res, next) => {
   next(err)
 })
 
-warmEmbeddingModel().catch((error) => {
-  console.error('Failed to warm photo embedding model:', error)
+Promise.all([warmSegmentationModel(), warmDinoModel()]).catch((error) => {
+  console.error('Failed to warm photo identification models:', error)
 })
 
 const port = Number(process.env.PORT ?? 8787)

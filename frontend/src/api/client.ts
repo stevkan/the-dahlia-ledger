@@ -60,7 +60,16 @@ export async function generateAppCheckDebugToken(): Promise<string> {
   return (await api<{ debugToken: string }>('/api/app-check/debug-token/generate', { method: 'POST' })).debugToken
 }
 
-export async function uploadPhoto(file: File): Promise<{ imageUrl: string; thumbnailUrl?: string; listThumbnailUrl?: string }> {
+export type UploadPhotoResult = {
+  imageUrl: string
+  thumbnailUrl?: string
+  listThumbnailUrl?: string
+  imageBlobPath?: string
+  thumbnailBlobPath?: string
+  listThumbnailBlobPath?: string
+}
+
+export async function uploadPhoto(file: File): Promise<UploadPhotoResult> {
   const body = new FormData()
   body.append('file', file)
 
@@ -85,7 +94,7 @@ export async function uploadPhoto(file: File): Promise<{ imageUrl: string; thumb
     const text = await res.text().catch(() => '')
     throw new Error(text || `Upload failed: ${res.status}`)
   }
-  return (await res.json()) as { imageUrl: string; thumbnailUrl?: string; listThumbnailUrl?: string }
+  return (await res.json()) as UploadPhotoResult
 }
 
 const IDENTIFY_PHOTO_MAX_DIMENSION = 768

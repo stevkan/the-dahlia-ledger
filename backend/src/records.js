@@ -1,26 +1,71 @@
-import { getDb } from './firebase.js'
+import crypto from 'node:crypto'
+
+import { query, withTransaction } from './db.js'
 import { ensureEmbeddingsForRecord, deletePhotoEmbeddings } from './photoEmbeddings.js'
-const COLLECTION = 'dahliaRecords'
-const SUMMARY_COLLECTION = 'dahliaRecordSummaries'
+
 const ONENOTE_IMPORT_NOTE = 'Imported from OneNote MHT.'
 const RECORD_SUMMARY_CACHE_TTL_MS = 30_000
 const recordSummaryCache = new Map()
 const LEGACY_UNASSIGNED_CHECK_TTL_MS = 5 * 60_000
 let legacyUnassignedCache = null
 
-function nowIso() {
-  return new Date().toISOString()
+const WRITABLE_COLUMNS = [
+  'record_number', 'garden_id', 'flower_name', 'garden_location', 'season_year_start',
+  'thumbnail_url', 'list_thumbnail_url', 'image_url', 'cultivar_thumbnail_url', 'cultivar_list_thumbnail_url', 'cultivar_image_url',
+  'record_photos', 'cultivar_photos', 'default_record_photo_id', 'default_cultivar_photo_id', 'default_photo_scope',
+  'core', 'growth', 'care', 'tuber', 'health', 'meta',
+]
+
+export const INSERT_RECORD_SQL = `INSERT INTO dahlia_records (id, ${WRITABLE_COLUMNS.join(', ')}) VALUES ($1, ${WRITABLE_COLUMNS.map((_, i) => `$${i + 2}`).join(', ')}) RETURNING id`
+const UPDATE_RECORD_SQL = `UPDATE dahlia_records SET ${WRITABLE_COLUMNS.map((c, i) => `${c} = $${i + 2}`).join(', ')} WHERE id = $1 RETURNING id`
+
+const FULL_SELECT_COLUMNS = `
+  id, record_number AS "recordNumber", garden_id AS "gardenId", flower_name AS "flowerName",
+  garden_location AS "gardenLocation", season_year_start AS "seasonYearStart",
+  thumbnail_url AS "thumbnailUrl", list_thumbnail_url AS "listThumbnailUrl", image_url AS "imageUrl",
+  cultivar_thumbnail_url AS "cultivarThumbnailUrl", cultivar_list_thumbnail_url AS "cultivarListThumbnailUrl", cultivar_image_url AS "cultivarImageUrl",
+  record_photos AS "recordPhotos", cultivar_photos AS "cultivarPhotos",
+  default_record_photo_id AS "defaultRecordPhotoId", default_cultivar_photo_id AS "defaultCultivarPhotoId", default_photo_scope AS "defaultPhotoScope",
+  core, growth, care, tuber, health, meta
+`
+
+const SUMMARY_SELECT_COLUMNS = `
+  id, record_number AS "recordNumber", garden_id AS "gardenId", flower_name AS "flowerName",
+  garden_location AS "gardenLocation", season_year_start AS "seasonYearStart",
+  thumbnail_url AS "thumbnailUrl", list_thumbnail_url AS "listThumbnailUrl", image_url AS "imageUrl",
+  cultivar_thumbnail_url AS "cultivarThumbnailUrl", cultivar_list_thumbnail_url AS "cultivarListThumbnailUrl", cultivar_image_url AS "cultivarImageUrl",
+  default_photo_scope AS "defaultPhotoScope", core, growth, tuber, meta
+`
+
+export function recordToParams(record) {
+  return [
+    record.recordNumber,
+    record.gardenId ?? null,
+    record.flowerName,
+    record.gardenLocation ?? null,
+    record.seasonYearStart,
+    record.thumbnailUrl ?? null,
+    record.listThumbnailUrl ?? null,
+    record.imageUrl ?? null,
+    record.cultivarThumbnailUrl ?? null,
+    record.cultivarListThumbnailUrl ?? null,
+    record.cultivarImageUrl ?? null,
+    JSON.stringify(record.recordPhotos ?? []),
+    JSON.stringify(record.cultivarPhotos ?? []),
+    record.defaultRecordPhotoId ?? null,
+    record.defaultCultivarPhotoId ?? null,
+    record.defaultPhotoScope ?? null,
+    JSON.stringify(record.core ?? {}),
+    JSON.stringify(record.growth ?? {}),
+    JSON.stringify(record.care ?? {}),
+    JSON.stringify(record.tuber ?? {}),
+    JSON.stringify(record.health ?? {}),
+    JSON.stringify(record.meta ?? {}),
+  ]
 }
 
-function withoutUndefined(value) {
-  if (Array.isArray(value)) return value.map(withoutUndefined)
-  if (!value || typeof value !== 'object') return value
-
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => [k, withoutUndefined(v)]),
-  )
+function nowIso() {
+  return new Date().toISOString()
 }
 
 function recordSummaryCacheKey(gardenId, options = {}) {
@@ -60,10 +105,6 @@ function pruneOrphanedPhotoEmbeddings(candidateUrls) {
   })().catch((error) => {
     console.error('Failed to prune orphaned photo embeddings:', error)
   })
-}
-
-function isMissingFirestoreIndexError(error) {
-  return error?.code === 9 || error?.code === 'failed-precondition'
 }
 
 function getPlacement(record) {
@@ -134,7 +175,7 @@ function defaultPhoto(photos, defaultId) {
   return photos.find((photo) => photo.id === defaultId) ?? photos[0]
 }
 
-function withPhotoDefaults(record) {
+export function withPhotoDefaults(record) {
   const recordPhotos = uniquePhotos(record.recordPhotos)
   const cultivarPhotos = uniquePhotos(record.cultivarPhotos)
   const recordDefault = defaultPhoto(recordPhotos, record.defaultRecordPhotoId)
@@ -239,33 +280,13 @@ export function toRecordSummary(record) {
   }
 }
 
-async function writeRecordSummary(record) {
-  if (!record?.id) return
-  await getDb().collection(SUMMARY_COLLECTION).doc(record.id).set(withoutUndefined(toRecordSummary(record)), { merge: false })
-}
-
-async function deleteRecordSummary(id) {
-  await getDb().collection(SUMMARY_COLLECTION).doc(id).delete()
-}
-
-function cleanRecordSummary(summary, options = {}) {
-  return withoutUndefined({
-    ...summary,
-    gardenId: summary.gardenId ?? (options.includeLegacyUnassigned ? options.gardenId : undefined),
-  })
-}
-
-async function backfillMissingSummaries(records) {
-  await Promise.all(records.map((record) => writeRecordSummary(record)))
-}
-
 export async function hasLegacyUnassignedRecords() {
   if (legacyUnassignedCache && legacyUnassignedCache.expiresAt > Date.now()) {
     return legacyUnassignedCache.value
   }
 
-  const snap = await getDb().collection(COLLECTION).select('gardenId').get()
-  const value = snap.docs.some((doc) => !doc.data().gardenId)
+  const { rows } = await query('SELECT EXISTS(SELECT 1 FROM dahlia_records WHERE garden_id IS NULL) AS "exists"')
+  const value = rows[0].exists
   legacyUnassignedCache = { value, expiresAt: Date.now() + LEGACY_UNASSIGNED_CHECK_TTL_MS }
   return value
 }
@@ -275,31 +296,22 @@ export async function listRecordSummaries(gardenId, options = {}) {
   const cached = recordSummaryCache.get(key)
   if (cached && cached.expiresAt > Date.now()) return cached.value
 
-  const db = getDb()
-  let summaries
-  try {
-    const snap = gardenId
-      ? await db.collection(SUMMARY_COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'asc').get()
-      : await db.collection(SUMMARY_COLLECTION).orderBy('recordNumber', 'asc').get()
-    summaries = snap.docs.map((d) => cleanRecordSummary({ id: d.id, ...d.data() }, { ...options, gardenId }))
-
-    if (gardenId && options.includeLegacyUnassigned) {
-      const legacySnap = await db.collection(SUMMARY_COLLECTION).orderBy('recordNumber', 'asc').get()
-      summaries.push(...legacySnap.docs.filter((doc) => !doc.data().gardenId).map((d) => cleanRecordSummary({ id: d.id, ...d.data() }, { ...options, gardenId })))
+  let rows
+  if (gardenId) {
+    const { rows: primary } = await query(`SELECT ${SUMMARY_SELECT_COLUMNS} FROM dahlia_records WHERE garden_id = $1 ORDER BY record_number ASC`, [gardenId])
+    rows = primary
+    if (options.includeLegacyUnassigned) {
+      const { rows: legacy } = await query(`SELECT ${SUMMARY_SELECT_COLUMNS} FROM dahlia_records WHERE garden_id IS NULL ORDER BY record_number ASC`)
+      rows = rows.concat(legacy)
     }
-  } catch (e) {
-    if (!isMissingFirestoreIndexError(e)) throw e
-    const records = await listRecords(gardenId, options)
-    await backfillMissingSummaries(records)
-    summaries = records.map(toRecordSummary)
+  } else {
+    const { rows: all } = await query(`SELECT ${SUMMARY_SELECT_COLUMNS} FROM dahlia_records ORDER BY record_number ASC`)
+    rows = all
   }
 
-  let value = summaries.sort((a, b) => a.recordNumber - b.recordNumber)
-  if (value.length === 0) {
-    const records = await listRecords(gardenId, options)
-    await backfillMissingSummaries(records)
-    value = records.map(toRecordSummary)
-  }
+  const value = rows
+    .map((row) => toRecordSummary({ ...row, gardenId: row.gardenId ?? (options.includeLegacyUnassigned ? gardenId : undefined) }))
+    .sort((a, b) => a.recordNumber - b.recordNumber)
 
   recordSummaryCache.set(key, { value, expiresAt: Date.now() + RECORD_SUMMARY_CACHE_TTL_MS })
   return value
@@ -311,12 +323,6 @@ async function findGardenLocationConflict(input, excludeId, gardenId) {
 
   const records = await listRecords(gardenId)
   return records.find((record) => record.id !== excludeId && (record.gardenId ?? gardenId) === gardenId && record.seasonYearStart === input.seasonYearStart && getGardenKey(record) === inputKey) ?? null
-}
-
-async function getNextRecordNumber(gardenId) {
-  const snap = await getDb().collection(COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'desc').limit(1).get()
-  const highest = snap.docs[0]?.data()?.recordNumber
-  return Number.isInteger(highest) ? highest + 1 : 1
 }
 
 function normalizeRecordText(input) {
@@ -333,91 +339,86 @@ function normalizeRecordText(input) {
 }
 
 export async function listRecords(gardenId, options = {}) {
-  const db = getDb()
-  const snap = gardenId
-    ? await db.collection(COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'asc').get()
-    : await db.collection(COLLECTION).orderBy('recordNumber', 'asc').get()
-  const docs = snap.docs
-
-  if (gardenId && options.includeLegacyUnassigned) {
-    const legacySnap = await db.collection(COLLECTION).orderBy('recordNumber', 'asc').get()
-    docs.push(...legacySnap.docs.filter((doc) => !doc.data().gardenId))
+  let rows
+  if (gardenId) {
+    const { rows: primary } = await query(`SELECT ${FULL_SELECT_COLUMNS} FROM dahlia_records WHERE garden_id = $1 ORDER BY record_number ASC`, [gardenId])
+    rows = primary
+    if (options.includeLegacyUnassigned) {
+      const { rows: legacy } = await query(`SELECT ${FULL_SELECT_COLUMNS} FROM dahlia_records WHERE garden_id IS NULL ORDER BY record_number ASC`)
+      rows = rows.concat(legacy)
+    }
+  } else {
+    const { rows: all } = await query(`SELECT ${FULL_SELECT_COLUMNS} FROM dahlia_records ORDER BY record_number ASC`)
+    rows = all
   }
 
-  return docs
-    .map((d) => ({ id: d.id, ...d.data() }))
+  return rows
     .map((record) => cleanRecord({ ...record, gardenId: record.gardenId ?? (options.includeLegacyUnassigned ? gardenId : undefined) }))
     .sort((a, b) => a.recordNumber - b.recordNumber)
 }
 
 export async function listRecordsPage(gardenId, options = {}) {
-  const db = getDb()
   const limit = Math.min(Math.max(Number(options.limit) || 100, 1), 250)
   const startAfter = Number(options.startAfter)
-  let query = gardenId
-    ? db.collection(COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'asc')
-    : db.collection(COLLECTION).orderBy('recordNumber', 'asc')
+  const hasCursor = Number.isFinite(startAfter)
 
-  if (Number.isFinite(startAfter)) query = query.startAfter(startAfter)
+  const conditions = []
+  const params = []
+  if (gardenId) {
+    params.push(gardenId)
+    conditions.push(`garden_id = $${params.length}`)
+  }
+  if (hasCursor) {
+    params.push(startAfter)
+    conditions.push(`record_number > $${params.length}`)
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+  params.push(limit + 1)
+  const sql = `SELECT ${FULL_SELECT_COLUMNS} FROM dahlia_records ${where} ORDER BY record_number ASC LIMIT $${params.length}`
 
-  const snap = await query.limit(limit + 1).get()
-  const docs = snap.docs
-  const pageDocs = docs.slice(0, limit)
-
-  const records = pageDocs
-    .map((d) => ({ id: d.id, ...d.data() }))
-    .map((record) => cleanRecord({ ...record, gardenId: record.gardenId ?? (options.includeLegacyUnassigned ? gardenId : undefined) }))
+  const { rows } = await query(sql, params)
+  const pageRows = rows.slice(0, limit)
+  const records = pageRows.map((record) => cleanRecord({ ...record, gardenId: record.gardenId ?? (options.includeLegacyUnassigned ? gardenId : undefined) }))
 
   return {
     records,
-    nextCursor: docs.length > limit ? records.at(-1)?.recordNumber : undefined,
+    nextCursor: rows.length > limit ? records.at(-1)?.recordNumber : undefined,
   }
 }
 
 export async function listRecordSummariesPage(gardenId, options = {}) {
-  const db = getDb()
   const limit = Math.min(Math.max(Number(options.limit) || 100, 1), 250)
   const startAfter = Number(options.startAfter)
-  let query = gardenId
-    ? db.collection(SUMMARY_COLLECTION).where('gardenId', '==', gardenId).orderBy('recordNumber', 'asc')
-    : db.collection(SUMMARY_COLLECTION).orderBy('recordNumber', 'asc')
+  const hasCursor = Number.isFinite(startAfter)
 
-  if (Number.isFinite(startAfter)) query = query.startAfter(startAfter)
-
-  let snap
-  try {
-    snap = await query.limit(limit + 1).get()
-  } catch (e) {
-    if (!isMissingFirestoreIndexError(e)) throw e
-    const fullPage = await listRecordsPage(gardenId, options)
-    await backfillMissingSummaries(fullPage.records)
-    return {
-      records: fullPage.records.map(toRecordSummary),
-      nextCursor: fullPage.nextCursor,
-    }
+  const conditions = []
+  const params = []
+  if (gardenId) {
+    params.push(gardenId)
+    conditions.push(`garden_id = $${params.length}`)
   }
-  if (snap.empty && !Number.isFinite(startAfter)) {
-    const fullPage = await listRecordsPage(gardenId, options)
-    await backfillMissingSummaries(fullPage.records)
-    return {
-      records: fullPage.records.map(toRecordSummary),
-      nextCursor: fullPage.nextCursor,
-    }
+  if (hasCursor) {
+    params.push(startAfter)
+    conditions.push(`record_number > $${params.length}`)
   }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+  params.push(limit + 1)
+  const sql = `SELECT ${SUMMARY_SELECT_COLUMNS} FROM dahlia_records ${where} ORDER BY record_number ASC LIMIT $${params.length}`
 
-  const docs = snap.docs
-  const records = docs.slice(0, limit).map((d) => cleanRecordSummary({ id: d.id, ...d.data() }, { gardenId }))
+  const { rows } = await query(sql, params)
+  const pageRows = rows.slice(0, limit)
+  const records = pageRows.map((row) => toRecordSummary({ ...row, gardenId: row.gardenId ?? (options.includeLegacyUnassigned ? gardenId : undefined) }))
 
   return {
     records,
-    nextCursor: docs.length > limit ? records.at(-1)?.recordNumber : undefined,
+    nextCursor: rows.length > limit ? records.at(-1)?.recordNumber : undefined,
   }
 }
 
 export async function getRecord(id) {
-  const doc = await getDb().collection(COLLECTION).doc(id).get()
-  if (!doc.exists) return null
-  return cleanRecord({ id: doc.id, ...doc.data() })
+  const { rows } = await query(`SELECT ${FULL_SELECT_COLUMNS} FROM dahlia_records WHERE id = $1`, [id])
+  if (rows.length === 0) return null
+  return cleanRecord(rows[0])
 }
 
 export async function createRecord(input, gardenId) {
@@ -429,28 +430,33 @@ export async function createRecord(input, gardenId) {
     throw error
   }
 
-  const recordNumber = await getNextRecordNumber(gardenId)
-  const namedInput = withGeneratedName(normalizedInput, recordNumber)
   const timestamp = nowIso()
-  const base = {
-    ...withPhotoDefaults(namedInput),
-    gardenId,
-    recordNumber,
-    thumbnailUrl: namedInput.thumbnailUrl || undefined,
-    imageUrl: namedInput.imageUrl || undefined,
-    cultivarThumbnailUrl: namedInput.cultivarThumbnailUrl || undefined,
-    cultivarImageUrl: namedInput.cultivarImageUrl || undefined,
-    meta: {
-      ...(namedInput.meta ?? {}),
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-  }
+  const id = crypto.randomUUID()
 
-  const ref = await getDb().collection(COLLECTION).add(withoutUndefined(base))
-  await writeRecordSummary({ id: ref.id, ...base })
+  await withTransaction(async (client) => {
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [gardenId ?? ''])
+    const { rows } = await client.query('SELECT COALESCE(MAX(record_number), 0) + 1 AS next FROM dahlia_records WHERE garden_id = $1', [gardenId])
+    const recordNumber = Number(rows[0].next)
+    const namedInput = withGeneratedName(normalizedInput, recordNumber)
+    const base = {
+      ...withPhotoDefaults(namedInput),
+      gardenId,
+      recordNumber,
+      thumbnailUrl: namedInput.thumbnailUrl || undefined,
+      imageUrl: namedInput.imageUrl || undefined,
+      cultivarThumbnailUrl: namedInput.cultivarThumbnailUrl || undefined,
+      cultivarImageUrl: namedInput.cultivarImageUrl || undefined,
+      meta: {
+        ...(namedInput.meta ?? {}),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+    }
+    await client.query(INSERT_RECORD_SQL, [id, ...recordToParams(base)])
+  })
+
   clearRecordSummaryCache()
-  const record = await getRecord(ref.id)
+  const record = await getRecord(id)
   syncPhotoEmbeddings(record)
   return record
 }
@@ -509,8 +515,7 @@ export async function updateRecord(id, input, gardenId) {
     },
   }
 
-  await getDb().collection(COLLECTION).doc(id).set(withoutUndefined(next), { merge: false })
-  await writeRecordSummary({ ...next, id })
+  await query(UPDATE_RECORD_SQL, [id, ...recordToParams(next)])
   clearRecordSummaryCache()
   const record = await getRecord(id)
   syncPhotoEmbeddings(record)
@@ -535,29 +540,22 @@ export async function updateCultivarPhoto(id, { cultivarImageUrl, cultivarThumbn
   const records = await listRecords()
   const matchedRecords = records.filter((record) => isSamePhotoCultivar(record, source))
 
-  await Promise.all(
-    matchedRecords.map((record) => {
+  await withTransaction(async (client) => {
+    for (const record of matchedRecords) {
       const { id: recordId, ...recordData } = record
-
-      return getDb().collection(COLLECTION).doc(recordId).set(
-        withoutUndefined({
-          ...withPhotoDefaults({
-            ...recordData,
-            cultivarPhotos: uniquePhotos([photo, ...(record.cultivarPhotos ?? [])]),
-            defaultCultivarPhotoId: record.defaultCultivarPhotoId || photo.id,
-          }),
-          meta: {
-            ...(record.meta ?? {}),
-            updatedAt: timestamp,
-          },
+      const next = {
+        ...withPhotoDefaults({
+          ...recordData,
+          cultivarPhotos: uniquePhotos([photo, ...(record.cultivarPhotos ?? [])]),
+          defaultCultivarPhotoId: record.defaultCultivarPhotoId || photo.id,
         }),
-        { merge: false },
-      )
-    }),
-  )
+        meta: { ...(record.meta ?? {}), updatedAt: timestamp },
+      }
+      await client.query(UPDATE_RECORD_SQL, [recordId, ...recordToParams(next)])
+    }
+  })
 
   const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
-  await backfillMissingSummaries(updatedRecords.filter(Boolean))
   clearRecordSummaryCache()
   syncPhotoEmbeddings(updatedRecords.filter(Boolean)[0])
   return {
@@ -574,32 +572,25 @@ export async function updateCultivarPhotoDefault(id, { photo }) {
   const records = await listRecords()
   const matchedRecords = records.filter((record) => isSamePhotoCultivar(record, source))
 
-  await Promise.all(
-    matchedRecords.map((record) => {
+  await withTransaction(async (client) => {
+    for (const record of matchedRecords) {
       const { id: recordId, ...recordData } = record
       const existingPhoto = record.cultivarPhotos?.find((candidate) => candidate.imageUrl === photo.imageUrl)
-      const defaultPhoto = existingPhoto ?? { ...photo, id: `cultivar-${Date.now()}-${recordId}` }
-
-      return getDb().collection(COLLECTION).doc(recordId).set(
-        withoutUndefined({
-          ...withPhotoDefaults({
-            ...recordData,
-            cultivarPhotos: uniquePhotos([defaultPhoto, ...(record.cultivarPhotos ?? [])]),
-            defaultCultivarPhotoId: defaultPhoto.id,
-            defaultPhotoScope: 'cultivar',
-          }),
-          meta: {
-            ...(record.meta ?? {}),
-            updatedAt: timestamp,
-          },
+      const defaultCultivarPhoto = existingPhoto ?? { ...photo, id: `cultivar-${Date.now()}-${recordId}` }
+      const next = {
+        ...withPhotoDefaults({
+          ...recordData,
+          cultivarPhotos: uniquePhotos([defaultCultivarPhoto, ...(record.cultivarPhotos ?? [])]),
+          defaultCultivarPhotoId: defaultCultivarPhoto.id,
+          defaultPhotoScope: 'cultivar',
         }),
-        { merge: false },
-      )
-    }),
-  )
+        meta: { ...(record.meta ?? {}), updatedAt: timestamp },
+      }
+      await client.query(UPDATE_RECORD_SQL, [recordId, ...recordToParams(next)])
+    }
+  })
 
   const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
-  await backfillMissingSummaries(updatedRecords.filter(Boolean))
   clearRecordSummaryCache()
   return {
     updatedCount: matchedRecords.length,
@@ -613,28 +604,22 @@ export async function updateRecordPhotoDefault(id, { photo }) {
 
   const timestamp = nowIso()
   const existingPhoto = existing.recordPhotos?.find((candidate) => candidate.imageUrl === photo.imageUrl)
-  const defaultPhoto = existingPhoto ?? { ...photo, id: `record-${Date.now()}` }
+  const defaultRecordPhoto = existingPhoto ?? { ...photo, id: `record-${Date.now()}` }
   const { id: _id, ...recordData } = existing
 
-  await getDb().collection(COLLECTION).doc(id).set(
-    withoutUndefined({
-      ...withPhotoDefaults({
-        ...recordData,
-        recordPhotos: uniquePhotos([defaultPhoto, ...(existing.recordPhotos ?? [])]),
-        defaultRecordPhotoId: defaultPhoto.id,
-        defaultPhotoScope: 'record',
-      }),
-      meta: {
-        ...(existing.meta ?? {}),
-        updatedAt: timestamp,
-      },
+  const next = {
+    ...withPhotoDefaults({
+      ...recordData,
+      recordPhotos: uniquePhotos([defaultRecordPhoto, ...(existing.recordPhotos ?? [])]),
+      defaultRecordPhotoId: defaultRecordPhoto.id,
+      defaultPhotoScope: 'record',
     }),
-    { merge: false },
-  )
+    meta: { ...(existing.meta ?? {}), updatedAt: timestamp },
+  }
 
-  const updatedRecord = await getRecord(id)
-  if (updatedRecord) await writeRecordSummary(updatedRecord)
+  await query(UPDATE_RECORD_SQL, [id, ...recordToParams(next)])
   clearRecordSummaryCache()
+  const updatedRecord = await getRecord(id)
   return {
     record: updatedRecord,
   }
@@ -648,34 +633,28 @@ export async function deleteCultivarPhoto(id, { imageUrl }) {
   const records = await listRecords()
   const matchedRecords = records.filter((record) => isSamePhotoCultivar(record, source))
 
-  await Promise.all(
-    matchedRecords.map((record) => {
+  await withTransaction(async (client) => {
+    for (const record of matchedRecords) {
       const { id: recordId, ...recordData } = record
       const cultivarPhotos = (record.cultivarPhotos ?? []).filter((photo) => photo.imageUrl !== imageUrl)
       const currentDefault = record.cultivarPhotos?.find((photo) => photo.id === record.defaultCultivarPhotoId)
       const defaultCultivarPhotoId = currentDefault?.imageUrl === imageUrl ? cultivarPhotos[0]?.id : record.defaultCultivarPhotoId
 
-      return getDb().collection(COLLECTION).doc(recordId).set(
-        withoutUndefined({
-          ...withPhotoDefaults({
-            ...recordData,
-            cultivarPhotos,
-            defaultCultivarPhotoId,
-            cultivarImageUrl: record.cultivarImageUrl === imageUrl ? undefined : record.cultivarImageUrl,
-            cultivarThumbnailUrl: record.cultivarImageUrl === imageUrl ? undefined : record.cultivarThumbnailUrl,
-          }),
-          meta: {
-            ...(record.meta ?? {}),
-            updatedAt: timestamp,
-          },
+      const next = {
+        ...withPhotoDefaults({
+          ...recordData,
+          cultivarPhotos,
+          defaultCultivarPhotoId,
+          cultivarImageUrl: record.cultivarImageUrl === imageUrl ? undefined : record.cultivarImageUrl,
+          cultivarThumbnailUrl: record.cultivarImageUrl === imageUrl ? undefined : record.cultivarThumbnailUrl,
         }),
-        { merge: false },
-      )
-    }),
-  )
+        meta: { ...(record.meta ?? {}), updatedAt: timestamp },
+      }
+      await client.query(UPDATE_RECORD_SQL, [recordId, ...recordToParams(next)])
+    }
+  })
 
   const updatedRecords = await Promise.all(matchedRecords.map((record) => getRecord(record.id)))
-  await backfillMissingSummaries(updatedRecords.filter(Boolean))
   clearRecordSummaryCache()
   pruneOrphanedPhotoEmbeddings([imageUrl])
   return {
@@ -686,9 +665,107 @@ export async function deleteCultivarPhoto(id, { imageUrl }) {
 
 export async function deleteRecord(id) {
   const existing = await getRecord(id)
-  await getDb().collection(COLLECTION).doc(id).delete()
-  await deleteRecordSummary(id)
+  await query('DELETE FROM dahlia_records WHERE id = $1', [id])
   clearRecordSummaryCache()
   if (existing) pruneOrphanedPhotoEmbeddings([...photoImageUrls(existing)])
   return true
+}
+
+const DRIFT_FIELDS = [
+  ['flowerName', (s) => s.flowerName],
+  ['gardenLocation', (s) => s.gardenLocation],
+  ['core.color', (s) => s.core?.color],
+  ['core.size', (s) => s.core?.size],
+  ['core.cultivar', (s) => s.core?.cultivar],
+  ['core.plantedDate', (s) => s.core?.plantedDate],
+  ['growth.height', (s) => s.growth?.height],
+  ['tuber.source', (s) => s.tuber?.source],
+  ['meta.plantingState', (s) => s.meta?.plantingState],
+  ['meta.gardenZone', (s) => s.meta?.gardenZone],
+  ['meta.rowOrBed', (s) => s.meta?.rowOrBed],
+  ['meta.position', (s) => s.meta?.position],
+  ['thumbnailUrl', (s) => s.thumbnailUrl],
+  ['imageUrl', (s) => s.imageUrl],
+  ['cultivarThumbnailUrl', (s) => s.cultivarThumbnailUrl],
+  ['cultivarImageUrl', (s) => s.cultivarImageUrl],
+]
+
+const URL_DRIFT_FIELD_PATHS = new Set(['thumbnailUrl', 'imageUrl', 'cultivarThumbnailUrl', 'cultivarImageUrl'])
+
+// The Firestore->Postgres photo migration re-hosts each blob (Firebase Storage -> Azure Blob) but
+// keeps its filename/id unchanged, so a photo URL that only changed host+encoding isn't a real
+// data disagreement to check against the garden — it's just the migration doing its job. Compare
+// by decoded basename for URL fields so those don't get reported as drift.
+function photoUrlBaseName(rawUrl) {
+  if (!rawUrl) return undefined
+  try {
+    const url = new URL(rawUrl)
+    const segments = decodeURIComponent(url.pathname).split('/').filter(Boolean)
+    return segments.at(-1)
+  } catch {
+    return undefined
+  }
+}
+
+function driftValuesEqual(path, a, b) {
+  if (URL_DRIFT_FIELD_PATHS.has(path)) {
+    const aName = photoUrlBaseName(a)
+    const bName = photoUrlBaseName(b)
+    if (aName && bName) return aName === bName
+  }
+  if (Array.isArray(a) || Array.isArray(b)) return JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+  return (a ?? null) === (b ?? null)
+}
+
+// Diffs the frozen dahlia_record_summaries_snapshot (ported verbatim, unreconciled, during the
+// Postgres migration) against live dahlia_records, so a drifted record can be manually checked
+// against the physical garden before anyone decides which value was actually correct.
+export async function listRecordDrift() {
+  const { rows: snapshotRows } = await query(`
+    SELECT id, record_number AS "recordNumber", garden_id AS "gardenId", flower_name AS "flowerName",
+      garden_location AS "gardenLocation", thumbnail_url AS "thumbnailUrl", image_url AS "imageUrl",
+      cultivar_thumbnail_url AS "cultivarThumbnailUrl", cultivar_image_url AS "cultivarImageUrl",
+      core, growth, tuber, meta
+    FROM dahlia_record_summaries_snapshot
+    WHERE reviewed_at IS NULL
+  `)
+  const liveRecords = await listRecords()
+  const liveById = new Map(liveRecords.map((record) => [record.id, record]))
+
+  const drift = []
+  const missingLive = []
+  for (const snapshotRow of snapshotRows) {
+    const liveRecord = liveById.get(snapshotRow.id)
+    if (!liveRecord) {
+      missingLive.push({ id: snapshotRow.id, recordNumber: snapshotRow.recordNumber, flowerName: snapshotRow.flowerName })
+      continue
+    }
+
+    const liveSummary = toRecordSummary(liveRecord)
+    const fields = DRIFT_FIELDS
+      .map(([path, getter]) => ({ path, snapshotValue: getter(snapshotRow) ?? null, liveValue: getter(liveSummary) ?? null }))
+      .filter((field) => !driftValuesEqual(field.path, field.snapshotValue, field.liveValue))
+
+    if (fields.length > 0) {
+      drift.push({
+        id: snapshotRow.id,
+        recordNumber: liveSummary.recordNumber,
+        gardenId: liveSummary.gardenId,
+        flowerName: liveSummary.flowerName,
+        gardenLocation: liveSummary.gardenLocation,
+        meta: liveSummary.meta,
+        fields,
+      })
+    }
+    liveById.delete(snapshotRow.id)
+  }
+
+  const missingSnapshot = [...liveById.values()].map((record) => ({ id: record.id, recordNumber: record.recordNumber, flowerName: record.flowerName }))
+
+  return { drift, missingLive, missingSnapshot }
+}
+
+export async function markRecordDriftReviewed(id) {
+  const { rowCount } = await query('UPDATE dahlia_record_summaries_snapshot SET reviewed_at = now() WHERE id = $1', [id])
+  return rowCount > 0
 }
