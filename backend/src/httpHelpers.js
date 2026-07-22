@@ -31,6 +31,10 @@ export function forbidden(res, e) {
     res.status(409).json({ error: e.code, message: e.message })
     return true
   }
+  if (e?.code === 'known_user_in_use') {
+    res.status(409).json({ error: e.code, message: e.message, reasons: e.reasons })
+    return true
+  }
   return false
 }
 

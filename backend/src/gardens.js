@@ -325,6 +325,18 @@ export async function listGardenMembers(user, gardenId) {
   return await dedupeMembers(GARDEN_MEMBERS, 'gardenId', gardenId)
 }
 
+export async function getKnownUserGardenUsage(userId) {
+  const db = getDb()
+  const [membersSnap, ownedGardensSnap] = await Promise.all([
+    db.collection(GARDEN_MEMBERS).where('userId', '==', userId).get(),
+    db.collection(GARDENS).where('ownerUserId', '==', userId).get(),
+  ])
+  const memberships = membersSnap.docs.map((doc) => doc.data())
+  const ownsGarden = ownedGardensSnap.size > 0 || memberships.some((member) => member.role === 'owner')
+  const addedByAnotherUser = memberships.some((member) => member.invitedByUserId && member.invitedByUserId !== userId)
+  return { ownsGarden, addedByAnotherUser }
+}
+
 export async function upsertGardenMember(user, gardenId, input) {
   const access = await requireGardenAccess(user, gardenId)
   if (access.role !== 'owner' && access.role !== 'admin') {

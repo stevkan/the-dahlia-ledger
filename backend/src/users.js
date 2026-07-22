@@ -63,9 +63,19 @@ export async function getKnownUser(userId) {
   return { id: doc.id, ...doc.data() }
 }
 
-export async function deleteKnownUser(userId) {
+export async function deleteKnownUser(userId, usage = {}) {
   const id = String(userId ?? '').trim()
   if (!id) return false
+
+  if (usage.ownsGarden || usage.addedByAnotherUser) {
+    const reasons = []
+    if (usage.ownsGarden) reasons.push('owns a garden')
+    if (usage.addedByAnotherUser) reasons.push('was added to a garden by another user')
+    const error = new Error(`This user cannot be deleted because they ${reasons.join(' and ')}. Remove them from that garden first.`)
+    error.code = 'known_user_in_use'
+    error.reasons = usage
+    throw error
+  }
 
   const ref = getDb().collection(USERS).doc(id)
   const doc = await ref.get()
