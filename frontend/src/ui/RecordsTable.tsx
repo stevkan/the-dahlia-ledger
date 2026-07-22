@@ -643,7 +643,7 @@ export function RecordsTable({
             <div className="modalBody tableOptionsBody">
               <div className="tableOptionsControls">
                 <DahliaPickerField
-                  label="Rows per page"
+                  label="Rows Per Page"
                   required
                   clearable={false}
                   layout="list"
@@ -654,7 +654,7 @@ export function RecordsTable({
                   onChange={(value) => table.setPageSize(Number(value))}
                 />
                 <DahliaPickerField
-                  label="Sort by"
+                  label="Sort By"
                   required
                   clearable={false}
                   layout="grid"
@@ -690,7 +690,7 @@ export function RecordsTable({
                         setSorting((current) => [...current])
                       }}
                     />
-                    Group location by even/odd
+                    Group Location By Even/Odd
                   </label>
                 ) : null}
               </div>

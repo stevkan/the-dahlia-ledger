@@ -451,15 +451,15 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
                   <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Check storage notes for overwintered tubers" />
                 </label>
                 <label className="field">
-                  <FieldLabel label="Assigned user ID" hint={REMINDER_FIELD_HINTS.assignedUser} />
+                  <FieldLabel label="Assigned User ID" hint={REMINDER_FIELD_HINTS.assignedUser} />
                   {members.length ? (
-                    <ReminderDropdown label="Assigned user ID" value={assignedToUserId} options={assigneeOptions} onChange={setAssignedToUserId} />
+                    <ReminderDropdown label="Assigned User ID" value={assignedToUserId} options={assigneeOptions} onChange={setAssignedToUserId} />
                   ) : (
                     <input className="input" value={assignedToUserId} onChange={(e) => setAssignedToUserId(e.target.value)} placeholder="Optional user ID" />
                   )}
                 </label>
                 <label className="field">
-                  <FieldLabel label="Due date" hint={REMINDER_FIELD_HINTS.dueDate} />
+                  <FieldLabel label="Due Date" hint={REMINDER_FIELD_HINTS.dueDate} />
                   <input className="input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
                 </label>
                 <label className="field">
@@ -468,7 +468,7 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
                 </label>
                 <div className="field relatedRecordField">
                   <div className="relatedRecordHeader">
-                    <FieldLabel label="Related record" hint={REMINDER_FIELD_HINTS.relatedRecord} />
+                    <FieldLabel label="Related Record" hint={REMINDER_FIELD_HINTS.relatedRecord} />
                     <div className="seasonFilterControl" aria-label="Season filter">
                       <span className="seasonFilterLabel">Season</span>
                       <button

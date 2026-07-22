@@ -692,7 +692,7 @@ export function AnalyticsModal({
                 onChange={(value) => selectMetric(value as AnalyticsMetric)}
               />
               <DahliaPickerField
-                label="Season year"
+                label="Season Year"
                 multiple
                 layout="grid"
                 columns={3}
@@ -703,7 +703,7 @@ export function AnalyticsModal({
                 onChange={(values) => setSelectedSeasonYears(values.map(Number).sort((a, b) => b - a))}
               />
               <DahliaPickerField
-                label="Sort by"
+                label="Sort By"
                 required
                 clearable={false}
                 layout="list"
@@ -860,7 +860,7 @@ export function AnalyticsModal({
                       <div className="modalBody tableOptionsBody">
                         <div className="tableOptionsControls">
                           <DahliaPickerField
-                            label="Sort by"
+                            label="Sort By"
                             required
                             clearable={false}
                             layout="grid"
@@ -904,7 +904,7 @@ export function AnalyticsModal({
                               checked={drilldownGroupEvenOdd}
                               onChange={(event) => setDrilldownGroupEvenOdd(event.target.checked)}
                             />
-                            Group location by even/odd
+                            Group Location By Even/Odd
                           </label>
                         ) : null}
 
