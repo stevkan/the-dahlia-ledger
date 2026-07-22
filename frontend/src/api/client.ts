@@ -121,16 +121,34 @@ async function resizeForIdentification(file: File): Promise<File> {
   }
 }
 
-export async function identifyPhoto(input: { file?: File; imageUrl?: string }): Promise<AgentPhotoIdentificationResult> {
+export async function identifyPhoto(input: { file?: File; imageUrl?: string; signal?: AbortSignal }): Promise<AgentPhotoIdentificationResult> {
   const body = new FormData()
   if (input.file) body.append('file', await resizeForIdentification(input.file))
   if (input.imageUrl) body.append('imageUrl', input.imageUrl)
 
-  const res = await fetch(`${API_BASE}/api/agent/identify-photo`, {
-    method: 'POST',
-    headers: await authHeaders(),
-    body,
-  })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 45000)
+  const onExternalAbort = () => controller.abort()
+  input.signal?.addEventListener('abort', onExternalAbort)
+
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}/api/agent/identify-photo`, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body,
+      signal: controller.signal,
+    })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      if (input.signal?.aborted) throw err
+      throw new Error('Photo identification timed out. Check your connection and try again.')
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
+    input.signal?.removeEventListener('abort', onExternalAbort)
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(text || `Photo identification failed: ${res.status}`)

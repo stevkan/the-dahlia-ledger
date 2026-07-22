@@ -5,6 +5,7 @@ import { PhotoIdentifyResultsModal } from './PhotoIdentifyResultsModal'
 
 export function PhotoIdentifyModal({ onClose }: { onClose: () => void }) {
   const identifyFileInputRef = useRef<HTMLInputElement | null>(null)
+  const identifyAbortControllerRef = useRef<AbortController | null>(null)
   const [identifyFile, setIdentifyFile] = useState<File | null>(null)
   const [identifyPreview, setIdentifyPreview] = useState<string | null>(null)
   const [identifyConverting, setIdentifyConverting] = useState(false)
@@ -62,16 +63,23 @@ export function PhotoIdentifyModal({ onClose }: { onClose: () => void }) {
   async function submitIdentifyPhoto() {
     if (!identifyFile || identifyBusy) return
 
+    const controller = new AbortController()
+    identifyAbortControllerRef.current = controller
     setIdentifyBusy(true)
     setIdentifyError(null)
     try {
-      const out = await identifyPhoto({ file: identifyFile })
+      const out = await identifyPhoto({ file: identifyFile, signal: controller.signal })
       setIdentifyResult(out)
     } catch (e: any) {
-      setIdentifyError(e?.message ?? String(e))
+      if (e?.name !== 'AbortError') setIdentifyError(e?.message ?? String(e))
     } finally {
+      identifyAbortControllerRef.current = null
       setIdentifyBusy(false)
     }
+  }
+
+  function stopIdentifyPhoto() {
+    identifyAbortControllerRef.current?.abort()
   }
 
   return (
@@ -102,7 +110,12 @@ export function PhotoIdentifyModal({ onClose }: { onClose: () => void }) {
                   {identifyConverting ? 'Converting...' : identifyBusy ? 'Identifying...' : 'Identify Photo'}
                 </button>
                 {identifyFile ? (
-                  <button className="btn ghost compact" type="button" disabled={identifyBusy || identifyConverting} onClick={cancelIdentifyPhoto}>
+                  <button
+                    className="btn ghost compact"
+                    type="button"
+                    disabled={identifyConverting}
+                    onClick={identifyBusy ? stopIdentifyPhoto : cancelIdentifyPhoto}
+                  >
                     Cancel
                   </button>
                 ) : null}
