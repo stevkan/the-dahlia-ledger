@@ -72,7 +72,7 @@ function recordSummaryCacheKey(gardenId, options = {}) {
   return `${gardenId ?? 'all'}:${options.includeLegacyUnassigned ? 'legacy' : 'current'}`
 }
 
-function clearRecordSummaryCache() {
+export function clearRecordSummaryCache() {
   recordSummaryCache.clear()
 }
 
@@ -289,6 +289,10 @@ export async function hasLegacyUnassignedRecords() {
   const value = rows[0].exists
   legacyUnassignedCache = { value, expiresAt: Date.now() + LEGACY_UNASSIGNED_CHECK_TTL_MS }
   return value
+}
+
+export function clearLegacyUnassignedCache() {
+  legacyUnassignedCache = null
 }
 
 export async function listRecordSummaries(gardenId, options = {}) {

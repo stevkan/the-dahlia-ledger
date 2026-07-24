@@ -2,12 +2,11 @@ import crypto from 'node:crypto'
 import { getDb } from './firebase.js'
 import { isGlobalAdmin } from './users.js'
 import { query } from './db.js'
+import { clearLegacyUnassignedCache } from './records.js'
 
 const GARDENS = 'gardens'
 const GARDEN_MEMBERS = 'gardenMembers'
 const INVITES = 'invites'
-const RECORDS = 'dahliaRecords'
-const REMINDERS = 'maintenanceReminders'
 const ORDER_ITEMS = 'orderItems'
 
 export const GARDEN_ROLES = ['owner', 'admin', 'editor', 'viewer']
@@ -166,14 +165,15 @@ async function ensureGardenMembership(user, gardenId, role) {
 }
 
 async function assignLegacyRecordsToGarden(gardenId) {
-  const snap = await getDb().collection(RECORDS).get()
-  if (snap.docs.some((doc) => doc.data().gardenId)) return 0
-
-  const unassigned = snap.docs.filter((doc) => !doc.data().gardenId)
-  await Promise.all(
-    unassigned.map((doc) => doc.ref.set(withoutUndefined({ ...doc.data(), gardenId }), { merge: false })),
+  const { rowCount } = await query(
+    `UPDATE dahlia_records
+     SET garden_id = $1
+     WHERE garden_id IS NULL
+       AND NOT EXISTS (SELECT 1 FROM dahlia_records WHERE garden_id IS NOT NULL)`,
+    [gardenId],
   )
-  return unassigned.length
+  if (rowCount > 0) clearLegacyUnassignedCache()
+  return rowCount
 }
 
 export async function listGardens(user) {
@@ -269,14 +269,14 @@ export async function updateGarden(user, gardenId, input) {
 }
 
 export async function getGardenUsageCounts(gardenId) {
-  const [recordCountResult, remindersSnap, orderItemsSnap] = await Promise.all([
+  const [recordCountResult, reminderCountResult, orderItemsSnap] = await Promise.all([
     query('SELECT COUNT(*)::int AS count FROM dahlia_records WHERE garden_id = $1', [gardenId]),
-    getDb().collection(REMINDERS).where('gardenId', '==', gardenId).get(),
+    query('SELECT COUNT(*)::int AS count FROM maintenance_reminders WHERE garden_id = $1', [gardenId]),
     getDb().collection(ORDER_ITEMS).where('gardenId', '==', gardenId).get(),
   ])
   return {
     records: recordCountResult.rows[0]?.count ?? 0,
-    reminders: remindersSnap.size,
+    reminders: reminderCountResult.rows[0]?.count ?? 0,
     orderItems: orderItemsSnap.size,
   }
 }

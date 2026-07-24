@@ -1,38 +1,24 @@
 import { getDb } from './firebase.js'
+import { query } from './db.js'
+import { clearRecordSummaryCache } from './records.js'
 
 export async function listFlowerNames(gardenId, { includeLegacyUnassigned = false } = {}) {
   const db = getDb()
-  const [recordsSnap, itemsSnap] = await Promise.all([
-    db.collection('dahliaRecords').where('gardenId', '==', gardenId).select('flowerName').get(),
+  const gardenClause = includeLegacyUnassigned ? '(garden_id = $1 OR garden_id IS NULL)' : 'garden_id = $1'
+  const [recordsResult, itemsSnap] = await Promise.all([
+    query(`SELECT DISTINCT flower_name AS "flowerName" FROM dahlia_records WHERE ${gardenClause}`, [gardenId]),
     db.collection('orderItems').where('gardenId', '==', gardenId).select('flowerName').get(),
   ])
 
-  const allDocs = [...recordsSnap.docs, ...itemsSnap.docs]
+  const names = new Set(recordsResult.rows.map((row) => row.flowerName))
+  for (const doc of itemsSnap.docs) names.add(doc.data().flowerName)
 
   if (includeLegacyUnassigned) {
-    const [legacyRecords, legacyItems] = await Promise.all([
-      db.collection('dahliaRecords').select('flowerName', 'gardenId').get(),
-      db.collection('orderItems').select('flowerName', 'gardenId').get(),
-    ])
-    allDocs.push(
-      ...legacyRecords.docs.filter((doc) => !doc.data().gardenId),
-      ...legacyItems.docs.filter((doc) => !doc.data().gardenId),
-    )
-  }
-
-  const names = new Set()
-  for (const doc of allDocs) {
-    const name = doc.data().flowerName
-    if (name) names.add(name)
+    const legacyItems = await db.collection('orderItems').select('flowerName', 'gardenId').get()
+    for (const doc of legacyItems.docs.filter((doc) => !doc.data().gardenId)) names.add(doc.data().flowerName)
   }
 
   return [...names].filter(Boolean).sort((a, b) => a.localeCompare(b))
-}
-
-function recordUpdate(data, oldName, newName) {
-  const update = { flowerName: newName }
-  if (data.core?.cultivar === oldName) update['core.cultivar'] = newName
-  return update
 }
 
 function itemUpdate(data, oldName, newName) {
@@ -43,28 +29,26 @@ function itemUpdate(data, oldName, newName) {
 
 export async function renameFlowerName(oldName, newName, gardenId, { includeLegacyUnassigned = false } = {}) {
   const db = getDb()
-  const [recordsSnap, itemsSnap, summariesSnap] = await Promise.all([
-    db.collection('dahliaRecords').where('gardenId', '==', gardenId).where('flowerName', '==', oldName).get(),
-    db.collection('orderItems').where('gardenId', '==', gardenId).where('flowerName', '==', oldName).get(),
-    db.collection('dahliaRecordSummaries').where('gardenId', '==', gardenId).where('flowerName', '==', oldName).get(),
-  ])
 
+  const gardenClause = includeLegacyUnassigned ? '(garden_id = $3 OR garden_id IS NULL)' : 'garden_id = $3'
+  const { rowCount: recordsUpdated } = await query(
+    `UPDATE dahlia_records
+     SET flower_name = $1,
+         core = CASE WHEN core->>'cultivar' = $2 THEN jsonb_set(core, '{cultivar}', to_jsonb($1::text)) ELSE core END
+     WHERE flower_name = $2 AND ${gardenClause}`,
+    [newName, oldName, gardenId],
+  )
+  if (recordsUpdated > 0) clearRecordSummaryCache()
+
+  const itemsSnap = await db.collection('orderItems').where('gardenId', '==', gardenId).where('flowerName', '==', oldName).get()
   const updates = [
-    ...recordsSnap.docs.map((doc) => ({ ref: doc.ref, update: recordUpdate(doc.data(), oldName, newName) })),
     ...itemsSnap.docs.map((doc) => ({ ref: doc.ref, update: itemUpdate(doc.data(), oldName, newName) })),
-    ...summariesSnap.docs.map((doc) => ({ ref: doc.ref, update: { flowerName: newName } })),
   ]
 
   if (includeLegacyUnassigned) {
-    const [legacyRecords, legacyItems, legacySummaries] = await Promise.all([
-      db.collection('dahliaRecords').where('flowerName', '==', oldName).get(),
-      db.collection('orderItems').where('flowerName', '==', oldName).get(),
-      db.collection('dahliaRecordSummaries').where('flowerName', '==', oldName).get(),
-    ])
+    const legacyItems = await db.collection('orderItems').where('flowerName', '==', oldName).get()
     updates.push(
-      ...legacyRecords.docs.filter((doc) => !doc.data().gardenId).map((doc) => ({ ref: doc.ref, update: recordUpdate(doc.data(), oldName, newName) })),
       ...legacyItems.docs.filter((doc) => !doc.data().gardenId).map((doc) => ({ ref: doc.ref, update: itemUpdate(doc.data(), oldName, newName) })),
-      ...legacySummaries.docs.filter((doc) => !doc.data().gardenId).map((doc) => ({ ref: doc.ref, update: { flowerName: newName } })),
     )
   }
 
@@ -76,5 +60,5 @@ export async function renameFlowerName(oldName, newName, gardenId, { includeLega
     await batch.commit()
   }
 
-  return { updatedCount: updates.length }
+  return { updatedCount: recordsUpdated + updates.length }
 }
