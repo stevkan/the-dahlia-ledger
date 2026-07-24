@@ -7,6 +7,7 @@ type Props = {
   knownUsers: KnownUser[]
   isGlobalAdmin: boolean
   globalAdminUserId?: string
+  currentUserId?: string
   currentGardenId?: string
   onClose: () => void
   onCreateGarden: (input: { name: string; organizationName?: string }) => Promise<Garden>
@@ -92,7 +93,7 @@ function inviteUrl(token: string) {
   return `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(token)}`
 }
 
-export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, globalAdminUserId, onClose, onCreateGarden, onUpdateGarden, onDeleteGarden, onListGardenMembers, onSaveGardenMember, onDeleteGardenMember, onDeleteKnownUser, onListInvites, onCreateInvite, onResendInvite, onDeleteInvite, onOpenPlacementOptions }: Props) {
+export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, globalAdminUserId, currentUserId, onClose, onCreateGarden, onUpdateGarden, onDeleteGarden, onListGardenMembers, onSaveGardenMember, onDeleteGardenMember, onDeleteKnownUser, onListInvites, onCreateInvite, onResendInvite, onDeleteInvite, onOpenPlacementOptions }: Props) {
   const [selectedGardenId, setSelectedGardenId] = useState<string>('__new__')
   const [gardenMembers, setGardenMembers] = useState<GardenMember[]>([])
   const [selectedGardenMemberIds, setSelectedGardenMemberIds] = useState<string[]>([])
@@ -287,12 +288,21 @@ export function GardenManagementModal({ gardens, knownUsers, isGlobalAdmin, glob
 
   async function removeSelectedGardenMembers() {
     if (!selectedGardenId || !selectedGardenMemberIds.length) return
+    const removingSelf = Boolean(currentUserId) && gardenMembers.some(
+      (member) => selectedGardenMemberIds.includes(member.id) && member.userId === currentUserId,
+    )
+    const removedGardenId = selectedGardenId
     setBusy(true)
     setRemoveMembersError(null)
     try {
       for (const memberId of selectedGardenMemberIds) await onDeleteGardenMember(selectedGardenId, memberId)
       setSelectedGardenMemberIds([])
-      await refreshGarden(selectedGardenId)
+      if (removingSelf) {
+        const nextGarden = fallbackGarden(gardens.filter((garden) => garden.id !== removedGardenId))
+        setSelectedGardenId(nextGarden?.id ?? '__new__')
+      } else {
+        await refreshGarden(selectedGardenId)
+      }
     } catch (e: any) {
       setRemoveMembersError(formatError(e))
     } finally {

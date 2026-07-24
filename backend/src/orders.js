@@ -452,6 +452,17 @@ export async function deleteOrder(id, context = {}) {
   return true
 }
 
+export async function deleteOrderItemsForGarden(gardenId) {
+  const itemsSnap = await getDb().collection(ORDER_ITEMS).where('gardenId', '==', gardenId).get()
+  const orderIds = [...new Set(itemsSnap.docs.map((doc) => doc.data().orderId).filter(Boolean))]
+  await Promise.all(itemsSnap.docs.map((doc) => doc.ref.delete()))
+
+  await Promise.all(orderIds.map(async (orderId) => {
+    const remainingItemsSnap = await getDb().collection(ORDER_ITEMS).where('orderId', '==', orderId).get()
+    if (remainingItemsSnap.empty) await deleteOrder(orderId, {})
+  }))
+}
+
 export async function countOrderFiles(orderId) {
   const snap = await getDb().collection(ORDER_FILES).where('orderId', '==', orderId).count().get()
   return snap.data().count

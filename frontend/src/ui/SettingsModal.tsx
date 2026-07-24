@@ -41,6 +41,7 @@ export function SettingsModal({
   onRevertExcel,
   signedInAs,
   onSignOut,
+  onDeleteAccount,
   isGlobalAdmin,
   appCheckDebugToken,
   appCheckDebugTokenLoading,
@@ -72,6 +73,7 @@ export function SettingsModal({
   onRevertExcel: () => void
   signedInAs: string
   onSignOut: () => void
+  onDeleteAccount: () => Promise<void>
   isGlobalAdmin: boolean
   appCheckDebugToken: string | null
   appCheckDebugTokenLoading: boolean
@@ -92,6 +94,27 @@ export function SettingsModal({
     || (blade === 'dataAudit' && !isGlobalAdmin)
       ? 'appearance'
       : blade
+
+  const [deleteAccountArmed, setDeleteAccountArmed] = useState(false)
+  const [deleteAccountBusy, setDeleteAccountBusy] = useState(false)
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null)
+
+  async function handleDeleteAccount() {
+    if (!deleteAccountArmed) {
+      setDeleteAccountArmed(true)
+      setDeleteAccountError(null)
+      return
+    }
+    setDeleteAccountBusy(true)
+    setDeleteAccountError(null)
+    try {
+      await onDeleteAccount()
+    } catch (e: any) {
+      setDeleteAccountError(e?.message ?? String(e))
+      setDeleteAccountArmed(false)
+      setDeleteAccountBusy(false)
+    }
+  }
 
   const [driftPage, setDriftPage] = useState(0)
   const driftPageCount = Math.max(1, Math.ceil(driftRecords.length / DATA_AUDIT_PAGE_SIZE))
@@ -222,6 +245,32 @@ export function SettingsModal({
             Sign Out
           </button>
         </div>
+        <div className="reminderSectionGroup">
+          <div className="reminderSectionHeader"><div className="subTitle">Delete Account</div></div>
+          <div className="settingHint">
+            Permanently deletes your saved account and signs you out. Gardens you share with others just lose your membership,
+            but any garden only you own or created — including your default garden — is deleted entirely, along with its
+            records, reminders, and order items. This cannot be undone. Signing in again with the same login starts fresh
+            rather than restoring what was deleted.
+          </div>
+          {deleteAccountError ? <div className="error inlineError">{deleteAccountError}</div> : null}
+          <div className="rowActions reminderComposerActions">
+            <button
+              className="btn danger compact"
+              type="button"
+              disabled={deleteAccountBusy}
+              onClick={() => void handleDeleteAccount()}
+            >
+              {deleteAccountArmed ? 'Confirm Delete Account' : 'Delete Account'}
+            </button>
+          </div>
+          {deleteAccountArmed ? (
+            <div className="callout warn invoiceConfirmMessage">
+              Click Confirm Delete Account to sign you out and permanently delete any garden only you own or created — records,
+              reminders, and order items included. This cannot be undone.
+            </div>
+          ) : null}
+        </div>
       </div>
     )
   }
@@ -235,6 +284,8 @@ export function SettingsModal({
             <div className="settingTitle">App Check Debug Token</div>
             <div className="settingHint">
               Stored in Firestore so it survives a browser cache clear. Register it once in Firebase Console → App Check → Manage debug tokens.
+              If App Check itself is broken, this page may be unreachable — from the browser console instead, run
+              <code>await getAppCheckDebugToken()</code> or <code>await generateAppCheckDebugToken()</code>, which bypass App Check entirely.
             </div>
           </div>
           <div className="appCheckDebugTokenRow">

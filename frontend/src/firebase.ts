@@ -150,3 +150,84 @@ export async function apiHeaders(headers?: HeadersInit) {
     ...(headers ?? {}),
   }
 }
+
+// Break-glass recovery for a broken App Check state (e.g. the registered debug token was
+// revoked/expired): authHeaders() above unconditionally tries to attach an App Check token to
+// every request, including calls to these two bootstrap endpoints, so a failing App Check
+// exchange can wedge the normal Settings > Firebase Token UI shut before it ever reaches the
+// server. These call fetch() directly with only the Firebase ID token — no App Check header,
+// no dependency on getAppCheck()/getToken() succeeding — mirroring what the backend already
+// allows unauthenticated-by-AppCheck (see APP_CHECK_BOOTSTRAP_PATHS in backend/src/server.js).
+// Run from the browser devtools console while signed in.
+async function fetchDebugTokenBootstrap(path: string, method: 'GET' | 'POST'): Promise<string | null> {
+  if (!auth?.currentUser) {
+    // eslint-disable-next-line no-console
+    console.error('Not signed in — sign in first, then retry.')
+    return null
+  }
+  // Force a refresh instead of trusting the cached token — this is a recovery path reached
+  // precisely when other requests have been failing, so nothing may have prompted the SDK to
+  // silently refresh an expiring token recently.
+  const idToken = await auth.currentUser.getIdToken(true)
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${idToken}` },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    // eslint-disable-next-line no-console
+    console.error(`Request failed (${res.status}):`, text || res.statusText)
+    return null
+  }
+  const data = (await res.json()) as { debugToken?: string | null }
+  return data.debugToken ?? null
+}
+
+/** Fetches the current stored App Check debug token. Any signed-in user can call this. */
+async function getAppCheckDebugToken(): Promise<string | null> {
+  const token = await fetchDebugTokenBootstrap('/api/app-check/debug-token', 'GET')
+  // eslint-disable-next-line no-console
+  console.log(token ? `Current App Check debug token: ${token}` : 'No App Check debug token has been generated yet.')
+  return token
+}
+
+/**
+ * Mints and stores a new App Check debug token (global admin only — the backend rejects
+ * everyone else with a 403). Register the returned value in Firebase Console > App Check >
+ * Manage debug tokens, then reload the app.
+ */
+async function generateAppCheckDebugToken(): Promise<string | null> {
+  const token = await fetchDebugTokenBootstrap('/api/app-check/debug-token/generate', 'POST')
+  if (token) {
+    // eslint-disable-next-line no-console
+    console.log(`New App Check debug token: ${token}\nRegister it in Firebase Console > App Check > Manage debug tokens, then reload the app.`)
+  }
+  return token
+}
+
+/**
+ * Diagnostic only — reports what this specific loaded bundle actually resolved
+ * VITE_FIREBASE_APP_CHECK_SITE_KEY to, so a stale/cached bundle serving an old value can be told
+ * apart from an env change that genuinely hasn't taken effect server-side.
+ */
+function debugAppCheckConfig() {
+  const info = {
+    appCheckSiteKeyPresent: Boolean(appCheckSiteKey),
+    appCheckSiteKeyPreview: appCheckSiteKey ? `${appCheckSiteKey.slice(0, 6)}...` : null,
+    appCheckAlreadyInitialized: appCheckPromise !== null,
+    signedIn: Boolean(auth?.currentUser),
+    apiBase: API_BASE || '(same-origin)',
+    appVersion: __APP_VERSION__,
+  }
+  // eslint-disable-next-line no-console
+  console.log('App Check config as seen by this loaded bundle:', info)
+  return info
+}
+
+if (typeof window !== 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const globalWindow = window as any
+  globalWindow.getAppCheckDebugToken = getAppCheckDebugToken
+  globalWindow.generateAppCheckDebugToken = generateAppCheckDebugToken
+  globalWindow.debugAppCheckConfig = debugAppCheckConfig
+}

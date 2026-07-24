@@ -243,7 +243,7 @@ export default function App() {
     gardens, selectedGarden, activeGardenId, gardenQuery, gardenOptions,
     gardenMembers, knownUsers, globalAdmin, setSelectedGardenId,
     createGarden, updateGarden, deleteGarden,
-    listGardenMembers, saveGardenMember, deleteGardenMember, deleteKnownUser,
+    listGardenMembers, saveGardenMember, deleteGardenMember, deleteKnownUser, deleteOwnAccount,
     listInvites, createInvite, resendInvite, deleteInvite, updateGardenOptions,
     invalidateGardenMembers,
   } = useGardens({ user, gardenManagementOpen, setError })
@@ -1418,6 +1418,7 @@ export default function App() {
           knownUsers={knownUsers}
           isGlobalAdmin={globalAdmin}
           globalAdminUserId={user?.uid}
+          currentUserId={user?.uid}
           currentGardenId={activeGardenId}
           onClose={() => {
             setGardenManagementOpen(false)
@@ -1509,6 +1510,11 @@ export default function App() {
           onSignOut={() => {
             setSettingsModalOpen(false)
             if (auth) void signOut(auth)
+          }}
+          onDeleteAccount={async () => {
+            await deleteOwnAccount()
+            setSettingsModalOpen(false)
+            if (auth) await signOut(auth)
           }}
           isGlobalAdmin={globalAdmin}
           appCheckDebugToken={appCheckDebugTokenQuery.data ?? null}

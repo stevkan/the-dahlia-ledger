@@ -59,9 +59,18 @@ app.use('/api', async (req, res, next) => {
 
   try {
     req.user = await verifyFirebaseIdToken(idToken)
-    await upsertKnownUser(req.user)
-  } catch {
+  } catch (err) {
+    console.error('Firebase ID token verification failed:', err)
+    trackException(err, { url: req.originalUrl, method: req.method, stage: 'verifyFirebaseIdToken' })
     return res.status(401).json({ error: 'unauthenticated', message: 'Invalid Firebase ID token.' })
+  }
+
+  try {
+    await upsertKnownUser(req.user)
+  } catch (err) {
+    console.error('upsertKnownUser failed for a verified token:', err)
+    trackException(err, { url: req.originalUrl, method: req.method, stage: 'upsertKnownUser' })
+    return res.status(500).json({ error: 'internal_error', message: 'Failed to record known user.' })
   }
 
   if (!requireAppCheck || APP_CHECK_BOOTSTRAP_PATHS.has(req.path)) return next()
@@ -72,7 +81,9 @@ app.use('/api', async (req, res, next) => {
   try {
     req.appCheck = await verifyFirebaseAppCheckToken(appCheckToken)
     next()
-  } catch {
+  } catch (err) {
+    console.error('Firebase App Check token verification failed:', err)
+    trackException(err, { url: req.originalUrl, method: req.method, stage: 'verifyFirebaseAppCheckToken' })
     res.status(401).json({ error: 'app_check_failed', message: 'Invalid Firebase App Check token.' })
   }
 })
