@@ -3,10 +3,9 @@
 
 name: Build and deploy Node.js app to Azure Web App - dahlia-ledger
 
+# Automatic push trigger disabled: the 'dahlia' deployment slot no longer exists.
+# Trigger manually via workflow_dispatch if the slot is recreated.
 on:
-  push:
-    branches:
-      - 'release/**'
   workflow_dispatch:
 
 jobs:
