@@ -1,23 +1,23 @@
-import { getDb } from './firebase.js'
+import crypto from 'node:crypto'
+import { query, withTransaction } from './db.js'
 import { listCompanies } from './orders.js'
 import { toTitleCase } from './textFormat.js'
 
-const ASSETS = 'assets'
-const ASSET_FILES = 'assetFiles'
+const ASSET_SELECT_COLUMNS = `
+  id, owner_user_id AS "ownerUserId", company_id AS "companyId", asset, category, quantity,
+  total_cost AS "totalCost", purchase_date AS "purchaseDate", notes,
+  linked_order_item_ids AS "linkedOrderItemIds", invoice_number AS "invoiceNumber",
+  invoice_total AS "invoiceTotal", created_at AS "createdAt", updated_at AS "updatedAt"
+`
+
+const ASSET_FILE_SELECT_COLUMNS = `
+  id, asset_id AS "assetId", original_file_name AS "originalFileName", stored_file_name AS "storedFileName",
+  mime_type AS "mimeType", file_size AS "fileSize", file_url AS "fileUrl", source_type AS "sourceType",
+  created_at AS "createdAt"
+`
 
 function nowIso() {
   return new Date().toISOString()
-}
-
-function withoutUndefined(value) {
-  if (Array.isArray(value)) return value.map(withoutUndefined)
-  if (!value || typeof value !== 'object') return value
-
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => [k, withoutUndefined(v)]),
-  )
 }
 
 function contextMatches(doc, context = {}) {
@@ -26,41 +26,38 @@ function contextMatches(doc, context = {}) {
 }
 
 function cleanAssetInput(input, context = {}, existing = {}) {
-  return withoutUndefined({
-    ...existing,
-    ownerUserId: input.ownerUserId || existing.ownerUserId || context.userId || undefined,
-    companyId: input.companyId || undefined,
+  return {
+    ownerUserId: input.ownerUserId || existing.ownerUserId || context.userId || null,
+    companyId: input.companyId || null,
     asset: toTitleCase(input.asset),
-    category: input.category || undefined,
-    quantity: input.quantity ?? undefined,
-    totalCost: input.totalCost ?? undefined,
-    purchaseDate: input.purchaseDate || undefined,
-    notes: input.notes || undefined,
-    linkedOrderItemIds: input.linkedOrderItemIds ?? undefined,
-    invoiceNumber: input.invoiceNumber || undefined,
-    invoiceTotal: input.invoiceTotal ?? undefined,
-  })
+    category: input.category || null,
+    quantity: input.quantity ?? null,
+    totalCost: input.totalCost ?? null,
+    purchaseDate: input.purchaseDate || null,
+    notes: input.notes || null,
+    linkedOrderItemIds: input.linkedOrderItemIds ?? [],
+    invoiceNumber: input.invoiceNumber || null,
+    invoiceTotal: input.invoiceTotal ?? null,
+  }
 }
 
 export async function listAssets(context = {}) {
-  const [companies, assetsSnap, filesSnap] = await Promise.all([
+  const [companies, { rows: assets }, { rows: files }] = await Promise.all([
     listCompanies(context),
-    getDb().collection(ASSETS).get(),
-    getDb().collection(ASSET_FILES).get(),
+    query(`SELECT ${ASSET_SELECT_COLUMNS} FROM assets`),
+    query(`SELECT ${ASSET_FILE_SELECT_COLUMNS} FROM asset_files`),
   ])
   const companyById = new Map(companies.map((company) => [company.id, company]))
   const filesByAsset = new Map()
 
-  for (const doc of filesSnap.docs) {
-    const file = { id: doc.id, ...doc.data() }
+  for (const file of files) {
     const list = filesByAsset.get(file.assetId) ?? []
     list.push(file)
     filesByAsset.set(file.assetId, list)
   }
 
-  return assetsSnap.docs
-    .map((doc) => {
-      const asset = { id: doc.id, ...doc.data() }
+  return assets
+    .map((asset) => {
       if (!contextMatches(asset, context)) return null
       return {
         ...asset,
@@ -74,76 +71,112 @@ export async function listAssets(context = {}) {
 
 export async function createAsset(input, context = {}) {
   const timestamp = nowIso()
-  const ref = await getDb()
-    .collection(ASSETS)
-    .add({
-      ...cleanAssetInput(input, context),
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    })
+  const id = crypto.randomUUID()
+  const cleaned = cleanAssetInput(input, context)
 
-  return (await listAssets(context)).find((asset) => asset.id === ref.id)
+  await query(
+    `INSERT INTO assets (id, owner_user_id, company_id, asset, category, quantity, total_cost, purchase_date, notes, linked_order_item_ids, invoice_number, invoice_total, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+    [
+      id,
+      cleaned.ownerUserId,
+      cleaned.companyId,
+      cleaned.asset,
+      cleaned.category,
+      cleaned.quantity,
+      cleaned.totalCost,
+      cleaned.purchaseDate,
+      cleaned.notes,
+      JSON.stringify(cleaned.linkedOrderItemIds),
+      cleaned.invoiceNumber,
+      cleaned.invoiceTotal,
+      timestamp,
+      timestamp,
+    ],
+  )
+
+  return (await listAssets(context)).find((asset) => asset.id === id)
 }
 
 export async function updateAsset(id, input, context = {}) {
-  const ref = getDb().collection(ASSETS).doc(id)
-  const existing = await ref.get()
-  if (!existing.exists) return null
-  if (!contextMatches(existing.data(), context)) return null
+  const { rows } = await query(`SELECT ${ASSET_SELECT_COLUMNS} FROM assets WHERE id = $1`, [id])
+  const existing = rows[0]
+  if (!existing) return null
+  if (!contextMatches(existing, context)) return null
 
-  await ref.set(
-    {
-      ...cleanAssetInput(input, context, existing.data()),
-      updatedAt: nowIso(),
-    },
-    { merge: false },
+  const cleaned = cleanAssetInput(input, context, existing)
+
+  await query(
+    `UPDATE assets SET owner_user_id = $2, company_id = $3, asset = $4, category = $5, quantity = $6, total_cost = $7,
+       purchase_date = $8, notes = $9, linked_order_item_ids = $10, invoice_number = $11, invoice_total = $12, updated_at = $13
+     WHERE id = $1`,
+    [
+      id,
+      cleaned.ownerUserId,
+      cleaned.companyId,
+      cleaned.asset,
+      cleaned.category,
+      cleaned.quantity,
+      cleaned.totalCost,
+      cleaned.purchaseDate,
+      cleaned.notes,
+      JSON.stringify(cleaned.linkedOrderItemIds),
+      cleaned.invoiceNumber,
+      cleaned.invoiceTotal,
+      nowIso(),
+    ],
   )
 
   return (await listAssets(context)).find((asset) => asset.id === id)
 }
 
 export async function deleteAsset(id, context = {}) {
-  const assetRef = getDb().collection(ASSETS).doc(id)
-  const existing = await assetRef.get()
-  if (!existing.exists) return false
-  if (!contextMatches(existing.data(), context)) return false
+  const { rows } = await query(`SELECT ${ASSET_SELECT_COLUMNS} FROM assets WHERE id = $1`, [id])
+  const existing = rows[0]
+  if (!existing) return false
+  if (!contextMatches(existing, context)) return false
 
-  const filesSnap = await getDb().collection(ASSET_FILES).where('assetId', '==', id).get()
-  await Promise.all([
-    ...filesSnap.docs.map((doc) => doc.ref.delete()),
-    assetRef.delete(),
-  ])
+  await withTransaction(async (client) => {
+    await client.query('DELETE FROM asset_files WHERE asset_id = $1', [id])
+    await client.query('DELETE FROM assets WHERE id = $1', [id])
+  })
   return true
 }
 
 export async function countAssetFiles(assetId) {
-  const snap = await getDb().collection(ASSET_FILES).where('assetId', '==', assetId).count().get()
-  return snap.data().count
+  const { rows } = await query('SELECT COUNT(*)::int AS count FROM asset_files WHERE asset_id = $1', [assetId])
+  return rows[0].count
 }
 
 export async function addAssetFile(assetId, fileInput) {
   const timestamp = nowIso()
-  const ref = await getDb()
-    .collection(ASSET_FILES)
-    .add(
-      withoutUndefined({
-        ...fileInput,
-        assetId,
-        createdAt: timestamp,
-      }),
-    )
-  const doc = await ref.get()
-  return { id: doc.id, ...doc.data() }
+  const id = crypto.randomUUID()
+
+  await query(
+    `INSERT INTO asset_files (id, asset_id, original_file_name, stored_file_name, mime_type, file_size, file_url, source_type, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [
+      id,
+      assetId,
+      fileInput.originalFileName ?? null,
+      fileInput.storedFileName ?? null,
+      fileInput.mimeType ?? null,
+      fileInput.fileSize ?? null,
+      fileInput.fileUrl ?? null,
+      fileInput.sourceType ?? null,
+      timestamp,
+    ],
+  )
+  const { rows } = await query(`SELECT ${ASSET_FILE_SELECT_COLUMNS} FROM asset_files WHERE id = $1`, [id])
+  return rows[0]
 }
 
 export async function deleteAssetFile(assetId, fileId) {
-  const ref = getDb().collection(ASSET_FILES).doc(fileId)
-  const doc = await ref.get()
-  if (!doc.exists) return null
-
-  const file = { id: doc.id, ...doc.data() }
+  const { rows } = await query(`SELECT ${ASSET_FILE_SELECT_COLUMNS} FROM asset_files WHERE id = $1`, [fileId])
+  const file = rows[0]
+  if (!file) return null
   if (file.assetId !== assetId) return null
 
-  await ref.delete()
+  await query('DELETE FROM asset_files WHERE id = $1', [fileId])
   return file
 }

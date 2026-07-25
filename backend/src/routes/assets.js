@@ -1,10 +1,9 @@
 import express from 'express'
 import multer from 'multer'
 import crypto from 'node:crypto'
-import path from 'node:path'
 import { AssetInputSchema } from '../schema.js'
 import { addAssetFile, countAssetFiles, createAsset, deleteAsset, deleteAssetFile, listAssets, updateAsset } from '../assets.js'
-import { getBucket } from '../firebase.js'
+import { uploadPublicBlob, deleteBlob } from '../blobStorage.js'
 
 const router = express.Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } })
@@ -39,24 +38,17 @@ router.post('/assets/:id/files', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'missing_file' })
   if (req.file.mimetype !== 'application/pdf') return res.status(400).json({ error: 'pdf_required' })
 
-  const objectName = `asset-invoices/${req.params.id}/${Date.now()}-${crypto.randomUUID()}.pdf`
-  const file = getBucket().file(objectName)
-
-  await file.save(req.file.buffer, {
-    metadata: {
-      contentType: 'application/pdf',
-      cacheControl: 'private, max-age=3600',
-    },
-  })
-  await file.makePublic()
+  const storedFileName = `${Date.now()}-${crypto.randomUUID()}.pdf`
+  const blobPath = `asset-invoices/${req.params.id}/${storedFileName}`
+  const fileUrl = await uploadPublicBlob(blobPath, req.file.buffer, 'application/pdf', 'private, max-age=3600')
 
   const existingAssetCount = await countAssetFiles(req.params.id)
   const assetFile = await addAssetFile(req.params.id, {
     originalFileName: `Doc ${existingAssetCount + 1}`,
-    storedFileName: path.basename(objectName),
+    storedFileName,
     mimeType: req.file.mimetype,
     fileSize: req.file.size,
-    fileUrl: file.publicUrl(),
+    fileUrl,
     sourceType: req.body.sourceType || 'uploaded_pdf',
   })
 
@@ -67,8 +59,8 @@ router.delete('/assets/:id/files/:fileId', async (req, res) => {
   const assetFile = await deleteAssetFile(req.params.id, req.params.fileId)
   if (!assetFile) return res.status(404).json({ error: 'not_found' })
 
-  const objectName = `asset-invoices/${req.params.id}/${assetFile.storedFileName}`
-  await getBucket().file(objectName).delete({ ignoreNotFound: true })
+  const blobPath = `asset-invoices/${req.params.id}/${assetFile.storedFileName}`
+  await deleteBlob(blobPath)
 
   res.json({ ok: true })
 })
