@@ -1,10 +1,9 @@
 import express from 'express'
 import multer from 'multer'
 import crypto from 'node:crypto'
-import path from 'node:path'
 import { OrderInputSchema } from '../schema.js'
 import { addOrderFile, countOrderFiles, createOrder, deleteOrder, deleteOrderFile, listOrders, updateOrder } from '../orders.js'
-import { getBucket } from '../firebase.js'
+import { uploadPublicBlob, deleteBlob } from '../blobStorage.js'
 
 const router = express.Router()
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } })
@@ -39,24 +38,17 @@ router.post('/orders/:id/files', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'missing_file' })
   if (req.file.mimetype !== 'application/pdf') return res.status(400).json({ error: 'pdf_required' })
 
-  const objectName = `order-invoices/${req.params.id}/${Date.now()}-${crypto.randomUUID()}.pdf`
-  const file = getBucket().file(objectName)
-
-  await file.save(req.file.buffer, {
-    metadata: {
-      contentType: 'application/pdf',
-      cacheControl: 'private, max-age=3600',
-    },
-  })
-  await file.makePublic()
+  const storedFileName = `${Date.now()}-${crypto.randomUUID()}.pdf`
+  const blobPath = `order-invoices/${req.params.id}/${storedFileName}`
+  const fileUrl = await uploadPublicBlob(blobPath, req.file.buffer, 'application/pdf', 'private, max-age=3600')
 
   const existingCount = await countOrderFiles(req.params.id)
   const orderFile = await addOrderFile(req.params.id, {
     originalFileName: `Doc ${existingCount + 1}`,
-    storedFileName: path.basename(objectName),
+    storedFileName,
     mimeType: req.file.mimetype,
     fileSize: req.file.size,
-    fileUrl: file.publicUrl(),
+    fileUrl,
     sourceType: req.body.sourceType || 'uploaded_pdf',
   })
 
@@ -67,8 +59,8 @@ router.delete('/orders/:id/files/:fileId', async (req, res) => {
   const orderFile = await deleteOrderFile(req.params.id, req.params.fileId)
   if (!orderFile) return res.status(404).json({ error: 'not_found' })
 
-  const objectName = `order-invoices/${req.params.id}/${orderFile.storedFileName}`
-  await getBucket().file(objectName).delete({ ignoreNotFound: true })
+  const blobPath = `order-invoices/${req.params.id}/${orderFile.storedFileName}`
+  await deleteBlob(blobPath)
 
   res.json({ ok: true })
 })

@@ -42,7 +42,9 @@
     "migrate:orders-to-postgres": "node scripts/migrate-orders-to-postgres.js",
     "migrate:orders-to-postgres:apply": "node scripts/migrate-orders-to-postgres.js --apply",
     "migrate:photos-to-blob": "node scripts/migrate-photos-to-azure-blob.js",
-    "migrate:photos-to-blob:apply": "node scripts/migrate-photos-to-azure-blob.js --apply"
+    "migrate:photos-to-blob:apply": "node scripts/migrate-photos-to-azure-blob.js --apply",
+    "migrate:order-files-to-blob": "node scripts/migrate-order-files-to-azure-blob.js",
+    "migrate:order-files-to-blob:apply": "node scripts/migrate-order-files-to-azure-blob.js --apply"
   },
   "keywords": [],
   "author": "",
