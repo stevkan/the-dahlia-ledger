@@ -39,6 +39,8 @@
     "migrate:reminders-to-postgres:apply": "node scripts/migrate-reminders-to-postgres.js --apply",
     "migrate:companies-to-postgres": "node scripts/migrate-companies-to-postgres.js",
     "migrate:companies-to-postgres:apply": "node scripts/migrate-companies-to-postgres.js --apply",
+    "migrate:orders-to-postgres": "node scripts/migrate-orders-to-postgres.js",
+    "migrate:orders-to-postgres:apply": "node scripts/migrate-orders-to-postgres.js --apply",
     "migrate:photos-to-blob": "node scripts/migrate-photos-to-azure-blob.js",
     "migrate:photos-to-blob:apply": "node scripts/migrate-photos-to-azure-blob.js --apply"
   },

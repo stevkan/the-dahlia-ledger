@@ -7,7 +7,6 @@ import { clearLegacyUnassignedCache } from './records.js'
 const GARDENS = 'gardens'
 const GARDEN_MEMBERS = 'gardenMembers'
 const INVITES = 'invites'
-const ORDER_ITEMS = 'orderItems'
 
 export const GARDEN_ROLES = ['owner', 'admin', 'editor', 'viewer']
 
@@ -269,15 +268,15 @@ export async function updateGarden(user, gardenId, input) {
 }
 
 export async function getGardenUsageCounts(gardenId) {
-  const [recordCountResult, reminderCountResult, orderItemsSnap] = await Promise.all([
+  const [recordCountResult, reminderCountResult, orderItemCountResult] = await Promise.all([
     query('SELECT COUNT(*)::int AS count FROM dahlia_records WHERE garden_id = $1', [gardenId]),
     query('SELECT COUNT(*)::int AS count FROM maintenance_reminders WHERE garden_id = $1', [gardenId]),
-    getDb().collection(ORDER_ITEMS).where('gardenId', '==', gardenId).get(),
+    query('SELECT COUNT(*)::int AS count FROM order_items WHERE garden_id = $1', [gardenId]),
   ])
   return {
     records: recordCountResult.rows[0]?.count ?? 0,
     reminders: reminderCountResult.rows[0]?.count ?? 0,
-    orderItems: orderItemsSnap.size,
+    orderItems: orderItemCountResult.rows[0]?.count ?? 0,
   }
 }
 
