@@ -46,7 +46,9 @@
     "migrate:order-files-to-blob": "node scripts/migrate-order-files-to-azure-blob.js",
     "migrate:order-files-to-blob:apply": "node scripts/migrate-order-files-to-azure-blob.js --apply",
     "migrate:assets-to-postgres": "node scripts/migrate-assets-to-postgres.js",
-    "migrate:assets-to-postgres:apply": "node scripts/migrate-assets-to-postgres.js --apply"
+    "migrate:assets-to-postgres:apply": "node scripts/migrate-assets-to-postgres.js --apply",
+    "migrate:users-to-postgres": "node scripts/migrate-users-to-postgres.js",
+    "migrate:users-to-postgres:apply": "node scripts/migrate-users-to-postgres.js --apply"
   },
   "keywords": [],
   "author": "",
