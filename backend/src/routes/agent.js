@@ -1,10 +1,17 @@
 import express from 'express'
+import multer from 'multer'
 import { z } from 'zod'
-import { ingestText, proposeMissedIssueCorrection, reviewRecordMapping, runMetricDrilldown, runMetricRequest } from '../agent.js'
+import { identifyPhoto, ingestText, proposeMissedIssueCorrection, reviewRecordMapping, runMetricDrilldown, runMetricRequest } from '../agent.js'
+import { resolveGardenId } from '../gardens.js'
+import { forbidden, requireGlobalAdminRoute } from '../httpHelpers.js'
 import { getSettings } from '../settings.js'
-import { trackException } from '../telemetry.js'
+import { trackException, trackTrace } from '../telemetry.js'
+import { getProjectionDriftStatus } from '../learnedProjection.js'
+import { DINO_MODEL_ID } from '../dino.js'
+import { PREPROCESSING_VERSION } from '../preprocessingVersion.js'
 
 const router = express.Router()
+const photoIdentifyUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } })
 
 router.post('/agent/ingest', async (req, res) => {
   const Body = z.object({ text: z.string().min(1) })
@@ -22,6 +29,50 @@ router.post('/agent/ingest', async (req, res) => {
     const message = e instanceof Error ? e.message : String(e)
     console.error('Agent ingest failed:', message)
     trackException(e, { operation: 'agent-ingest' })
+    res.status(503).json({ status: 'needs_clarification', message: `Agent unavailable: ${message}` })
+  }
+})
+
+router.post('/agent/identify-photo', photoIdentifyUpload.single('file'), async (req, res) => {
+  const Body = z.object({ imageUrl: z.string().min(1).optional() })
+  const parsed = Body.safeParse(req.body)
+  const diagnostics = {
+    contentType: req.get('content-type') ?? 'none',
+    contentLength: req.get('content-length') ?? 'none',
+    userAgent: req.get('user-agent') ?? 'none',
+    hasFile: Boolean(req.file),
+    bodyKeys: Object.keys(req.body ?? {}).join(',') || 'none',
+  }
+
+  if (!parsed.success) {
+    trackTrace('Agent identify-photo: invalid body', 2, diagnostics)
+    return res.status(400).send(parsed.error.toString())
+  }
+  if (!req.file && !parsed.data.imageUrl) {
+    trackTrace('Agent identify-photo: no file or imageUrl received', 2, diagnostics)
+    return res.status(400).json({ status: 'needs_clarification', message: 'A photo is required to identify.' })
+  }
+
+  let gardenId
+  try {
+    gardenId = await resolveGardenId(req.user, req.query.gardenId)
+  } catch (e) {
+    if (forbidden(res, e)) return
+    throw e
+  }
+
+  try {
+    const out = await identifyPhoto({
+      imageBuffer: req.file?.buffer,
+      imageContentType: req.file?.mimetype,
+      imageUrl: parsed.data.imageUrl,
+      gardenId,
+    })
+    res.json(out)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    console.error('Agent photo identification failed:', message)
+    trackException(e, { operation: 'agent-identify-photo' })
     res.status(503).json({ status: 'needs_clarification', message: `Agent unavailable: ${message}` })
   }
 })
@@ -62,6 +113,7 @@ router.post('/agent/metrics', async (req, res) => {
       plantingStates: z.array(z.string()).optional(),
       colors: z.array(z.string()).optional(),
       forms: z.array(z.string()).optional(),
+      nameStatuses: z.array(z.string()).optional(),
     }).optional(),
     photoTypes: z.array(z.enum(['any', 'record', 'cultivar', 'none'])).optional(),
     sortBy: z.enum(['company', 'value_desc', 'value_asc']).optional(),
@@ -121,6 +173,7 @@ router.post('/agent/metrics/drilldown', async (req, res) => {
       plantingStates: z.array(z.string()).optional(),
       colors: z.array(z.string()).optional(),
       forms: z.array(z.string()).optional(),
+      nameStatuses: z.array(z.string()).optional(),
     }).optional(),
     photoTypes: z.array(z.enum(['any', 'record', 'cultivar', 'none'])).optional(),
   }).refine((value) => value.metric === 'missing_data_summary' ? Boolean(value.field) : Boolean(value.bucket), 'field is required for missing_data_summary; bucket is required for other drilldowns')
@@ -176,6 +229,18 @@ router.post('/agent/correction', async (req, res) => {
     console.error('Agent correction failed:', message)
     trackException(e, { operation: 'agent-correction' })
     res.status(503).json({ error: `Agent correction unavailable: ${message}` })
+  }
+})
+
+router.get('/agent/learned-projection-status', requireGlobalAdminRoute, async (req, res) => {
+  try {
+    const status = await getProjectionDriftStatus({ embeddingModel: DINO_MODEL_ID, preprocessingVersion: PREPROCESSING_VERSION })
+    res.json(status)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    console.error('Learned projection status check failed:', message)
+    trackException(e, { operation: 'agent-learned-projection-status' })
+    res.status(503).json({ error: `Learned projection status unavailable: ${message}` })
   }
 })
 

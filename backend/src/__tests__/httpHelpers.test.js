@@ -94,6 +94,14 @@ describe('forbidden', () => {
     expect(res.status).toHaveBeenCalledWith(409)
   })
 
+  it('returns 409 with reasons for known_user_in_use', () => {
+    const res = mockRes()
+    const e = codeError('known_user_in_use', 'User owns a garden', { reasons: { ownsGarden: true, addedByAnotherUser: false } })
+    expect(forbidden(res, e)).toBe(true)
+    expect(res.status).toHaveBeenCalledWith(409)
+    expect(res.json).toHaveBeenCalledWith({ error: 'known_user_in_use', message: 'User owns a garden', reasons: { ownsGarden: true, addedByAnotherUser: false } })
+  })
+
   it('returns false and sends nothing for an unknown error code', () => {
     const res = mockRes()
     expect(forbidden(res, codeError('something_unexpected'))).toBe(false)

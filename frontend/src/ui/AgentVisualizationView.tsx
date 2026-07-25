@@ -42,7 +42,7 @@ function MetricTable({ visualization, onRowClick }: { visualization: AgentVisual
     <div className="agentChartTableWrap">
       <table className="table agentChartTable">
         <thead>
-          <tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr>
+          <tr>{columns.map((column) => <th key={column}>{labelFromKey(column)}</th>)}</tr>
         </thead>
         <tbody>
           {data.map((row, index) => (

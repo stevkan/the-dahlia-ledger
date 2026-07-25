@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_GARDEN_OPTIONS } from '../gardenOptions'
-import type { AgentCorrectionResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, GardenOptionKey, GardenOptions, NotPlantedReason, NotViableReason, Order, PlantingState } from '../types'
+import type { AgentCorrectionResult, AgentPhotoIdentificationResult, AgentReviewResult, Company, CompanyInput, DahliaPhoto, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, GardenOptionKey, GardenOptions, NameStatus, NotPlantedReason, NotViableReason, Order, PlantingState } from '../types'
 import { DropdownField } from './DropdownField'
 import { FlowerNameField } from './FlowerNameField'
 import { ColorField } from './ColorField'
 import { DahliaPickerField } from './DahliaPickerField'
+import { PhotoIdentifyResultsModal } from './PhotoIdentifyResultsModal'
+import { identifyPhoto } from '../api/client'
 
 type SectionKey = 'core' | 'growth' | 'care' | 'tuber' | 'storage' | 'health' | 'varieties' | 'meta' | 'photos'
 type ConfirmAction = 'review' | 'delete' | 'duplicate' | null
@@ -14,6 +16,7 @@ const PLANTING_STATES: { value: PlantingState; label: string }[] = [
   { value: 'in_garden', label: 'In Garden' },
   { value: 'not_planted', label: 'Not Planted' },
   { value: 'not_viable', label: 'Not Viable' },
+  { value: 'did_not_grow', label: 'Did Not Grow' },
   { value: 'purchased_container', label: 'Purchased Container' },
 ]
 const NOT_PLANTED_REASONS: { value: NotPlantedReason; label: string }[] = [
@@ -44,6 +47,16 @@ const DAHLIA_FORM_OPTIONS = [
   'Waterlily',
 ]
 const DAHLIA_HABIT_OPTIONS = ['Upright', 'Forward', 'Down']
+const NAME_STATUS_OPTIONS: { value: NameStatus; label: string }[] = [
+  { value: 'mystery', label: 'Mystery' },
+  { value: 'unknown', label: 'Unknown' },
+  { value: 'seedling', label: 'Seedling' },
+]
+const NAME_STATUS_LABELS: Record<NameStatus, string> = {
+  mystery: 'Mystery',
+  unknown: 'Unknown',
+  seedling: 'Seedling',
+}
 const BLOOM_WIDTH_OPTIONS = [
   'AA - over 10"',
   'A - 8" to 10"',
@@ -369,6 +382,7 @@ function formatLocation(record: DahliaRecord) {
   if (state === 'garden_tray') return 'Garden Tray'
   if (state === 'not_planted') return 'Not Planted'
   if (state === 'not_viable') return 'Not Viable'
+  if (state === 'did_not_grow') return 'Did Not Grow'
 
   const zone = record.meta?.gardenZone ?? record.meta?.gardenArea
   const rowOrBed = record.meta?.rowOrBed ?? record.meta?.gardenRow
@@ -509,6 +523,30 @@ function TextArea({
   )
 }
 
+function NameStatusCheckbox({
+  label,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  disabled?: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label className={`nameStatusOption${disabled ? ' disabled' : ''}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span>{label}</span>
+    </label>
+  )
+}
+
 function Toggle({
   label,
   hint,
@@ -595,7 +633,7 @@ export function RecordModal({
   correctionResult?: AgentCorrectionResult | null
   reviewBusy?: boolean
   correctionBusy?: boolean
-  onUploadPhoto?: (file: File) => Promise<{ imageUrl: string; thumbnailUrl?: string }>
+  onUploadPhoto?: (file: File) => Promise<{ imageUrl: string; thumbnailUrl?: string; listThumbnailUrl?: string; imageBlobPath?: string; thumbnailBlobPath?: string; listThumbnailBlobPath?: string }>
   onCreateCompany?: (input: CompanyInput) => Promise<Company>
   onOpenCompanies?: () => void
   onOpenGardenOptions?: (group: GardenOptionKey) => void
@@ -611,6 +649,7 @@ export function RecordModal({
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const galleriesFileInputRef = useRef<HTMLInputElement | null>(null)
   const confirmAreaRef = useRef<HTMLDivElement | null>(null)
+  const photoActionButtonsRef = useRef<HTMLDivElement | null>(null)
   const [open, setOpen] = useState<Record<SectionKey, boolean>>({
     core: true,
     growth: false,
@@ -635,6 +674,9 @@ export function RecordModal({
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [photoLoadError, setPhotoLoadError] = useState(false)
   const [photoScope, setPhotoScope] = useState<'cultivar' | 'record'>('cultivar')
+  const [identifyBusy, setIdentifyBusy] = useState(false)
+  const [identifyError, setIdentifyError] = useState<string | null>(null)
+  const [identifyResult, setIdentifyResult] = useState<AgentPhotoIdentificationResult | null>(null)
   const [dirtyPhotoSection, setDirtyPhotoSection] = useState<'record' | 'cultivar' | null>(null)
   const [closeError, setCloseError] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
@@ -696,16 +738,34 @@ export function RecordModal({
     return photoFile !== null || normalizeInputForComparison(form) !== initialSnapshot
   }, [form, initialSnapshot, photoFile])
 
+  function resetFormToSource() {
+    const original = inputFromInitialRecord(initial, draft)
+    setForm(inputWithNormalizedBloomWidth(original))
+    setInitialSnapshot(normalizeInputForComparison(original))
+    setDeletedInheritedCultivarUrls([])
+    setDirtyPhotoSection(null)
+  }
+
   useEffect(() => {
     if (initial) {
-      const original = recordToInput(initial)
-      const next = inputWithNormalizedBloomWidth(original)
-      setForm(next)
-      setInitialSnapshot(normalizeInputForComparison(original))
-      setDeletedInheritedCultivarUrls([])
-      setDirtyPhotoSection(null)
+      resetFormToSource()
     }
   }, [initial])
+
+  useEffect(() => {
+    // iOS/WKWebView sometimes fails to repaint a button's style/disabled state after it
+    // changes in the onChange handler of a native file picker, leaving "Save Photo" looking
+    // greyed out until the next touch or scroll forces a repaint. Nudge one immediately.
+    if (!photoFile) return
+    const el = photoActionButtonsRef.current
+    if (!el) return
+    requestAnimationFrame(() => {
+      el.style.transform = 'translateZ(0)'
+      requestAnimationFrame(() => {
+        el.style.transform = ''
+      })
+    })
+  }, [photoFile])
 
   useEffect(() => {
     if (!confirmAction) return
@@ -726,6 +786,14 @@ export function RecordModal({
       return
     }
     onClose()
+  }
+
+  function handleCancelChanges() {
+    if (!hasChanges) return
+    resetFormToSource()
+    cancelPhotoSelection()
+    setCloseError(null)
+    setConfirmAction(null)
   }
 
   async function selectPhoto(file: File | undefined) {
@@ -763,6 +831,23 @@ export function RecordModal({
       if (previous?.startsWith('blob:')) URL.revokeObjectURL(previous)
       return URL.createObjectURL(file)
     })
+  }
+
+  async function submitIdentifyPhoto() {
+    if (identifyBusy) return
+
+    setIdentifyBusy(true)
+    setIdentifyError(null)
+    try {
+      const out = photoFile
+        ? await identifyPhoto({ file: photoFile })
+        : await identifyPhoto({ imageUrl: currentViewerPhoto })
+      setIdentifyResult(out)
+    } catch (e: any) {
+      setIdentifyError(e?.message ?? String(e))
+    } finally {
+      setIdentifyBusy(false)
+    }
   }
 
   function cancelPhotoSelection() {
@@ -867,6 +952,31 @@ export function RecordModal({
   function setSourceCompany(value: string | undefined) {
     setConfirmAction(null)
     setForm((previous) => ({ ...previous, tuber: { ...previous.tuber, source: value } }))
+  }
+
+  function setNameStatus(status: NameStatus | undefined) {
+    setConfirmAction(null)
+
+    if (!status) {
+      setForm((previous) => ({ ...previous, meta: { ...previous.meta, nameStatus: null } }))
+      return
+    }
+
+    const hasExistingName = form.flowerName.trim().length > 0 || (form.core.cultivar ?? '').trim().length > 0
+    if (hasExistingName) {
+      const label = NAME_STATUS_LABELS[status]
+      const confirmed = window.confirm(`Marking this record as "${label}" will overwrite the Flower Name and Cultivar fields. Continue?`)
+      if (!confirmed) return
+    }
+
+    const identifier = initial?.recordNumber ?? 'draft'
+    const generatedName = `${NAME_STATUS_LABELS[status]} - ${identifier}`
+    setForm((previous) => ({
+      ...previous,
+      flowerName: generatedName,
+      core: { ...previous.core, cultivar: generatedName },
+      meta: { ...previous.meta, nameStatus: status },
+    }))
   }
 
   async function handleReviewClick() {
@@ -1122,6 +1232,10 @@ export function RecordModal({
           id: `${photoScope}-${Date.now()}`,
           imageUrl: uploaded.imageUrl,
           thumbnailUrl: uploaded.thumbnailUrl ?? uploaded.imageUrl,
+          listThumbnailUrl: uploaded.listThumbnailUrl ?? uploaded.thumbnailUrl ?? uploaded.imageUrl,
+          imageBlobPath: uploaded.imageBlobPath,
+          thumbnailBlobPath: uploaded.thumbnailBlobPath,
+          listThumbnailBlobPath: uploaded.listThumbnailBlobPath,
           scope: photoScope,
           createdAt: new Date().toISOString(),
         }
@@ -1246,31 +1360,43 @@ export function RecordModal({
             {open.core ? (
               <div className="sectionBody">
                 <div className="grid4">
-                  <div className="gridSpan2">
-                    <FlowerNameField
-                      label="Flower Name"
-                      hint="The primary display name for this dahlia record."
-                      required
-                      value={form.flowerName}
-                      knownFlowerNames={knownFlowerNames}
-                      onChange={(v) => setForm((p) => ({
-                        ...p,
-                        flowerName: v,
-                        core: {
-                          ...p.core,
-                          cultivar: p.core.cultivar === p.flowerName ? v : p.core.cultivar,
-                        },
-                      }))}
-                      placeholder="e.g. Cafe au Lait"
-                      labelAction={onOpenFlowerNames ? (
-                        <button className="labelLink" type="button" onClick={onOpenFlowerNames}>
-                          Flower Name
-                        </button>
-                      ) : undefined}
-                    />
-                  </div>
-                  <div className="gridSpan2">
-                    <Field label="Season" hint="The growing season year for this record." required type="number" value={String(form.seasonYearStart)} onChange={setSeasonYearStart} />
+                  <div className="gridSpanFull flowerNameStatusRow">
+                    <div className="flowerNameSeasonSplit">
+                      <FlowerNameField
+                        label="Flower Name"
+                        hint="The primary display name for this dahlia record."
+                        required
+                        value={form.flowerName}
+                        knownFlowerNames={knownFlowerNames}
+                        disabled={Boolean(form.meta.nameStatus)}
+                        onChange={(v) => setForm((p) => ({
+                          ...p,
+                          flowerName: v,
+                          core: {
+                            ...p.core,
+                            cultivar: p.core.cultivar === p.flowerName ? v : p.core.cultivar,
+                          },
+                        }))}
+                        placeholder="e.g. Cafe au Lait"
+                        labelAction={onOpenFlowerNames ? (
+                          <button className="labelLink" type="button" onClick={onOpenFlowerNames}>
+                            Flower Name
+                          </button>
+                        ) : undefined}
+                      />
+                      <Field label="Season" hint="The growing season year for this record." required type="number" value={String(form.seasonYearStart)} onChange={setSeasonYearStart} />
+                    </div>
+                    <div className="nameStatusOptions">
+                      {NAME_STATUS_OPTIONS.map((option) => (
+                        <NameStatusCheckbox
+                          key={option.value}
+                          label={option.label}
+                          checked={form.meta.nameStatus === option.value}
+                          disabled={Boolean(form.meta.nameStatus) && form.meta.nameStatus !== option.value}
+                          onChange={(checked) => setNameStatus(checked ? option.value : undefined)}
+                        />
+                      ))}
+                    </div>
                   </div>
                   <DahliaPickerField
                     label="Planting State"
@@ -1371,7 +1497,7 @@ export function RecordModal({
                   ) : null}
                 </div>
                 <div className="grid2">
-                  <Field label="Cultivar" hint="The cultivar name. If blank, Flower Name is used when saving." value={form.core.cultivar ?? ''} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, cultivar: v } }))} />
+                  <Field label="Cultivar" hint="The cultivar name. If blank, Flower Name is used when saving." value={form.core.cultivar ?? ''} disabled={Boolean(form.meta.nameStatus)} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, cultivar: v } }))} />
                   <Field label="Planted Date" hint="Date planted. This may be earlier than the current season year for overwintered or moved plants." type="date" value={form.core.plantedDate ?? plantedDateForYear(form.seasonYearStart)} onChange={(v) => setForm((p) => ({ ...p, core: { ...p.core, plantedDate: v } }))} />
                   <ColorField
                     label="Color"
@@ -1559,7 +1685,7 @@ export function RecordModal({
                               label="Company"
                               hint="Manual company or source name when no invoice record is linked. Add new companies from the Companies modal."
                               layout="list"
-                              options={companies.map((company) => company.name)}
+                              options={Array.from(new Set(companies.map((company) => company.name)))}
                               value={selectedSourceCompany || undefined}
                               onChange={setSourceCompany}
                               labelAction={onOpenCompanies ? (
@@ -1755,10 +1881,26 @@ export function RecordModal({
         ) : null}
       </div>
 
-      <div className="modalFooter">
-        <div className="footerLeft" ref={confirmAreaRef}>
-          {confirmAction ? <div className="callout warn footerConfirmMessage">Click the highlighted action again to confirm.</div> : null}
+      <div className="modalFooter" ref={confirmAreaRef}>
+        <div className="footerLeft">
           <div className="footerActionRow">
+            <button className="btn" disabled={!canSave || !hasChanges || saving} onClick={() => void handleSave()}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button className="btn ghost" disabled={!hasChanges} onClick={handleCancelChanges}>
+              Cancel
+            </button>
+            {initial && onDuplicate ? (
+              <button className="btn ghost" type="button" onClick={handleDuplicateClick}>
+                {confirmAction === 'duplicate' ? 'Confirm Duplicate' : 'Duplicate'}
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <div className="footerStack">
+          {confirmAction ? <div className="callout warn footerConfirmMessage">Click the highlighted action again to confirm.</div> : null}
+          {closeError ? <div className="error inlineError footerError">{closeError}</div> : null}
+          <div className="footerRight">
             {onReview ? (
               <button className="btn ghost" type="button" disabled={reviewBusy} onClick={() => void handleReviewClick()}>
                 {reviewBusy ? 'Reviewing...' : confirmAction === 'review' ? 'Confirm Review' : 'Review With Debug Agent'}
@@ -1769,22 +1911,6 @@ export function RecordModal({
                 {confirmAction === 'delete' ? 'Confirm Delete' : 'Delete'}
               </button>
             ) : null}
-            {initial && onDuplicate ? (
-              <button className="btn ghost" type="button" onClick={handleDuplicateClick}>
-                {confirmAction === 'duplicate' ? 'Confirm Duplicate' : 'Duplicate'}
-              </button>
-            ) : null}
-          </div>
-        </div>
-        <div className="footerStack">
-          {closeError ? <div className="error inlineError footerError">{closeError}</div> : null}
-          <div className="footerRight">
-            <button className="btn ghost" onClick={onClose}>
-              Cancel
-            </button>
-            <button className="btn" disabled={!canSave || !hasChanges || saving} onClick={() => void handleSave()}>
-              {saving ? 'Saving…' : 'Save'}
-            </button>
           </div>
         </div>
       </div>
@@ -1831,9 +1957,9 @@ export function RecordModal({
                       <span>This record only</span>
                     </label>
                   </div>
-                  <div className="photoActionButtons">
+                  <div className="photoActionButtons" ref={photoActionButtonsRef}>
                     <button
-                      className={photoFile ? 'btn' : 'btn ghost'}
+                      className={photoFile ? 'btn photoActionPrimary' : 'btn ghost photoActionPrimary'}
                       type="button"
                       disabled={photoFile ? !canSave || saving || photoConverting : photoConverting}
                       onClick={() => photoFile ? void handleSave({ keepOpen: true }) : galleriesFileInputRef.current?.click()}
@@ -1842,7 +1968,7 @@ export function RecordModal({
                     </button>
                     {photoFile ? (
                       <button
-                        className="btn ghost"
+                        className="btn ghost photoActionChoose"
                         type="button"
                         disabled={saving || photoConverting}
                         onClick={() => galleriesFileInputRef.current?.click()}
@@ -1852,7 +1978,7 @@ export function RecordModal({
                     ) : null}
                     {photoFile ? (
                       <button
-                        className="btn ghost"
+                        className="btn ghost photoActionCancel"
                         type="button"
                         disabled={saving || photoConverting}
                         onClick={cancelPhotoSelection}
@@ -1860,6 +1986,14 @@ export function RecordModal({
                         Cancel
                       </button>
                     ) : null}
+                    <button
+                      className="btn ghost photoActionIdentify"
+                      type="button"
+                      disabled={!currentPhoto || photoLoadError || photoConverting || identifyBusy}
+                      onClick={() => void submitIdentifyPhoto()}
+                    >
+                      {photoConverting ? 'Converting...' : identifyBusy ? 'Identifying...' : 'Identify Photo'}
+                    </button>
                   </div>
                   <input
                     ref={galleriesFileInputRef}
@@ -1872,6 +2006,7 @@ export function RecordModal({
               </div>
               {photoLoadError ? <div className="error inlineError">The photo URL is saved but the browser could not load it in the preview.</div> : null}
               {photoError ? <div className="error inlineError">{photoError}</div> : null}
+              {identifyError ? <div className="error inlineError">{identifyError}</div> : null}
               <div className="photoGalleryGroups">
                 <PhotoGallery
                   title="Record Photos"
@@ -1929,6 +2064,9 @@ export function RecordModal({
             </div>
           </div>
         </div>
+      ) : null}
+      {identifyResult ? (
+        <PhotoIdentifyResultsModal result={identifyResult} onBack={() => setIdentifyResult(null)} onClose={() => setIdentifyResult(null)} />
       ) : null}
     </Overlay>
   )

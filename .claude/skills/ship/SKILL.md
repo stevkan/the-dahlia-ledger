@@ -71,6 +71,8 @@ git commit -m "prepare X.Y.Z <type> release"
 
 Where `<type>` is a short description of what changed (e.g. `record modal fix`, `analytics feature`).
 
+Pushing the release branch does not trigger a deploy — `main_dahlia-ledger.yml` only runs on push to `main`, and this skill does not merge to `main`. If that merge happens as a fast-forward, the release branch's tip commit becomes the tip of `main` and GitHub names the resulting workflow run after it. The message **must always start with `prepare X.Y.Z`** so that run is identifiable by version at a glance — this is non-negotiable regardless of `<type>`. Make sure this "prepare X.Y.Z ..." commit is the last commit created before pushing, so it is the tip of the branch.
+
 ## 7. Push
 
 ```bash

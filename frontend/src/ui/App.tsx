@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createUserWithEmailAndPassword,
@@ -9,20 +9,25 @@ import {
   signOut,
   type User,
 } from 'firebase/auth'
-import type { AgentCorrectionResult, AgentReviewResult, Asset, AssetInput, Company, CompanyInput, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, ExcelImportResult, ExcelImportRevertResult, Invite, MaintenanceReminder, MaintenanceReminderInput, Order, OrderInput } from '../types'
+import type { AgentCorrectionResult, AgentReviewResult, Asset, AssetInput, Company, CompanyInput, DahliaRecord, DahliaRecordInput, DahliaRecordSummary, ExcelImportResult, ExcelImportRevertResult, Invite, LearnedProjectionStatus, MaintenanceReminder, MaintenanceReminderInput, Order, OrderInput } from '../types'
 import type { GardenOptionKey } from '../types'
 import { auth, authHeaders, hasFirebaseConfig, initializeAuthPersistence } from '../firebase'
-import { api, API_BASE, uploadPhoto } from '../api/client'
+import { api, API_BASE, fetchAppCheckDebugToken, generateAppCheckDebugToken, uploadPhoto } from '../api/client'
 import { type InfiniteRecordsData } from '../recordUtils'
 import { useGardens, gardenOptionLabel, gardensQueryKey } from '../hooks/useGardens'
+import { onGardenAccessRevoked } from '../api/gardenAccessEvents'
 import { useRecords, recordsQueryKey, recordSummariesQueryKey, flowerNamesQueryKey, colorsQueryKey } from '../hooks/useRecords'
+import { useDataAudit } from '../hooks/useDataAudit'
+import { useIsWeakConnection } from '../hooks/useIsWeakConnection'
 import { RecordsTable } from './RecordsTable'
 import { RecordModal } from './RecordModal'
 import { AgentPanel } from './AgentPanel'
 import { AnalyticsModal } from './AnalyticsModal'
+import { PhotoIdentifyModal } from './PhotoIdentifyModal'
 import { OrderModal } from './OrderModal'
 import { AssetsModal } from './AssetsModal'
 import { CompaniesModal } from './CompaniesModal'
+import { SettingsModal } from './SettingsModal'
 import { GardenOptionsModal } from './GardenOptionsModal'
 import { MaintenanceRemindersModal } from './MaintenanceRemindersModal'
 import { GardenManagementModal } from './GardenManagementModal'
@@ -36,7 +41,6 @@ const RECORDS_REFRESH_INTERVAL_OPTIONS = [0, 30_000, 60_000, 5 * 60_000, 15 * 60
 const companiesQueryKey = ['companies'] as const
 const ordersQueryKey = ['orders'] as const
 const assetsQueryKey = ['assets'] as const
-const settingsQueryKey = ['settings'] as const
 const KNOWN_USERS_REFRESH_INTERVAL_MS = 30_000
 
 function LandscapeOnlyOverlay() {
@@ -159,11 +163,7 @@ function loadRecordsRefreshInterval() {
 
 type Theme = 'dark' | 'light'
 
-type AppSettings = {
-  agentDebugReviewEnabled: boolean
-}
-
-function excelImportSummary(result: ExcelImportResult) {
+export function excelImportSummary(result: ExcelImportResult) {
   const counts = result.counts
   const followUpCount = counts.unmatchedCount + counts.ambiguousCount + counts.priorSeasonMissingCount + counts.skippedCount
   return `Updated ${counts.updatedCount} of ${counts.extractedCount} Excel location${counts.extractedCount === 1 ? '' : 's'}. ${followUpCount} need review.`
@@ -223,25 +223,27 @@ export default function App() {
   const [gardenManagementOpen, setGardenManagementOpen] = useState(false)
   const [gardenOptionsInitialGroup, setGardenOptionsInitialGroup] = useState<GardenOptionKey>('gardenAreas')
   const [recordsRefreshIntervalMs, setRecordsRefreshIntervalMs] = useState(loadRecordsRefreshInterval)
+  const isWeakConnection = useIsWeakConnection()
+  const effectiveRecordsRefreshIntervalMs = isWeakConnection ? 0 : recordsRefreshIntervalMs
   const [gardenMenuOpen, setGardenMenuOpen] = useState(false)
   const [recordsManagementOpen, setRecordsManagementOpen] = useState(false)
   const [agentHelperOpen, setAgentHelperOpen] = useState(false)
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
+  const [photoIdentifyOpen, setPhotoIdentifyOpen] = useState(false)
   const [insightsMenuOpen, setInsightsMenuOpen] = useState(false)
   const [maintenanceRemindersOpen, setMaintenanceRemindersOpen] = useState(false)
-  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false)
   const [hamburgerMenuOpen, setHamburgerMenuOpen] = useState(false)
   const recordsManagementRef = useRef<HTMLDivElement>(null)
   const gardenMenuRef = useRef<HTMLDivElement>(null)
   const insightsMenuRef = useRef<HTMLDivElement>(null)
-  const settingsMenuRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
 
   const {
     gardens, selectedGarden, activeGardenId, gardenQuery, gardenOptions,
     gardenMembers, knownUsers, globalAdmin, setSelectedGardenId,
     createGarden, updateGarden, deleteGarden,
-    listGardenMembers, saveGardenMember, deleteGardenMember, deleteKnownUser,
+    listGardenMembers, saveGardenMember, deleteGardenMember, deleteKnownUser, deleteOwnAccount,
     listInvites, createInvite, resendInvite, deleteInvite, updateGardenOptions,
     invalidateGardenMembers,
   } = useGardens({ user, gardenManagementOpen, setError })
@@ -260,15 +262,35 @@ export default function App() {
     enabled: Boolean(user),
     staleTime: 5 * 60_000,
   })
+  const learnedProjectionStatusQuery = useQuery({
+    queryKey: ['learned-projection-status'],
+    queryFn: async () => api<LearnedProjectionStatus>('/api/agent/learned-projection-status'),
+    enabled: Boolean(user) && globalAdmin,
+    staleTime: 5 * 60_000,
+  })
+  const appCheckDebugTokenQuery = useQuery({
+    queryKey: ['app-check-debug-token'],
+    queryFn: fetchAppCheckDebugToken,
+    enabled: Boolean(user) && globalAdmin,
+    staleTime: 60_000,
+  })
+  const [appCheckDebugTokenGenerating, setAppCheckDebugTokenGenerating] = useState(false)
+
+  async function generateAppCheckDebugTokenHandler() {
+    setAppCheckDebugTokenGenerating(true)
+    setError(null)
+    try {
+      await generateAppCheckDebugToken()
+      await queryClient.invalidateQueries({ queryKey: ['app-check-debug-token'] })
+    } catch (e: any) {
+      setError(e?.message ?? String(e))
+    } finally {
+      setAppCheckDebugTokenGenerating(false)
+    }
+  }
   const assetsQuery = useQuery({
     queryKey: assetsQueryKey,
     queryFn: async () => (await api<{ assets: Asset[] }>('/api/assets')).assets,
-    enabled: Boolean(user),
-    staleTime: 5 * 60_000,
-  })
-  const settingsQuery = useQuery({
-    queryKey: settingsQueryKey,
-    queryFn: async () => (await api<{ settings: AppSettings }>('/api/settings')).settings,
     enabled: Boolean(user),
     staleTime: 5 * 60_000,
   })
@@ -283,7 +305,6 @@ export default function App() {
   const companies = companiesQuery.data ?? []
   const orders = ordersQuery.data ?? []
   const assets = assetsQuery.data ?? []
-  const settings = settingsQuery.data ?? { agentDebugReviewEnabled: false }
   const maintenanceReminders = maintenanceRemindersQuery.data ?? []
   const visibleIncompleteReminders = maintenanceReminders.filter((reminder) => !reminder.completedAt && canUserViewReminder(reminder, user?.uid))
   const visibleReminderCount = visibleIncompleteReminders.length
@@ -291,19 +312,24 @@ export default function App() {
 
   const {
     records, recordSummaries, flowerNames, colors, loading, recordSummariesQuery,
-    refreshRecords, refreshRecordSummaries, openRecordFromSummary,
+    refreshRecords, refreshRecordSummaries, openRecordFromSummary, openRecordById,
     onCreate, onUpdate, onDelete,
     onUpdateCultivarPhoto, onSetRecordPhotoDefault, onSetCultivarPhotoDefault, onDeleteCultivarPhoto,
   } = useRecords({
     user, activeGardenId, gardenQuery,
     analyticsOpen, maintenanceRemindersOpen, gardenOptionsOpen, createOpen,
-    recordsRefreshIntervalMs,
+    recordsRefreshIntervalMs: effectiveRecordsRefreshIntervalMs,
     setActive: (r) => setActive(r),
     setCreateDraft: (d) => setCreateDraft(d),
     setCreateOpen: (o) => setCreateOpen(o),
     onRefreshCompanies: refreshCompanies,
     setError,
   })
+
+  const {
+    drift: driftRecords, loading: driftLoading, error: driftError,
+    refresh: refreshDrift, markReviewed: markDriftReviewed,
+  } = useDataAudit(Boolean(user) && globalAdmin && settingsModalOpen)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -315,15 +341,41 @@ export default function App() {
     window.localStorage.setItem(RECORDS_REFRESH_INTERVAL_STORAGE_KEY, String(recordsRefreshIntervalMs))
   }, [recordsRefreshIntervalMs])
 
+  useEffect(() => onGardenAccessRevoked(() => {
+    setError('Your access to this garden has changed. Switched you to your available gardens.')
+  }), [])
+
   const anyModalOpen = Boolean(
-    active || createOpen || agentHelperOpen || analyticsOpen ||
+    active || createOpen || agentHelperOpen || analyticsOpen || photoIdentifyOpen ||
     maintenanceRemindersOpen || gardenManagementOpen || companiesOpen ||
     ordersOpen || assetsOpen || gardenOptionsOpen
   )
 
-  useEffect(() => {
-    document.body.style.overflow = anyModalOpen ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
+  useLayoutEffect(() => {
+    if (!anyModalOpen) return
+    const scrollY = window.scrollY
+    const body = document.body
+    const prevPosition = body.style.position
+    const prevTop = body.style.top
+    const prevLeft = body.style.left
+    const prevRight = body.style.right
+    const prevWidth = body.style.width
+    const prevOverflow = body.style.overflow
+    body.style.position = 'fixed'
+    body.style.top = `-${scrollY}px`
+    body.style.left = '0'
+    body.style.right = '0'
+    body.style.width = '100%'
+    body.style.overflow = 'hidden'
+    return () => {
+      body.style.position = prevPosition
+      body.style.top = prevTop
+      body.style.left = prevLeft
+      body.style.right = prevRight
+      body.style.width = prevWidth
+      body.style.overflow = prevOverflow
+      window.scrollTo(0, scrollY)
+    }
   }, [anyModalOpen])
 
   useEffect(() => {
@@ -374,19 +426,6 @@ export default function App() {
     document.addEventListener('pointerdown', closeOnOutsideClick)
     return () => document.removeEventListener('pointerdown', closeOnOutsideClick)
   }, [recordsManagementOpen])
-
-  useEffect(() => {
-    if (!settingsMenuOpen) return
-
-    function closeOnOutsideClick(event: PointerEvent) {
-      if (!settingsMenuRef.current?.contains(event.target as Node)) {
-        setSettingsMenuOpen(false)
-      }
-    }
-
-    document.addEventListener('pointerdown', closeOnOutsideClick)
-    return () => document.removeEventListener('pointerdown', closeOnOutsideClick)
-  }, [settingsMenuOpen])
 
   useEffect(() => {
     if (!insightsMenuOpen) return
@@ -455,22 +494,6 @@ export default function App() {
       unsubscribe()
     }
   }, [])
-
-  async function setAgentDebugReviewEnabled(agentDebugReviewEnabled: boolean) {
-    const previous = settings
-    queryClient.setQueryData(settingsQueryKey, { ...settings, agentDebugReviewEnabled })
-    setError(null)
-    try {
-      const data = await api<{ settings: AppSettings }>('/api/settings', {
-        method: 'PUT',
-        body: JSON.stringify({ agentDebugReviewEnabled }),
-      })
-      queryClient.setQueryData(settingsQueryKey, data.settings)
-    } catch (e: any) {
-      queryClient.setQueryData(settingsQueryKey, previous)
-      setError(e?.message ?? String(e))
-    }
-  }
 
   async function loginWithMicrosoft() {
     if (!auth) {
@@ -1106,7 +1129,6 @@ export default function App() {
                 setGardenMenuOpen((open) => !open)
                 setRecordsManagementOpen(false)
                 setInsightsMenuOpen(false)
-                setSettingsMenuOpen(false)
               }}
             >
               <span>Garden:</span>
@@ -1140,7 +1162,6 @@ export default function App() {
               setMaintenanceRemindersOpen(true)
               setRecordsManagementOpen(false)
               setInsightsMenuOpen(false)
-              setSettingsMenuOpen(false)
               setHamburgerMenuOpen(false)
             }}
           >
@@ -1156,7 +1177,6 @@ export default function App() {
                 setHamburgerMenuOpen((open) => !open)
                 setRecordsManagementOpen(false)
                 setInsightsMenuOpen(false)
-                setSettingsMenuOpen(false)
               }}
             >
               <span>More</span>
@@ -1234,7 +1254,6 @@ export default function App() {
                   onClick={() => {
                     setInsightsMenuOpen((open) => !open)
                     setRecordsManagementOpen(false)
-                    setSettingsMenuOpen(false)
                   }}
                 >
                   <span>Insights</span>
@@ -1264,142 +1283,29 @@ export default function App() {
                     >
                       Analytics
                     </button>
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      onClick={() => {
+                        setPhotoIdentifyOpen(true)
+                        setInsightsMenuOpen(false)
+                      }}
+                    >
+                      Identify A Flower
+                    </button>
                   </div>
                 ) : null}
               </div>
-          <div className="actionAccordion" ref={settingsMenuRef}>
-            <button
-              className="btn ghost accordionToggle"
-              type="button"
-              aria-expanded={settingsMenuOpen}
-              aria-controls="settings-actions"
-              onClick={() => setSettingsMenuOpen((open) => !open)}
-            >
-              <span>Settings</span>
-              <span className="accordionIcon" aria-hidden="true">
-                {settingsMenuOpen ? '−' : '+'}
-              </span>
-            </button>
-            {settingsMenuOpen ? (
-              <div className="accordionPanel settingsPanel" id="settings-actions">
-                <div className="appearanceSetting" role="group" aria-label="Appearance setting">
-                  <span>Appearance</span>
-                  <button
-                    className={`switchToggle ${theme === 'light' ? 'on' : ''}`}
-                    type="button"
-                    role="switch"
-                    aria-checked={theme === 'light'}
-                    aria-label="Use light theme"
-                    onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-                  >
-                    <span className="switchTrack">
-                      <span className="switchLabel">{theme === 'light' ? 'Light' : 'Dark'}</span>
-                      <span className="switchThumb" />
-                    </span>
-                  </button>
-                </div>
-                <div className="appearanceSetting" role="group" aria-label="Agent debug review setting">
-                  <span>Agent Debug</span>
-                  <button
-                    className={`switchToggle ${settings.agentDebugReviewEnabled ? 'on' : ''}`}
-                    type="button"
-                    role="switch"
-                    aria-checked={settings.agentDebugReviewEnabled}
-                    aria-label="Enable agent debug review"
-                    onClick={() => void setAgentDebugReviewEnabled(!settings.agentDebugReviewEnabled)}
-                  >
-                    <span className="switchTrack">
-                      <span className="switchLabel">{settings.agentDebugReviewEnabled ? 'On' : 'Off'}</span>
-                      <span className="switchThumb" />
-                    </span>
-                  </button>
-                </div>
-                {globalAdmin ? <div className="oneNoteImportSetting">
-                  <div>
-                    <div className="settingTitle">OneNote Import</div>
-                    <div className="settingHint">Upload a Single File Web Page (.mht) export.</div>
-                  </div>
-                  <label
-                    className={`btn ghost compact importFileButton ${oneNoteImporting ? 'disabled importing' : ''}`}
-                    style={{ '--import-progress': `${oneNoteImportProgress}%` } as CSSProperties}
-                    aria-disabled={oneNoteImporting}
-                  >
-                    <span>{oneNoteImporting ? `Importing ${oneNoteImportProgress}%` : 'Import data from OneNote'}</span>
-                    <input
-                      type="file"
-                      accept=".mht,.mhtml"
-                      disabled={oneNoteImporting}
-                      onChange={(event) => {
-                        const file = event.currentTarget.files?.[0]
-                        event.currentTarget.value = ''
-                        void importOneNoteFile(file)
-                      }}
-                    />
-                  </label>
-                  {oneNoteImportMessage ? <div className="settingHint success">{oneNoteImportMessage}</div> : null}
-                </div> : null}
-                {globalAdmin ? <div className="oneNoteImportSetting">
-                  <div>
-                    <div className="settingTitle">Excel Import</div>
-                    <div className="settingHint">Upload the 2026 garden location spreadsheet.</div>
-                  </div>
-                  <label
-                    className={`btn ghost compact importFileButton ${excelImporting ? 'disabled importing' : ''}`}
-                    style={{ '--import-progress': `${excelImportProgress}%` } as CSSProperties}
-                    aria-disabled={excelImporting}
-                  >
-                    <span>{excelImporting ? `Importing ${excelImportProgress}%` : 'Import data from Excel'}</span>
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls"
-                      disabled={excelImporting}
-                      onChange={(event) => {
-                        const file = event.currentTarget.files?.[0]
-                        event.currentTarget.value = ''
-                        void importExcelFile(file)
-                      }}
-                    />
-                  </label>
-                  {excelImportResult ? (
-                    <div className="excelImportSummary">
-                      <div className="settingHint success">{excelImportSummary(excelImportResult)}</div>
-                      {excelImportResult.canRevert ? (
-                        <button className="btn ghost compact" type="button" disabled={excelReverting} onClick={() => void revertLatestExcelImport()}>
-                          {excelReverting ? 'Reverting Excel import...' : 'Revert latest Excel import'}
-                        </button>
-                      ) : null}
-                      {excelImportResult.priorSeasonMissing.length ? (
-                        <div className="settingHint">Prior seasons only: {excelImportResult.priorSeasonMissing.slice(0, 5).map((entry) => `${entry.excelName} (${entry.gardenLocation})`).join(', ')}</div>
-                      ) : null}
-                      {excelImportResult.ambiguous.length ? (
-                        <div className="settingHint">Ambiguous: {excelImportResult.ambiguous.slice(0, 5).map((entry) => `${entry.excelName} (${entry.gardenLocation})`).join(', ')}</div>
-                      ) : null}
-                      {excelImportResult.unmatched.length ? (
-                        <div className="settingHint">Unmatched: {excelImportResult.unmatched.slice(0, 5).map((entry) => `${entry.excelName} (${entry.gardenLocation})`).join(', ')}</div>
-                      ) : null}
-                      {excelImportResult.skipped.length ? (
-                        <div className="settingHint">Skipped: {excelImportResult.skipped.slice(0, 5).map((entry) => `${entry.excelName} (${entry.gardenLocation})`).join(', ')}</div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  {excelRevertMessage ? <div className="settingHint success">{excelRevertMessage}</div> : null}
-                </div> : null}
-                <div className="settingsSignOut">
-                  <div className="signedInAs">Signed in as {user.email ?? user.displayName}</div>
-                  <button
-                    className="btn ghost compact"
-                    type="button"
-                    onClick={() => {
-                      setSettingsMenuOpen(false)
-                      if (auth) void signOut(auth)
-                    }}
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
+          <button
+            className="btn ghost accordionToggle"
+            type="button"
+            onClick={() => {
+              setSettingsModalOpen(true)
+              setHamburgerMenuOpen(false)
+            }}
+          >
+            <span>Settings</span>
+          </button>
             </div>
           </div>
         </div>
@@ -1408,6 +1314,10 @@ export default function App() {
           <div className="navDrawerBackdrop" aria-hidden="true" onClick={() => setHamburgerMenuOpen(false)} />
         )}
       </header>
+
+      {globalAdmin && learnedProjectionStatusQuery.data?.retrainingRecommended ? (
+        <div className="callout warn">{learnedProjectionStatusQuery.data.reason}</div>
+      ) : null}
 
       <main className="mainGrid">
         <section className="panel recordsPanel">
@@ -1436,6 +1346,9 @@ export default function App() {
                     <option key={intervalMs} value={intervalMs}>{refreshIntervalLabel(intervalMs)}</option>
                   ))}
                 </select>
+                {isWeakConnection && recordsRefreshIntervalMs !== 0 ? (
+                  <span className="recordsRefreshStatus">Paused (weak connection)</span>
+                ) : null}
               </label>
             </div>
           </div>
@@ -1482,6 +1395,8 @@ export default function App() {
         />
       ) : null}
 
+      {photoIdentifyOpen ? <PhotoIdentifyModal onClose={() => setPhotoIdentifyOpen(false)} /> : null}
+
       {maintenanceRemindersOpen ? (
         <MaintenanceRemindersModal
           reminders={maintenanceReminders}
@@ -1503,6 +1418,7 @@ export default function App() {
           knownUsers={knownUsers}
           isGlobalAdmin={globalAdmin}
           globalAdminUserId={user?.uid}
+          currentUserId={user?.uid}
           currentGardenId={activeGardenId}
           onClose={() => {
             setGardenManagementOpen(false)
@@ -1581,6 +1497,49 @@ export default function App() {
             setInitialOrderId(orderId)
             setOrdersOpen(true)
           }}
+        />
+      ) : null}
+
+      {settingsModalOpen ? (
+        <SettingsModal
+          initialBlade="appearance"
+          theme={theme}
+          onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+          showFileImports={globalAdmin}
+          signedInAs={user.email ?? user.displayName ?? ''}
+          onSignOut={() => {
+            setSettingsModalOpen(false)
+            if (auth) void signOut(auth)
+          }}
+          onDeleteAccount={async () => {
+            await deleteOwnAccount()
+            setSettingsModalOpen(false)
+            if (auth) await signOut(auth)
+          }}
+          isGlobalAdmin={globalAdmin}
+          appCheckDebugToken={appCheckDebugTokenQuery.data ?? null}
+          appCheckDebugTokenLoading={appCheckDebugTokenQuery.isLoading}
+          appCheckDebugTokenGenerating={appCheckDebugTokenGenerating}
+          onGenerateAppCheckDebugToken={() => void generateAppCheckDebugTokenHandler()}
+          driftRecords={driftRecords}
+          driftLoading={driftLoading}
+          driftError={driftError}
+          onRefreshDrift={refreshDrift}
+          onMarkReviewed={(id) => { markDriftReviewed(id).catch((e: any) => setError(e?.message ?? String(e))) }}
+          onOpenDriftedRecord={(id) => void openRecordById(id)}
+          oneNoteImporting={oneNoteImporting}
+          oneNoteImportProgress={oneNoteImportProgress}
+          oneNoteImportMessage={oneNoteImportMessage}
+          onImportOneNote={(file) => void importOneNoteFile(file)}
+          excelImporting={excelImporting}
+          excelImportProgress={excelImportProgress}
+          excelImportResult={excelImportResult}
+          excelImportSummary={excelImportSummary}
+          onImportExcel={(file) => void importExcelFile(file)}
+          excelReverting={excelReverting}
+          excelRevertMessage={excelRevertMessage}
+          onRevertExcel={() => void revertLatestExcelImport()}
+          onClose={() => setSettingsModalOpen(false)}
         />
       ) : null}
 

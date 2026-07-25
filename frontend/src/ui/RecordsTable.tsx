@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
@@ -9,8 +10,10 @@ import {
   useReactTable,
   type PaginationState,
   type SortingState,
+  type VisibilityState,
 } from '@tanstack/react-table'
 import { useState } from 'react'
+import { DahliaPickerField } from './DahliaPickerField'
 import type { DahliaRecordSummary, Order } from '../types'
 
 function compareGardenRows(a: string, b: string) {
@@ -18,7 +21,18 @@ function compareGardenRows(a: string, b: string) {
   return a.localeCompare(b)
 }
 
+const NON_GARDEN_PLANTING_STATES = new Set(['purchased_container', 'garden_tray', 'not_planted', 'not_viable', 'did_not_grow'])
+
+function isNonGardenState(record: DahliaRecordSummary) {
+  return NON_GARDEN_PLANTING_STATES.has(record.meta?.plantingState ?? 'purchased_container')
+}
+
 function compareGardenLocations(a: DahliaRecordSummary, b: DahliaRecordSummary) {
+  const aNonGarden = isNonGardenState(a)
+  const bNonGarden = isNonGardenState(b)
+  if (aNonGarden !== bNonGarden) return aNonGarden ? 1 : -1
+  if (aNonGarden && bNonGarden) return formatGardenLocation(a).localeCompare(formatGardenLocation(b), undefined, { numeric: true })
+
   const areaCompare = String(a.meta?.gardenZone ?? a.meta?.gardenArea ?? '').localeCompare(String(b.meta?.gardenZone ?? b.meta?.gardenArea ?? ''))
   if (areaCompare !== 0) return areaCompare
 
@@ -32,19 +46,47 @@ function compareGardenLocations(a: DahliaRecordSummary, b: DahliaRecordSummary) 
   return formatGardenLocation(a).localeCompare(formatGardenLocation(b), undefined, { numeric: true })
 }
 
-function resolveRecordPhoto(record: DahliaRecordSummary) {
-  if (record.defaultPhotoScope === 'cultivar') {
-    return record.cultivarThumbnailUrl || record.cultivarImageUrl || record.thumbnailUrl || record.imageUrl
+export function compareGardenLocationsGrouped(a: DahliaRecordSummary, b: DahliaRecordSummary) {
+  const aNonGarden = isNonGardenState(a)
+  const bNonGarden = isNonGardenState(b)
+  if (aNonGarden !== bNonGarden) return aNonGarden ? 1 : -1
+  if (aNonGarden && bNonGarden) return formatGardenLocation(a).localeCompare(formatGardenLocation(b), undefined, { numeric: true })
+
+  const areaCompare = String(a.meta?.gardenZone ?? a.meta?.gardenArea ?? '').localeCompare(String(b.meta?.gardenZone ?? b.meta?.gardenArea ?? ''))
+  if (areaCompare !== 0) return areaCompare
+
+  const rowCompare = compareGardenRows(a.meta?.rowOrBed ?? a.meta?.gardenRow ?? '', b.meta?.rowOrBed ?? b.meta?.gardenRow ?? '')
+  if (rowCompare !== 0) return rowCompare
+
+  const aPosition = Number(a.meta?.position ?? a.meta?.gardenPosition)
+  const bPosition = Number(b.meta?.position ?? b.meta?.gardenPosition)
+  const aHasPosition = Number.isFinite(aPosition)
+  const bHasPosition = Number.isFinite(bPosition)
+  if (aHasPosition !== bHasPosition) return aHasPosition ? -1 : 1
+  if (aHasPosition && bHasPosition) {
+    const aParity = aPosition % 2 === 0 ? 0 : 1
+    const bParity = bPosition % 2 === 0 ? 0 : 1
+    if (aParity !== bParity) return aParity - bParity
+    if (aPosition !== bPosition) return aPosition - bPosition
   }
-  return record.thumbnailUrl || record.imageUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl
+
+  return formatGardenLocation(a).localeCompare(formatGardenLocation(b), undefined, { numeric: true })
 }
 
-function formatGardenLocation(record: DahliaRecordSummary) {
+export function resolveRecordPhoto(record: DahliaRecordSummary) {
+  if (record.defaultPhotoScope === 'cultivar') {
+    return record.cultivarListThumbnailUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl || record.listThumbnailUrl || record.thumbnailUrl || record.imageUrl
+  }
+  return record.listThumbnailUrl || record.thumbnailUrl || record.imageUrl || record.cultivarListThumbnailUrl || record.cultivarThumbnailUrl || record.cultivarImageUrl
+}
+
+export function formatGardenLocation(record: DahliaRecordSummary) {
   const plantingState = record.meta?.plantingState ?? 'purchased_container'
   if (plantingState === 'purchased_container') return 'Purchased Container'
   if (plantingState === 'garden_tray') return 'Garden Tray'
   if (plantingState === 'not_planted') return 'Not Planted'
   if (plantingState === 'not_viable') return 'Not Viable'
+  if (plantingState === 'did_not_grow') return 'Did Not Grow'
 
   const gardenArea = record.meta?.gardenZone ?? record.meta?.gardenArea
   const gardenRow = record.meta?.rowOrBed ?? record.meta?.gardenRow
@@ -63,12 +105,94 @@ const columnClassNames: Record<string, string> = {
   recordNumber: 'colRecordNumber',
   thumb: 'colThumbnail',
   flowerName: 'colFlowerName',
+  cultivar: 'colCultivar',
   color: 'colColor',
   size: 'colSize',
   height: 'colHeight',
   gardenLocation: 'colGardenLocation',
   seasonYearStart: 'colSeasonYear',
+  source: 'colSource',
+  plantedDate: 'colPlantedDate',
 }
+
+type ColumnDefinition = {
+  id: string
+  label: string
+  sortable?: boolean
+}
+
+const COLUMN_DEFINITIONS: ColumnDefinition[] = [
+  { id: 'recordNumber', label: 'Record #' },
+  { id: 'thumb', label: 'Photo', sortable: false },
+  { id: 'flowerName', label: 'Flower Name' },
+  { id: 'cultivar', label: 'Cultivar' },
+  { id: 'color', label: 'Color' },
+  { id: 'size', label: 'Bloom Width' },
+  { id: 'height', label: 'Height' },
+  { id: 'gardenLocation', label: 'Location' },
+  { id: 'seasonYearStart', label: 'Season' },
+  { id: 'source', label: 'Company' },
+  { id: 'plantedDate', label: 'Planting Date' },
+]
+
+const ALPHABETICAL_COLUMN_DEFINITIONS = [...COLUMN_DEFINITIONS].sort((a, b) => a.label.localeCompare(b.label))
+const SORTABLE_COLUMN_DEFINITIONS = ALPHABETICAL_COLUMN_DEFINITIONS.filter((column) => column.sortable !== false)
+
+function toColumnMajorOrder<T>(items: T[], columns: number) {
+  const rows = Math.ceil(items.length / columns)
+  const ordered: T[] = []
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < columns; col++) {
+      const index = col * rows + row
+      if (index < items.length) ordered.push(items[index])
+    }
+  }
+  return ordered
+}
+
+const COLUMN_CHECKLIST_READING_ORDER = [
+  ...COLUMN_DEFINITIONS.filter((column) => column.id === 'recordNumber'),
+  ...ALPHABETICAL_COLUMN_DEFINITIONS.filter((column) => column.id !== 'recordNumber'),
+]
+const COLUMN_CHECKLIST = toColumnMajorOrder(COLUMN_CHECKLIST_READING_ORDER, 2)
+
+const SORTABLE_COLUMN_READING_ORDER = [
+  ...SORTABLE_COLUMN_DEFINITIONS.filter((column) => column.id === 'recordNumber'),
+  ...SORTABLE_COLUMN_DEFINITIONS.filter((column) => column.id !== 'recordNumber'),
+]
+const SORTABLE_COLUMN_CHECKLIST = toColumnMajorOrder(SORTABLE_COLUMN_READING_ORDER, 2)
+
+const DEFAULT_COLUMN_VISIBILITY: VisibilityState = {
+  recordNumber: false,
+  thumb: true,
+  flowerName: true,
+  cultivar: false,
+  color: true,
+  size: true,
+  height: true,
+  gardenLocation: true,
+  seasonYearStart: true,
+  source: false,
+  plantedDate: false,
+}
+
+const DEFAULT_SORTING: SortingState = [{ id: 'gardenLocation', desc: false }]
+
+const DEFAULT_COLUMN_WIDTH_PX: Record<string, number> = {
+  recordNumber: 60,
+  thumb: 70,
+  flowerName: 220,
+  cultivar: 180,
+  color: 160,
+  size: 90,
+  height: 90,
+  gardenLocation: 200,
+  seasonYearStart: 110,
+  source: 150,
+  plantedDate: 140,
+}
+
+const MIN_COLUMN_WIDTH_PX = 60
 
 const pageSizeOptions = [10, 25, 50, 100]
 const RECORD_THUMB_SIZE = 42
@@ -99,25 +223,28 @@ export function RecordsTable({
   onLoadMore: () => void
   onOpen: (r: DahliaRecordSummary) => void
 }) {
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>(DEFAULT_SORTING)
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 25 })
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(DEFAULT_COLUMN_VISIBILITY)
+  const [columnSizes, setColumnSizes] = useState<Record<string, number>>({})
+  const [tableOptionsOpen, setTableOptionsOpen] = useState(false)
+  const [groupEvenOddPositions, setGroupEvenOddPositions] = useState(false)
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
   const [selectedSeasonYears, setSelectedSeasonYears] = useState<number[]>([])
   const [selectedGardenRows, setSelectedGardenRows] = useState<string[]>([])
   const [seasonFilterOpen, setSeasonFilterOpen] = useState(false)
   const [gardenRowFilterOpen, setGardenRowFilterOpen] = useState(false)
-  const [pageSizeFilterOpen, setPageSizeFilterOpen] = useState(false)
   const defaultSeasonAppliedRef = useRef(false)
   const seasonFilterRef = useRef<HTMLDetailsElement>(null)
   const gardenRowFilterRef = useRef<HTMLDetailsElement>(null)
-  const pageSizeFilterRef = useRef<HTMLDetailsElement>(null)
   const tableWrapRef = useRef<HTMLDivElement>(null)
 
   const columns = useMemo<ColumnDef<DahliaRecordSummary>[]>(
     () => [
       {
         header: '#',
+        id: 'recordNumber',
         accessorKey: 'recordNumber',
       },
       {
@@ -132,6 +259,11 @@ export function RecordsTable({
       {
         header: 'Flower Name',
         accessorKey: 'flowerName',
+      },
+      {
+        header: 'Cultivar',
+        id: 'cultivar',
+        accessorFn: (record) => record.core.cultivar ?? '',
       },
       {
         header: 'Color',
@@ -152,14 +284,27 @@ export function RecordsTable({
         header: 'Location',
         id: 'gardenLocation',
         accessorFn: formatGardenLocation,
-        sortingFn: (a, b) => compareGardenLocations(a.original, b.original),
+        sortingFn: (a, b) =>
+          groupEvenOddPositions
+            ? compareGardenLocationsGrouped(a.original, b.original)
+            : compareGardenLocations(a.original, b.original),
       },
       {
         header: 'Season',
         accessorKey: 'seasonYearStart',
       },
+      {
+        header: 'Company',
+        id: 'source',
+        accessorFn: (record) => record.tuber.source ?? '',
+      },
+      {
+        header: 'Planting Date',
+        id: 'plantedDate',
+        accessorFn: (record) => record.core.plantedDate ?? '',
+      },
     ],
-    [],
+    [groupEvenOddPositions],
   )
 
   const seasonYears = useMemo(
@@ -297,28 +442,24 @@ export function RecordsTable({
   }, [gardenRowFilterOpen])
 
   useEffect(() => {
-    if (!pageSizeFilterOpen) return
-
-    function closeOnOutsideClick(event: PointerEvent) {
-      if (!pageSizeFilterRef.current?.contains(event.target as Node)) {
-        setPageSizeFilterOpen(false)
-      }
-    }
-
-    document.addEventListener('pointerdown', closeOnOutsideClick)
-    return () => document.removeEventListener('pointerdown', closeOnOutsideClick)
-  }, [pageSizeFilterOpen])
-
-  useEffect(() => {
     setPagination((previous) => ({ ...previous, pageIndex: 0 }))
   }, [search, selectedSeasonYears, selectedGardenRows])
+
+  const isDefaultColumnSet = COLUMN_DEFINITIONS.every(
+    (column) => Boolean(columnVisibility[column.id]) === Boolean(DEFAULT_COLUMN_VISIBILITY[column.id]),
+  )
+
+  useEffect(() => {
+    if (isDefaultColumnSet) setColumnSizes({})
+  }, [isDefaultColumnSet])
 
   const table = useReactTable({
     data: filteredRows,
     columns,
-    state: { sorting, pagination },
+    state: { sorting, pagination, columnVisibility },
     onSortingChange: setSorting,
     onPaginationChange: setPagination,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -339,6 +480,61 @@ export function RecordsTable({
   const pageStart = filteredRows.length === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1
   const pageEnd = Math.min(filteredRows.length, pageStart + pageRows.length - 1)
   const loadedEndReached = pageEnd >= filteredRows.length
+  const visibleColumnCount = table.getVisibleLeafColumns().length
+  const hasCustomColumnSizes = Object.keys(columnSizes).length > 0
+
+  function columnWidthStyle(columnId: string): React.CSSProperties | undefined {
+    if (!hasCustomColumnSizes) return undefined
+    const width = columnSizes[columnId] ?? DEFAULT_COLUMN_WIDTH_PX[columnId]
+    return width == null ? undefined : { width, minWidth: width }
+  }
+
+  function handleColumnResizeStart(columnId: string) {
+    return (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      const handle = event.currentTarget
+      const th = handle.closest('th')
+      const headerRow = th?.closest('tr')
+      if (!th || !headerRow) return
+      const startWidth = th.getBoundingClientRect().width
+      const startX = event.clientX
+      handle.setPointerCapture(event.pointerId)
+
+      // Seed every currently-visible column from its live rendered width the
+      // moment the table first switches into fixed-width mode, so nothing
+      // jumps to a stale default the instant a drag starts.
+      setColumnSizes((previous) => {
+        if (Object.keys(previous).length > 0) return previous
+        const seeded: Record<string, number> = {}
+        headerRow.querySelectorAll<HTMLElement>('th[data-column-id]').forEach((cell) => {
+          const id = cell.dataset.columnId
+          if (id) seeded[id] = Math.round(cell.getBoundingClientRect().width)
+        })
+        return seeded
+      })
+
+      function onPointerMove(moveEvent: PointerEvent) {
+        const nextWidth = Math.max(MIN_COLUMN_WIDTH_PX, Math.round(startWidth + (moveEvent.clientX - startX)))
+        setColumnSizes((previous) => ({ ...previous, [columnId]: nextWidth }))
+      }
+      function onPointerUp() {
+        handle.releasePointerCapture(event.pointerId)
+        handle.removeEventListener('pointermove', onPointerMove)
+        handle.removeEventListener('pointerup', onPointerUp)
+      }
+      handle.addEventListener('pointermove', onPointerMove)
+      handle.addEventListener('pointerup', onPointerUp)
+    }
+  }
+
+  function setSortColumn(id: string) {
+    setSorting((previous) => [{ id, desc: previous[0]?.desc ?? false }])
+  }
+
+  function setSortDirection(desc: boolean) {
+    setSorting((previous) => [{ id: previous[0]?.id ?? DEFAULT_SORTING[0].id, desc }])
+  }
 
   return (
     <div className="recordsTableStack">
@@ -402,7 +598,7 @@ export function RecordsTable({
                 checked={selectedGardenRows.length === 0}
                 onChange={() => {
                   setSelectedGardenRows([])
-                  setSorting([{ id: 'recordNumber', desc: false }])
+                  setSorting(DEFAULT_SORTING)
                 }}
               />
               All rows/beds
@@ -422,53 +618,132 @@ export function RecordsTable({
         </details>
 
         <div className="tableToolbarRightControls">
-          <div className="pageSizeControl">
-            <span className="pageSizeLabel">Rows</span>
-            <details className="seasonFilter pageSizeFilter" ref={pageSizeFilterRef} open={pageSizeFilterOpen}>
-              <summary
-                className="input seasonFilterSummary"
-                onClick={(event) => {
-                  event.preventDefault()
-                  setPageSizeFilterOpen((open) => !open)
-                }}
-              >
-                {pagination.pageSize}
-              </summary>
-              <fieldset className="seasonFilterOptions pageSizeOptions">
-                <legend className="srOnly">Rows per page</legend>
-                {pageSizeOptions.map((pageSize) => (
-                  <label key={pageSize} className="seasonFilterOption">
-                    <input
-                      type="radio"
-                      name="recordsPageSize"
-                      value={pageSize}
-                      checked={pagination.pageSize === pageSize}
-                      onChange={() => {
-                        table.setPageSize(pageSize)
-                        setPageSizeFilterOpen(false)
-                      }}
-                    />
-                    {pageSize}
-                  </label>
-                ))}
-              </fieldset>
-            </details>
-          </div>
-
+          <button className="btn ghost tableOptionsButton" type="button" onClick={() => setTableOptionsOpen(true)}>
+            Table Options
+          </button>
         </div>
       </div>
 
+      {tableOptionsOpen ? (
+        <div
+          className="modalOverlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="table-options-title"
+          onMouseDown={() => setTableOptionsOpen(false)}
+        >
+          <div className="modal tableOptionsModal" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modalHeader">
+              <div>
+                <div className="modalTitle" id="table-options-title">Table Options</div>
+                <div className="modalSub">Choose rows per page, visible columns, and sort order.</div>
+              </div>
+              <button className="btn ghost" type="button" onClick={() => setTableOptionsOpen(false)}>Close</button>
+            </div>
+            <div className="modalBody tableOptionsBody">
+              <div className="tableOptionsControls">
+                <DahliaPickerField
+                  label="Rows Per Page"
+                  required
+                  clearable={false}
+                  layout="list"
+                  centerOptionText
+                  modalWidth="min(320px, 100%)"
+                  value={String(pagination.pageSize)}
+                  options={pageSizeOptions.map((pageSize) => ({ value: String(pageSize), label: String(pageSize) }))}
+                  onChange={(value) => table.setPageSize(Number(value))}
+                />
+                <DahliaPickerField
+                  label="Sort By"
+                  required
+                  clearable={false}
+                  layout="grid"
+                  columns={2}
+                  value={sorting[0]?.id ?? DEFAULT_SORTING[0].id}
+                  options={SORTABLE_COLUMN_CHECKLIST.map((column) => ({ value: column.id, label: column.label }))}
+                  onChange={(value) => setSortColumn(value as string)}
+                />
+                <DahliaPickerField
+                  label="Direction"
+                  required
+                  clearable={false}
+                  layout="list"
+                  centerOptionText
+                  modalWidth="min(320px, 100%)"
+                  value={sorting[0]?.desc ? 'desc' : 'asc'}
+                  options={[
+                    { value: 'asc', label: 'Ascending' },
+                    { value: 'desc', label: 'Descending' },
+                  ]}
+                  onChange={(value) => setSortDirection(value === 'desc')}
+                />
+                {sorting[0]?.id === 'gardenLocation' ? (
+                  <label className="seasonFilterOption">
+                    <input
+                      type="checkbox"
+                      checked={groupEvenOddPositions}
+                      onChange={(event) => {
+                        setGroupEvenOddPositions(event.target.checked)
+                        // getSortedRowModel memoizes on [sorting, preSortedRowModel] and never
+                        // re-checks columns, so a fresh sorting reference is needed to force it
+                        // to pick up the swapped sortingFn.
+                        setSorting((current) => [...current])
+                      }}
+                    />
+                    Group Location By Even/Odd
+                  </label>
+                ) : null}
+              </div>
+
+              <fieldset className="tableOptionsColumnsGroup">
+                <legend>Columns</legend>
+                <button
+                  className="btn ghost compact tableOptionsColumnsReset"
+                  type="button"
+                  onClick={() => setColumnVisibility(DEFAULT_COLUMN_VISIBILITY)}
+                >
+                  Reset
+                </button>
+                <div className="tableOptionsColumnList">
+                  {COLUMN_CHECKLIST.map((column) => (
+                    <label key={column.id} className="seasonFilterOption">
+                      <input
+                        type="checkbox"
+                        checked={table.getColumn(column.id)?.getIsVisible() ?? true}
+                        onChange={(event) => table.getColumn(column.id)?.toggleVisibility(event.target.checked)}
+                      />
+                      {column.label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="tableWrap" ref={tableWrapRef}>
-        <table className="table">
+        <table className="table" style={hasCustomColumnSizes ? { width: 'max-content', minWidth: '100%' } : undefined}>
         <thead>
           {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id}>
-              {hg.headers.map((h) => (
-                <th key={h.id} onClick={h.column.getToggleSortingHandler()} className={`${columnClassNames[h.column.id] ?? ''}${h.column.getCanSort() ? ' sortable' : ''}`.trim()}>
+              {hg.headers.map((h, index) => (
+                <th
+                  key={h.id}
+                  data-column-id={h.column.id}
+                  onClick={h.column.getToggleSortingHandler()}
+                  className={`${columnClassNames[h.column.id] ?? ''}${h.column.getCanSort() ? ' sortable' : ''}`.trim()}
+                  style={columnWidthStyle(h.column.id)}
+                >
                   <span className="thInner">
                     {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                     {h.column.getIsSorted() === 'asc' ? ' ▲' : h.column.getIsSorted() === 'desc' ? ' ▼' : ''}
                   </span>
+                  <div
+                    className={`columnResizeHandle${index === hg.headers.length - 1 ? ' columnResizeHandleLast' : ''}`}
+                    onPointerDown={handleColumnResizeStart(h.column.id)}
+                    onClick={(event) => event.stopPropagation()}
+                  />
                 </th>
               ))}
             </tr>
@@ -477,7 +752,7 @@ export function RecordsTable({
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={8} className="empty">
+              <td colSpan={visibleColumnCount} className="empty">
                 Loading records...
               </td>
             </tr>
@@ -485,7 +760,7 @@ export function RecordsTable({
             <>
               {virtualPaddingTop > 0 ? (
                 <tr aria-hidden="true">
-                  <td colSpan={8} className="virtualTableSpacer" style={{ height: virtualPaddingTop }} />
+                  <td colSpan={visibleColumnCount} className="virtualTableSpacer" style={{ height: virtualPaddingTop }} />
                 </tr>
               ) : null}
               {virtualRows.map((virtualRow) => {
@@ -493,7 +768,7 @@ export function RecordsTable({
                 return (
               <tr key={r.id} className="row" onClick={() => onOpen(r.original)}>
                 {r.getVisibleCells().map((c) => (
-                  <td key={c.id} className={columnClassNames[c.column.id]}>
+                  <td key={c.id} className={columnClassNames[c.column.id]} style={columnWidthStyle(c.column.id)}>
                     {flexRender(c.column.columnDef.cell, c.getContext())}
                   </td>
                 ))}
@@ -502,13 +777,13 @@ export function RecordsTable({
               })}
               {virtualPaddingBottom > 0 ? (
                 <tr aria-hidden="true">
-                  <td colSpan={8} className="virtualTableSpacer" style={{ height: virtualPaddingBottom }} />
+                  <td colSpan={visibleColumnCount} className="virtualTableSpacer" style={{ height: virtualPaddingBottom }} />
                 </tr>
               ) : null}
             </>
           ) : (
             <tr>
-              <td colSpan={8} className="empty">
+              <td colSpan={visibleColumnCount} className="empty">
                 No available data.
               </td>
             </tr>

@@ -6,8 +6,10 @@ export type DahliaRecord = {
   gardenLocation: string
   seasonYearStart: number
   thumbnailUrl?: string
+  listThumbnailUrl?: string
   imageUrl?: string
   cultivarThumbnailUrl?: string
+  cultivarListThumbnailUrl?: string
   cultivarImageUrl?: string
   recordPhotos?: DahliaPhoto[]
   cultivarPhotos?: DahliaPhoto[]
@@ -66,6 +68,7 @@ export type DahliaRecord = {
     plantingState?: PlantingState
     notPlantedReason?: NotPlantedReason
     notViableReason?: NotViableReason
+    nameStatus?: NameStatus | null
     agentOriginalInput?: string
     agentExtractionPromptPath?: string
     agentExtractionModel?: string
@@ -77,15 +80,21 @@ export type DahliaPhoto = {
   id: string
   imageUrl: string
   thumbnailUrl?: string
+  listThumbnailUrl?: string
+  imageBlobPath?: string
+  thumbnailBlobPath?: string
+  listThumbnailBlobPath?: string
   scope: 'record' | 'cultivar'
   createdAt?: string
 }
 
-export type PlantingState = 'garden_tray' | 'in_garden' | 'not_planted' | 'not_viable' | 'purchased_container'
+export type PlantingState = 'garden_tray' | 'in_garden' | 'not_planted' | 'not_viable' | 'purchased_container' | 'did_not_grow'
 
 export type NotPlantedReason = 'not_received' | 'refunded'
 
 export type NotViableReason = 'no_longer_present' | 'removed' | 'unused'
+
+export type NameStatus = 'mystery' | 'unknown' | 'seedling'
 
 export type GardenOptionKey = 'gardenAreas' | 'gardenRows' | 'gardenPositions'
 
@@ -126,6 +135,16 @@ export type CurrentUserProfile = {
   email?: string
   displayName?: string
   globalAdmin: boolean
+}
+
+export type LearnedProjectionStatus = {
+  hasActiveProjection: boolean
+  retrainingRecommended: boolean
+  reason: string | null
+  currentPhotoCount?: number
+  trainedAtPhotoCount?: number
+  currentCultivarCount?: number
+  trainedAtCultivarCount?: number
 }
 
 export type Garden = {
@@ -183,15 +202,45 @@ export type DahliaRecordSummary = Pick<
   | 'gardenLocation'
   | 'seasonYearStart'
   | 'thumbnailUrl'
+  | 'listThumbnailUrl'
   | 'imageUrl'
   | 'cultivarThumbnailUrl'
+  | 'cultivarListThumbnailUrl'
   | 'cultivarImageUrl'
   | 'defaultPhotoScope'
 > & {
-  core: Pick<DahliaRecord['core'], 'color' | 'size' | 'cultivar'>
+  core: Pick<DahliaRecord['core'], 'color' | 'size' | 'cultivar' | 'plantedDate'>
   growth: Pick<DahliaRecord['growth'], 'height'>
   tuber: Pick<DahliaRecord['tuber'], 'source' | 'linkedOrderItemIds'>
   meta: Pick<DahliaRecord['meta'], 'gardenArea' | 'gardenRow' | 'gardenPosition' | 'gardenZone' | 'rowOrBed' | 'position' | 'plantingState'>
+}
+
+export type RecordDriftField = {
+  path: string
+  snapshotValue: unknown
+  liveValue: unknown
+}
+
+export type RecordDrift = {
+  id: string
+  recordNumber: number
+  gardenId?: string
+  flowerName: string
+  gardenLocation?: string
+  meta: DahliaRecordSummary['meta']
+  fields: RecordDriftField[]
+}
+
+export type RecordDriftMissingEntry = {
+  id: string
+  recordNumber?: number
+  flowerName?: string
+}
+
+export type RecordDriftResponse = {
+  drift: RecordDrift[]
+  missingLive: RecordDriftMissingEntry[]
+  missingSnapshot: RecordDriftMissingEntry[]
 }
 
 export type AgentReviewFinding = {
@@ -229,6 +278,18 @@ export type AgentCorrectionResult = {
   summary: string
   promptSuggestion?: string
 }
+
+export type AgentPhotoSuggestion = {
+  name: string
+  confidence: number
+  notes?: string
+  thumbnailUrl?: string
+}
+
+export type AgentPhotoIdentificationResult =
+  | { status: 'needs_clarification'; message: string }
+  | { status: 'answer'; suggestions: AgentPhotoSuggestion[]; caveats?: string[] }
+  | { status: 'uncertain'; suggestions: AgentPhotoSuggestion[]; message: string; caveats?: string[] }
 
 export type MaintenanceReminder = {
   id: string

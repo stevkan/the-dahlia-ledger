@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Company, CompanyInput, DahliaRecord, Garden, KnownUser } from '../types'
-import { DropdownField } from './DropdownField'
+import { DahliaPickerField } from './DahliaPickerField'
 
 type FlowerUsageRecord = NonNullable<NonNullable<Company['usage']>['flowerRecords']>[number]
 
@@ -149,6 +149,7 @@ export function CompaniesModal({
   const deleteButtonRef = useRef<HTMLButtonElement | null>(null)
   const [selectedCompanyId, setSelectedCompanyId] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
+  const [formSnapshot, setFormSnapshot] = useState(JSON.stringify(EMPTY_FORM))
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteArmed, setDeleteArmed] = useState(false)
@@ -165,6 +166,7 @@ export function CompaniesModal({
   const selectedCompanyUsage = selectedCompany?.usage
   const canDeleteSelectedCompany = selectedCompany?.canDelete !== false
   const canReassign = selectedCompanyIds.length > 0 && reassignOwnerUserId && !reassigning
+  const formHasChanges = useMemo(() => JSON.stringify(form) !== formSnapshot, [form, formSnapshot])
 
   useEffect(() => {
     if (!deleteArmed) return
@@ -179,9 +181,20 @@ export function CompaniesModal({
     return () => document.removeEventListener('pointerdown', clearOnOutsidePointer)
   }, [deleteArmed])
 
+  function formFromCompany(company: Company) {
+    return {
+      name: company.name ?? '',
+      website: company.website ?? '',
+      email: company.email ?? '',
+      phone: formatPhone(company.phone ?? ''),
+      notes: company.notes ?? '',
+    }
+  }
+
   function clearForm() {
     setSelectedCompanyId('')
     setForm(EMPTY_FORM)
+    setFormSnapshot(JSON.stringify(EMPTY_FORM))
     setDeleteArmed(false)
     setDeleteConflict(null)
   }
@@ -191,13 +204,15 @@ export function CompaniesModal({
     setDeleteArmed(false)
     setDeleteConflict(null)
     setError(null)
-    setForm({
-      name: company.name ?? '',
-      website: company.website ?? '',
-      email: company.email ?? '',
-      phone: formatPhone(company.phone ?? ''),
-      notes: company.notes ?? '',
-    })
+    const next = formFromCompany(company)
+    setForm(next)
+    setFormSnapshot(JSON.stringify(next))
+  }
+
+  function cancelFormEdits() {
+    if (!formHasChanges) return
+    if (selectedCompany) editCompany(selectedCompany)
+    else clearForm()
   }
 
   function toggleSelectedCompany(id: string) {
@@ -235,13 +250,9 @@ export function CompaniesModal({
     try {
       if (selectedCompanyId) {
         const company = await onUpdateCompany(selectedCompanyId, toInput(form))
-        setForm({
-          name: company.name ?? '',
-          website: company.website ?? '',
-          email: company.email ?? '',
-          phone: formatPhone(company.phone ?? ''),
-          notes: company.notes ?? '',
-        })
+        const next = formFromCompany(company)
+        setForm(next)
+        setFormSnapshot(JSON.stringify(next))
         setDeleteArmed(false)
         setDeleteConflict(null)
       } else {
@@ -338,10 +349,18 @@ export function CompaniesModal({
           <div className="subTitle">Admin Ownership</div>
           <div className="muted">Select one or more companies and assign them to a known user.</div>
         </div>
-        <label className="field">
-          <div className="label">Assign selected companies to</div>
-          <DropdownField label="Assign selected companies to" value={reassignOwnerUserId} options={[{ value: '', label: 'Choose known user...' }, ...knownUsers.map((knownUser) => ({ value: knownUser.userId, label: knownUser.displayName || knownUser.email || knownUser.userId }))]} onChange={setReassignOwnerUserId} />
-        </label>
+        <DahliaPickerField
+          label="Assign selected companies to"
+          layout="list"
+          placeholder="Choose known user..."
+          options={knownUsers.map((knownUser) => {
+            const name = knownUser.displayName || knownUser.email || knownUser.userId
+            const label = knownUser.displayName && knownUser.email ? `${name} (${knownUser.email})` : name
+            return { value: knownUser.userId, label }
+          })}
+          value={reassignOwnerUserId || undefined}
+          onChange={(v) => setReassignOwnerUserId(v ?? '')}
+        />
         <div className="rowActions companyActions">
           <button className="btn ghost" type="button" disabled={!companies.length || reassigning} onClick={toggleAllCompanies}>{selectedCompanyIds.length === companies.length ? 'Clear Selection' : 'Select All'}</button>
           <button className="btn" type="button" disabled={!canReassign} onClick={() => void reassignSelectedCompanies()}>{reassigning ? 'Assigning...' : `Assign ${selectedCompanyIds.length || ''}`.trim()}</button>
@@ -393,7 +412,7 @@ export function CompaniesModal({
           {selectedCompanyId && !canDeleteSelectedCompany ? <div className="muted companyError">Shared company entries can be edited here, but only the company owner or a joint garden owner can delete them.</div> : null}
           {renderCompanyUsage()}
           <div className="rowActions companyActions">
-            {selectedCompanyId ? <button className="btn ghost" type="button" onClick={clearForm}>Cancel Edit</button> : null}
+            <button className="btn ghost" type="button" disabled={!formHasChanges} onClick={cancelFormEdits}>Cancel</button>
             <button className="btn" type="button" disabled={!canSave || saving} onClick={() => void saveCompany()}>
               {saving ? 'Saving...' : selectedCompanyId ? 'Update Company' : 'Save Company'}
             </button>

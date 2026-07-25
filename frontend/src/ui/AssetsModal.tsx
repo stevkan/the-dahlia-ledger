@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import type { Asset, AssetFile, AssetInput, Company, CompanyInput, Order } from '../types'
-import { DropdownField } from './DropdownField'
+import { DahliaPickerField } from './DahliaPickerField'
 
 const CATEGORIES = ['Soil', 'Container', 'Tool', 'Support', 'Label', 'Fertilizer', 'Other']
 
@@ -194,12 +194,17 @@ export function AssetsModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
+  const [formSnapshot, setFormSnapshot] = useState('')
 
   const sortedAssets = useMemo(() => [...assets].sort(sortAssets), [assets])
   const assetById = useMemo(() => new Map(assets.map((row) => [row.id, row])), [assets])
   const selectedAsset = view.mode === 'detail' ? assetById.get(view.assetId) ?? null : null
   const formAsset = view.mode === 'form' && view.assetId ? assetById.get(view.assetId) ?? null : null
   const canSave = asset.trim()
+  const formHasChanges = useMemo(() => {
+    if (view.mode !== 'form') return false
+    return JSON.stringify({ asset, category, quantity, totalCost, purchaseDate, notes, linkedOrderItemIds, companyId, newCompanyName }) !== formSnapshot
+  }, [view.mode, asset, category, quantity, totalCost, purchaseDate, notes, linkedOrderItemIds, companyId, newCompanyName, formSnapshot])
   const linkedOrderRows = (view.mode === 'form' ? linkedOrderItemIds : selectedAsset?.linkedOrderItemIds ?? []).flatMap((itemId) => {
     for (const order of orders) {
       const item = order.items.find((candidate) => candidate.id === itemId)
@@ -228,32 +233,49 @@ export function AssetsModal({
     setNewCompanyName('')
   }
 
+  function snapshotOf(values: { asset: string; category: string; quantity: string; totalCost: string; purchaseDate: string; notes: string; linkedOrderItemIds: string[]; companyId: string; newCompanyName: string }) {
+    return JSON.stringify(values)
+  }
+
   function openCreateForm() {
     cancelConfirm()
     setError(null)
     resetForm()
+    setFormSnapshot(snapshotOf({ asset: '', category: '', quantity: '', totalCost: '', purchaseDate: '', notes: '', linkedOrderItemIds: [], companyId: '', newCompanyName: '' }))
     setView({ mode: 'form' })
   }
 
   function openEditForm(row: Asset) {
     cancelConfirm()
     setError(null)
-    setAsset(row.asset)
-    setCategory(row.category ?? '')
-    setQuantity(row.quantity === undefined ? '' : String(row.quantity))
-    setTotalCost(row.totalCost === undefined ? '' : formatMoneyInput(String(row.totalCost)))
-    setPurchaseDate(row.purchaseDate ?? '')
-    setNotes(row.notes ?? '')
-    setLinkedOrderItemIds(row.linkedOrderItemIds ?? [])
-    setCompanyId(row.companyId ?? '')
-    setNewCompanyName('')
+    const next = {
+      asset: row.asset,
+      category: row.category ?? '',
+      quantity: row.quantity === undefined ? '' : String(row.quantity),
+      totalCost: row.totalCost === undefined ? '' : formatMoneyInput(String(row.totalCost)),
+      purchaseDate: row.purchaseDate ?? '',
+      notes: row.notes ?? '',
+      linkedOrderItemIds: row.linkedOrderItemIds ?? [],
+      companyId: row.companyId ?? '',
+      newCompanyName: '',
+    }
+    setAsset(next.asset)
+    setCategory(next.category)
+    setQuantity(next.quantity)
+    setTotalCost(next.totalCost)
+    setPurchaseDate(next.purchaseDate)
+    setNotes(next.notes)
+    setLinkedOrderItemIds(next.linkedOrderItemIds)
+    setCompanyId(next.companyId)
+    setNewCompanyName(next.newCompanyName)
+    setFormSnapshot(snapshotOf(next))
     setView({ mode: 'form', assetId: row.id })
   }
 
-  function returnFromForm(assetId?: string) {
-    resetForm()
-    setError(null)
-    setView(assetId ? { mode: 'detail', assetId } : { mode: 'list' })
+  function cancelFormEdits() {
+    if (!formHasChanges) return
+    if (formAsset) openEditForm(formAsset)
+    else openCreateForm()
   }
 
   async function convertImageToPdf(file: File) {
@@ -494,10 +516,13 @@ export function AssetsModal({
         <div className="subTitle">{formAsset ? 'Edit Asset' : 'New Asset'}</div>
         <div className="grid2">
           <Field label="Asset" hint={ASSET_FIELD_HINTS.asset} value={asset} onChange={setAsset} />
-          <label className="field">
-            <FieldLabel label="Category" hint={ASSET_FIELD_HINTS.category} />
-            <DropdownField label="Category" value={category} options={[{ value: '', label: 'Select...' }, ...CATEGORIES.map((option) => ({ value: option, label: option }))]} onChange={setCategory} />
-          </label>
+          <DahliaPickerField
+            label="Category"
+            hint={ASSET_FIELD_HINTS.category}
+            value={category || undefined}
+            options={CATEGORIES}
+            onChange={(value) => setCategory(value ?? '')}
+          />
           <Field label="Quantity" hint={ASSET_FIELD_HINTS.quantity} type="number" value={quantity} onChange={setQuantity} />
           <Field
             label="Total Cost"
@@ -512,24 +537,22 @@ export function AssetsModal({
         </div>
         <TextArea label="Notes" hint={ASSET_FIELD_HINTS.notes} value={notes} onChange={setNotes} />
         <div className="subTitle">Invoice</div>
-        <label className="field linkedOrderSelect">
-          <FieldLabel label="Invoice Items" hint={ASSET_FIELD_HINTS.invoiceItems} />
-          <DropdownField
-            label="Invoice Items"
-            value=""
-            options={[
-              { value: '', label: 'Select...' },
-              ...orders.flatMap((order) => order.items.map((item) => ({
-                value: item.id,
-                label: `${order.company?.name ?? 'Company'} ${order.invoiceNumber ? `- ${order.invoiceNumber}` : ''} - ${item.flowerName}`,
-              }))),
-            ]}
-            onChange={(value) => {
-              if (!value) return
-              setLinkedOrderItemIds((current) => Array.from(new Set([...current, value])))
-            }}
-          />
-        </label>
+        <DahliaPickerField
+          label="Invoice Items"
+          hint={ASSET_FIELD_HINTS.invoiceItems}
+          layout="list"
+          clearable={false}
+          placeholder="Select..."
+          value={undefined}
+          options={orders.flatMap((order) => order.items.map((item) => ({
+            value: item.id,
+            label: `${order.company?.name ?? 'Company'} ${order.invoiceNumber ? `- ${order.invoiceNumber}` : ''} - ${item.flowerName}`,
+          })))}
+          onChange={(value) => {
+            if (!value) return
+            setLinkedOrderItemIds((current) => Array.from(new Set([...current, value])))
+          }}
+        />
         {linkedOrderRows.length ? (
           <div className="tableWrap miniTable">
             <table className="table">
@@ -553,16 +576,20 @@ export function AssetsModal({
           <div className="label">Custom Entry</div>
           <div className="customEntryBox">
         <div className="grid2">
-          <label className="field">
-            <FieldLabel label="Company" hint={ASSET_FIELD_HINTS.company} />
-            <DropdownField label="Company" value={companyId} options={[{ value: '', label: 'Select...' }, ...companies.map((company) => ({ value: company.id, label: company.name }))]} onChange={setCompanyId} />
-          </label>
+          <DahliaPickerField
+            label="Company"
+            hint={ASSET_FIELD_HINTS.company}
+            layout="list"
+            value={companyId || undefined}
+            options={companies.map((company) => ({ value: company.id, label: company.name }))}
+            onChange={(value) => setCompanyId(value ?? '')}
+          />
           <Field label="Purchase Date" hint={ASSET_FIELD_HINTS.purchaseDate} type="date" value={purchaseDate} onChange={setPurchaseDate} />
         </div>
           </div>
         </div>
         <div className="rowActions">
-          <button className="btn ghost" type="button" onClick={() => returnFromForm(formAsset?.id)}>Cancel</button>
+          <button className="btn ghost" type="button" disabled={!formHasChanges} onClick={cancelFormEdits}>Cancel</button>
           <button className="btn" type="button" disabled={!canSave || saving} onClick={() => void saveAsset()}>{saving ? 'Saving...' : formAsset ? 'Update Asset' : 'Save Asset'}</button>
         </div>
       </div>

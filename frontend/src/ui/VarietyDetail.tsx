@@ -14,6 +14,7 @@ function formatLocation(record: DahliaRecord) {
   if (state === 'garden_tray') return 'Garden Tray'
   if (state === 'not_planted') return 'Not Planted'
   if (state === 'not_viable') return 'Not Viable'
+  if (state === 'did_not_grow') return 'Did Not Grow'
 
   const rowAndPosition = record.meta?.gardenRow && record.meta?.gardenPosition ? `${record.meta.gardenRow}${record.meta.gardenPosition}` : record.gardenLocation
   return [record.meta?.gardenArea, rowAndPosition].filter(Boolean).join(' - ') || 'In Garden'

@@ -1,0 +1,1961 @@
+{
+  "generatedAt": "2026-07-18T03:28:48.760Z",
+  "seed": 1755202600,
+  "minPhotosForHoldout": 4,
+  "holdOutFraction": 0.2,
+  "cultivarsConsidered": 375,
+  "heldOut": [
+    {
+      "cultivarName": "Cloudburst",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1780522576241-aaceff89-110b-4b44-9a30-72c5e5f069d0.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780522576241-aaceff89-110b-4b44-9a30-72c5e5f069d0.webp"
+    },
+    {
+      "cultivarName": "B-Man",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782620937409-a06efcf4-96f6-4a31-a903-d9d9bdf158f3.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782620937409-a06efcf4-96f6-4a31-a903-d9d9bdf158f3.webp"
+    },
+    {
+      "cultivarName": "B-Man",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782620944776-093f05e0-6222-4720-b5cb-d1e84c3fd09a.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782620944776-093f05e0-6222-4720-b5cb-d1e84c3fd09a.webp"
+    },
+    {
+      "cultivarName": "Citron Du Cap",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1780518147456-d805c032-897f-43cc-bf3a-381b0d05ce8d.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780518147456-d805c032-897f-43cc-bf3a-381b0d05ce8d.webp"
+    },
+    {
+      "cultivarName": "Citron Du Cap",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782692591178-e790b54e-0031-4550-b3ce-23bee933bf10.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782692591178-e790b54e-0031-4550-b3ce-23bee933bf10.webp"
+    },
+    {
+      "cultivarName": "Helen Richmond",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454355964-eb972695-948d-4fd6-8541-5dd33dc927bf.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454355964-eb972695-948d-4fd6-8541-5dd33dc927bf.webp"
+    },
+    {
+      "cultivarName": "Iceberg",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440683119-b504c8d6-57e9-41cc-b54e-7f1c97493a75.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440683119-b504c8d6-57e9-41cc-b54e-7f1c97493a75.webp"
+    },
+    {
+      "cultivarName": "I'm a Hottie",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440683633-b26fd614-4f10-42f6-8850-4831aec1d8f3.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440683633-b26fd614-4f10-42f6-8850-4831aec1d8f3.webp"
+    },
+    {
+      "cultivarName": "I'm a Hottie",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454400900-ac34fd42-9552-4082-ba3a-22436b9ddeec.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454400900-ac34fd42-9552-4082-ba3a-22436b9ddeec.webp"
+    },
+    {
+      "cultivarName": "Lovebug",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782680572610-4a9d0249-1cc2-4c97-9ef5-b23611275ef4.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782680572610-4a9d0249-1cc2-4c97-9ef5-b23611275ef4.webp"
+    },
+    {
+      "cultivarName": "Mingus Philip Sr",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440686227-c0d59f2b-c363-4e60-9961-c5091581ced8.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440686227-c0d59f2b-c363-4e60-9961-c5091581ced8.webp"
+    },
+    {
+      "cultivarName": "Sun Kissed",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784268087130-0b0d751b-7d55-4fd5-8e45-43f7fd42fe96.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784268087130-0b0d751b-7d55-4fd5-8e45-43f7fd42fe96.webp"
+    },
+    {
+      "cultivarName": "HH Cotton Candy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782629066174-9c738c61-1832-4a4a-b3e2-5caa8d58e359.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782629066174-9c738c61-1832-4a4a-b3e2-5caa8d58e359.webp"
+    },
+    {
+      "cultivarName": "HH Cotton Candy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440695152-58166203-77f5-4d61-8f22-4851fab87d9b.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440695152-58166203-77f5-4d61-8f22-4851fab87d9b.webp"
+    },
+    {
+      "cultivarName": "HH Cotton Candy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782629066174-9c738c61-1832-4a4a-b3e2-5caa8d58e359.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782629066174-9c738c61-1832-4a4a-b3e2-5caa8d58e359.webp"
+    },
+    {
+      "cultivarName": "HH Cotton Candy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440695152-58166203-77f5-4d61-8f22-4851fab87d9b.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440695152-58166203-77f5-4d61-8f22-4851fab87d9b.webp"
+    },
+    {
+      "cultivarName": "HH Cotton Candy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440686847-0f23d85b-03a5-493b-b407-a6192ba3038e.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440686847-0f23d85b-03a5-493b-b407-a6192ba3038e.webp"
+    },
+    {
+      "cultivarName": "HH Cotton Candy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782629073884-c3c0f0ff-33f1-498a-965e-ec91905a2fcd.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782629073884-c3c0f0ff-33f1-498a-965e-ec91905a2fcd.webp"
+    },
+    {
+      "cultivarName": "HH Cotton Candy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440686847-0f23d85b-03a5-493b-b407-a6192ba3038e.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440686847-0f23d85b-03a5-493b-b407-a6192ba3038e.webp"
+    },
+    {
+      "cultivarName": "SB's Becky",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782695356453-8ffd07f8-8b1c-4f61-8d7e-0e76b25afe26.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782695356453-8ffd07f8-8b1c-4f61-8d7e-0e76b25afe26.webp"
+    },
+    {
+      "cultivarName": "Aljo",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782609096884-ba982563-2b28-4e81-8a01-824d2f571e70.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782609096884-ba982563-2b28-4e81-8a01-824d2f571e70.webp"
+    },
+    {
+      "cultivarName": "Aljo",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782609089002-ac88b8db-c20f-4802-8b8e-911d5b8cea16.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782609089002-ac88b8db-c20f-4802-8b8e-911d5b8cea16.webp"
+    },
+    {
+      "cultivarName": "Elma Elizabeth",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782623923937-bf5dd59c-3f9d-46c1-a27b-8ae0e0c52de3.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782623923937-bf5dd59c-3f9d-46c1-a27b-8ae0e0c52de3.webp"
+    },
+    {
+      "cultivarName": "Elma Elizabeth",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782696249637-f5fc2f9f-11f2-4bc6-9c21-e416fa365f10.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782696249637-f5fc2f9f-11f2-4bc6-9c21-e416fa365f10.webp"
+    },
+    {
+      "cultivarName": "Elma Elizabeth",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782623923937-bf5dd59c-3f9d-46c1-a27b-8ae0e0c52de3.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782623923937-bf5dd59c-3f9d-46c1-a27b-8ae0e0c52de3.webp"
+    },
+    {
+      "cultivarName": "Elma Elizabeth",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782623916179-8a71d0e6-c4a7-40ae-b87a-dc5e8432abaa.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782623916179-8a71d0e6-c4a7-40ae-b87a-dc5e8432abaa.webp"
+    },
+    {
+      "cultivarName": "Just Peachy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440689581-6d4746f5-0439-495f-a82f-d173ba042bd4.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440689581-6d4746f5-0439-495f-a82f-d173ba042bd4.webp"
+    },
+    {
+      "cultivarName": "Tomo",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782691415556-7c539d31-0ff2-41e2-bc10-1595f71635b6.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782691415556-7c539d31-0ff2-41e2-bc10-1595f71635b6.webp"
+    },
+    {
+      "cultivarName": "Tomo",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782691423619-fea5dd6b-2d94-4d05-8797-6c2c04d3701b.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782691423619-fea5dd6b-2d94-4d05-8797-6c2c04d3701b.webp"
+    },
+    {
+      "cultivarName": "Wildwood Marie",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440690830-0cbe9f5f-6eaf-43b7-ab2f-093ee0bd6db8.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440690830-0cbe9f5f-6eaf-43b7-ab2f-093ee0bd6db8.webp"
+    },
+    {
+      "cultivarName": "Wildwood Marie",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782691585576-ca4f81e0-df92-4c19-bfa6-ae2bfeb4f209.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782691585576-ca4f81e0-df92-4c19-bfa6-ae2bfeb4f209.webp"
+    },
+    {
+      "cultivarName": "AC Ben",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782607798528-0d2463c6-4b50-42ac-8f9c-dd13bd4cc0b1.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782607798528-0d2463c6-4b50-42ac-8f9c-dd13bd4cc0b1.webp"
+    },
+    {
+      "cultivarName": "AC Ben",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782607787731-06281fb5-629f-48d8-91ef-dded51acda80.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782607787731-06281fb5-629f-48d8-91ef-dded51acda80.webp"
+    },
+    {
+      "cultivarName": "Rip City",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440692007-2ae45ab3-8836-4ac8-94fa-3c71f0c92574.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440692007-2ae45ab3-8836-4ac8-94fa-3c71f0c92574.webp"
+    },
+    {
+      "cultivarName": "Rip City",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453298439-bd228d5d-ef9c-43d2-9eea-4884ca220c89.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453298439-bd228d5d-ef9c-43d2-9eea-4884ca220c89.webp"
+    },
+    {
+      "cultivarName": "Rip City",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440692007-2ae45ab3-8836-4ac8-94fa-3c71f0c92574.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440692007-2ae45ab3-8836-4ac8-94fa-3c71f0c92574.webp"
+    },
+    {
+      "cultivarName": "Rip City",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454369673-a203edef-6cc7-47d1-ad67-577c3f2851e6.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454369673-a203edef-6cc7-47d1-ad67-577c3f2851e6.webp"
+    },
+    {
+      "cultivarName": "River's Watermelon",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440692295-21371b18-d703-4639-a568-f40e7b3836b0.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440692295-21371b18-d703-4639-a568-f40e7b3836b0.webp"
+    },
+    {
+      "cultivarName": "Chimacum Katie",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440694612-7d614db1-a560-4f88-8cf6-0aea2b2a0fd1.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440694612-7d614db1-a560-4f88-8cf6-0aea2b2a0fd1.webp"
+    },
+    {
+      "cultivarName": "Chimacum Katie",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440694612-7d614db1-a560-4f88-8cf6-0aea2b2a0fd1.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440694612-7d614db1-a560-4f88-8cf6-0aea2b2a0fd1.webp"
+    },
+    {
+      "cultivarName": "Oaklyn Claire",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784268193546-f0a1c190-616f-428f-ae1d-49b409e03759.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784268193546-f0a1c190-616f-428f-ae1d-49b409e03759.webp"
+    },
+    {
+      "cultivarName": "Oaklyn Claire",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782693606347-848cebe6-d492-4b25-a8a9-137801d747ec.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782693606347-848cebe6-d492-4b25-a8a9-137801d747ec.webp"
+    },
+    {
+      "cultivarName": "Pam Howden",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440696080-1e461d54-ec54-4f55-9187-c76c59502446.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440696080-1e461d54-ec54-4f55-9187-c76c59502446.webp"
+    },
+    {
+      "cultivarName": "Pam Howden",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440713401-1b76fd1d-7b49-467b-8fd5-df700859a42f.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440713401-1b76fd1d-7b49-467b-8fd5-df700859a42f.webp"
+    },
+    {
+      "cultivarName": "Sandia Bertha",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440696677-639a6c41-27b4-42e1-aaee-0fdaa1146e2e.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440696677-639a6c41-27b4-42e1-aaee-0fdaa1146e2e.webp"
+    },
+    {
+      "cultivarName": "Castle Drive",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440697278-d7c569d7-df71-485b-a405-435226e4d1c8.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440697278-d7c569d7-df71-485b-a405-435226e4d1c8.webp"
+    },
+    {
+      "cultivarName": "Castle Drive",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453345499-64508ae7-f066-4854-bd14-c946b46e8111.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453345499-64508ae7-f066-4854-bd14-c946b46e8111.webp"
+    },
+    {
+      "cultivarName": "Nita",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783641439573-229a211b-c62c-4c79-a45b-422174b2dbd9.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783641439573-229a211b-c62c-4c79-a45b-422174b2dbd9.webp"
+    },
+    {
+      "cultivarName": "Nita",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783641362515-2c6ec18b-2299-4c95-b196-34bf857d23b0.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783641362515-2c6ec18b-2299-4c95-b196-34bf857d23b0.webp"
+    },
+    {
+      "cultivarName": "Nita",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783641362515-2c6ec18b-2299-4c95-b196-34bf857d23b0.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783641362515-2c6ec18b-2299-4c95-b196-34bf857d23b0.webp"
+    },
+    {
+      "cultivarName": "Kelgai Ann",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782678310636-b2aedb9f-94a0-41c0-9a34-f152ff3bf99e.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782678310636-b2aedb9f-94a0-41c0-9a34-f152ff3bf99e.webp"
+    },
+    {
+      "cultivarName": "Kelgai Ann",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782678279736-59b27ffd-7ab2-4a19-9713-33e6c1887c0b.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782678279736-59b27ffd-7ab2-4a19-9713-33e6c1887c0b.webp"
+    },
+    {
+      "cultivarName": "Kelgai Ann",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782678267001-9343256d-d78d-47fa-8acd-29cacd8c5ed9.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782678267001-9343256d-d78d-47fa-8acd-29cacd8c5ed9.webp"
+    },
+    {
+      "cultivarName": "Kelgai Ann",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440700882-1ea4d14b-e2a6-4f3a-9ae8-8a5ceaefda73.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440700882-1ea4d14b-e2a6-4f3a-9ae8-8a5ceaefda73.webp"
+    },
+    {
+      "cultivarName": "Netherton Cindy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440703516-43b34cf1-97ae-4d9b-95b6-cfe2bd54cdfc.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440703516-43b34cf1-97ae-4d9b-95b6-cfe2bd54cdfc.webp"
+    },
+    {
+      "cultivarName": "Cryfield Harmony",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440705049-f1376727-0024-45a2-8e95-83c7f3f96b1e.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440705049-f1376727-0024-45a2-8e95-83c7f3f96b1e.webp"
+    },
+    {
+      "cultivarName": "Evanah",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440705599-5f3f721a-55f9-427c-8055-c8ba3c0aaa5a.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440705599-5f3f721a-55f9-427c-8055-c8ba3c0aaa5a.webp"
+    },
+    {
+      "cultivarName": "Molly Raven",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440708838-757d9f30-aff8-43da-9b47-19456283e375.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440708838-757d9f30-aff8-43da-9b47-19456283e375.webp"
+    },
+    {
+      "cultivarName": "Orange Globe",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453334313-1a364b66-666d-412e-acdb-793127423f36.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453334313-1a364b66-666d-412e-acdb-793127423f36.webp"
+    },
+    {
+      "cultivarName": "Samourai",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782687464089-df557169-6842-4c4f-922d-621ff59447a5.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782687464089-df557169-6842-4c4f-922d-621ff59447a5.webp"
+    },
+    {
+      "cultivarName": "Torsade",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440731694-2a8161a1-087e-4be3-b4d1-6cb674ccf2fd.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440731694-2a8161a1-087e-4be3-b4d1-6cb674ccf2fd.webp"
+    },
+    {
+      "cultivarName": "AC Twisp",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782606700393-9ef89ce7-8cb2-4be1-88d0-ad0bf98379c3.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782606700393-9ef89ce7-8cb2-4be1-88d0-ad0bf98379c3.webp"
+    },
+    {
+      "cultivarName": "AC Twisp",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782606700393-9ef89ce7-8cb2-4be1-88d0-ad0bf98379c3.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782606700393-9ef89ce7-8cb2-4be1-88d0-ad0bf98379c3.webp"
+    },
+    {
+      "cultivarName": "Ruthie G",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440709112-8872497b-e040-4777-9e0d-082189438da4.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440709112-8872497b-e040-4777-9e0d-082189438da4.webp"
+    },
+    {
+      "cultivarName": "Harvey's Red Gem",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784254090361-7ee7b18e-a391-40aa-85c0-1d4e9811d059.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784254090361-7ee7b18e-a391-40aa-85c0-1d4e9811d059.webp"
+    },
+    {
+      "cultivarName": "HH Margarita",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440711008-003656fc-e914-478d-88de-26c49acb4713.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440711008-003656fc-e914-478d-88de-26c49acb4713.webp"
+    },
+    {
+      "cultivarName": "Jungle Man",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782677760916-9e801af0-68af-4897-b283-5e75dcfbea71.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782677760916-9e801af0-68af-4897-b283-5e75dcfbea71.webp"
+    },
+    {
+      "cultivarName": "Sarah Mae",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440713851-24a85c0e-075c-4049-b003-d8ad9cf3b6e4.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440713851-24a85c0e-075c-4049-b003-d8ad9cf3b6e4.webp"
+    },
+    {
+      "cultivarName": "Sylvia Craig Hunter",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440714286-8b2c6351-8015-4376-bfae-73a98e28a5e3.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440714286-8b2c6351-8015-4376-bfae-73a98e28a5e3.webp"
+    },
+    {
+      "cultivarName": "Sylvia Craig Hunter",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454344191-c09273b8-6537-44c4-8ff4-31253bc0218e.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454344191-c09273b8-6537-44c4-8ff4-31253bc0218e.webp"
+    },
+    {
+      "cultivarName": "Mingus Wesley",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782682372932-1fe40f10-11e0-4bdb-9856-5332cc9ec72a.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782682372932-1fe40f10-11e0-4bdb-9856-5332cc9ec72a.webp"
+    },
+    {
+      "cultivarName": "Bracken Rose",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440717227-6f088aad-b0f7-48df-b26c-1be8734378d0.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440717227-6f088aad-b0f7-48df-b26c-1be8734378d0.webp"
+    },
+    {
+      "cultivarName": "Bracken Rose",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782696282243-94de3b28-9e4d-44e7-8edd-4c387c0873da.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782696282243-94de3b28-9e4d-44e7-8edd-4c387c0873da.webp"
+    },
+    {
+      "cultivarName": "Nicholas",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440718937-35de9ca4-c7c7-4069-a42b-16476d40174c.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440718937-35de9ca4-c7c7-4069-a42b-16476d40174c.webp"
+    },
+    {
+      "cultivarName": "Nicholas",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440718937-35de9ca4-c7c7-4069-a42b-16476d40174c.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440718937-35de9ca4-c7c7-4069-a42b-16476d40174c.webp"
+    },
+    {
+      "cultivarName": "BLQ Accolade",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267459786-7a27f485-2941-4c48-82c4-6a333b252aaa.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267459786-7a27f485-2941-4c48-82c4-6a333b252aaa.webp"
+    },
+    {
+      "cultivarName": "BLQ Accolade",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267481229-589e5fd1-fa37-48d3-85fc-bb5131e3e0fd.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267481229-589e5fd1-fa37-48d3-85fc-bb5131e3e0fd.webp"
+    },
+    {
+      "cultivarName": "BLQ Harold",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782617533642-8e220468-9095-4e20-99ef-f87e1c6f9510.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782617533642-8e220468-9095-4e20-99ef-f87e1c6f9510.webp"
+    },
+    {
+      "cultivarName": "BLQ Harold",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782617533642-8e220468-9095-4e20-99ef-f87e1c6f9510.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782617533642-8e220468-9095-4e20-99ef-f87e1c6f9510.webp"
+    },
+    {
+      "cultivarName": "BLQ Sparkle",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782713670775-4cc3d786-7081-4521-8b55-7b5c1ce33c7d.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782713670775-4cc3d786-7081-4521-8b55-7b5c1ce33c7d.webp"
+    },
+    {
+      "cultivarName": "BLQ Sparkle",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782713670775-4cc3d786-7081-4521-8b55-7b5c1ce33c7d.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782713670775-4cc3d786-7081-4521-8b55-7b5c1ce33c7d.webp"
+    },
+    {
+      "cultivarName": "BLQ Twisted Sister",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440723473-d2525464-f42e-4019-aa08-0527e42f0473.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440723473-d2525464-f42e-4019-aa08-0527e42f0473.webp"
+    },
+    {
+      "cultivarName": "BLQ Vivian R",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782620727050-f0daf66b-654e-4b5f-b72a-89c968381e89.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782620727050-f0daf66b-654e-4b5f-b72a-89c968381e89.webp"
+    },
+    {
+      "cultivarName": "BLQ Vivian R",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440723741-9150bcaa-c03c-4b67-b59a-45de30c27500.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440723741-9150bcaa-c03c-4b67-b59a-45de30c27500.webp"
+    },
+    {
+      "cultivarName": "BLQ Vivian R",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782620727050-f0daf66b-654e-4b5f-b72a-89c968381e89.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782620727050-f0daf66b-654e-4b5f-b72a-89c968381e89.webp"
+    },
+    {
+      "cultivarName": "Clearview Peachy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782692805319-d6a3f9ca-845b-47f6-9b37-bc2fbc6b9396.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782692805319-d6a3f9ca-845b-47f6-9b37-bc2fbc6b9396.webp"
+    },
+    {
+      "cultivarName": "Clearview Peachy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440727046-034d940e-1061-4da9-b569-461ce7f7eb3e.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440727046-034d940e-1061-4da9-b569-461ce7f7eb3e.webp"
+    },
+    {
+      "cultivarName": "Colorado Classic",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453331279-b97a59a0-1d7a-481d-bfab-cf4e257b85d0.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453331279-b97a59a0-1d7a-481d-bfab-cf4e257b85d0.webp"
+    },
+    {
+      "cultivarName": "HH Berry Purple",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453352076-3a9a1728-b311-4dd4-9ef0-43526db581ef.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453352076-3a9a1728-b311-4dd4-9ef0-43526db581ef.webp"
+    },
+    {
+      "cultivarName": "HH Berry Purple",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440745487-446ff4b2-6949-40d3-9a07-bc094cb734f4.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440745487-446ff4b2-6949-40d3-9a07-bc094cb734f4.webp"
+    },
+    {
+      "cultivarName": "GG's Kalinda",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782628217921-89e47161-cc03-4385-9407-b98a93a3c276.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782628217921-89e47161-cc03-4385-9407-b98a93a3c276.webp"
+    },
+    {
+      "cultivarName": "Thomas Edison",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782691352402-2622b392-8f6a-4af7-a1bd-8c5dd7d20fa9.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782691352402-2622b392-8f6a-4af7-a1bd-8c5dd7d20fa9.webp"
+    },
+    {
+      "cultivarName": "Thomas Edison",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782691360910-f0fbaa5d-1990-44f3-968b-e639bd3e6dfc.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782691360910-f0fbaa5d-1990-44f3-968b-e639bd3e6dfc.webp"
+    },
+    {
+      "cultivarName": "Thomas Edison",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782691352402-2622b392-8f6a-4af7-a1bd-8c5dd7d20fa9.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782691352402-2622b392-8f6a-4af7-a1bd-8c5dd7d20fa9.webp"
+    },
+    {
+      "cultivarName": "David Howard",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440733745-c90a1a3c-211c-40d1-8934-88176bf89efd.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440733745-c90a1a3c-211c-40d1-8934-88176bf89efd.webp"
+    },
+    {
+      "cultivarName": "Isabel",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440735270-fa383261-b9ae-4c21-952b-a0121a8de7d3.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440735270-fa383261-b9ae-4c21-952b-a0121a8de7d3.webp"
+    },
+    {
+      "cultivarName": "Isabel",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783929450087-d82e08be-5c89-4b2c-b47e-a58190003f84.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783929450087-d82e08be-5c89-4b2c-b47e-a58190003f84.webp"
+    },
+    {
+      "cultivarName": "Isabel",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782719864487-92c991c7-c1d6-4530-97c2-651dba59892e.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782719864487-92c991c7-c1d6-4530-97c2-651dba59892e.webp"
+    },
+    {
+      "cultivarName": "Caitlin's Joy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782692472624-d8f6cdf6-8398-4f61-bb23-8fbe0900583b.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782692472624-d8f6cdf6-8398-4f61-bb23-8fbe0900583b.webp"
+    },
+    {
+      "cultivarName": "Caitlin's Joy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782692472624-d8f6cdf6-8398-4f61-bb23-8fbe0900583b.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782692472624-d8f6cdf6-8398-4f61-bb23-8fbe0900583b.webp"
+    },
+    {
+      "cultivarName": "Caitlin's Joy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440736157-3438d61b-455a-4fca-8428-a7e8b377b3e2.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440736157-3438d61b-455a-4fca-8428-a7e8b377b3e2.webp"
+    },
+    {
+      "cultivarName": "Blue Peter",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440740817-c9d431a2-317a-4009-8f0f-605e675db504.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440740817-c9d431a2-317a-4009-8f0f-605e675db504.webp"
+    },
+    {
+      "cultivarName": "Fawn",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453329994-f347c500-436d-4344-b782-25c0513cb907.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453329994-f347c500-436d-4344-b782-25c0513cb907.webp"
+    },
+    {
+      "cultivarName": "Beep Beep",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782609474894-3da7ad6e-36c9-46bb-b7a5-4917cc1410a2.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782609474894-3da7ad6e-36c9-46bb-b7a5-4917cc1410a2.webp"
+    },
+    {
+      "cultivarName": "L Hazy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440743928-a4623f91-1b9d-4497-8ab1-97b0a73fae42.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440743928-a4623f91-1b9d-4497-8ab1-97b0a73fae42.webp"
+    },
+    {
+      "cultivarName": "Sandia Bliss",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454346388-c3dfd22a-fab8-49d7-8d89-6a5ae5fd8402.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454346388-c3dfd22a-fab8-49d7-8d89-6a5ae5fd8402.webp"
+    },
+    {
+      "cultivarName": "Sandia Bliss",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453319476-f735cfdc-4cfa-4b92-a461-ae109ffcd811.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453319476-f735cfdc-4cfa-4b92-a461-ae109ffcd811.webp"
+    },
+    {
+      "cultivarName": "Sandia Bliss",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784266717436-cea2e3e9-5d07-4fdd-be29-c78892641b9d.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784266717436-cea2e3e9-5d07-4fdd-be29-c78892641b9d.webp"
+    },
+    {
+      "cultivarName": "Ferncliff Classy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440745192-570e1309-22af-49f3-899d-56bbe09b2bea.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440745192-570e1309-22af-49f3-899d-56bbe09b2bea.webp"
+    },
+    {
+      "cultivarName": "20th Ave Softer Peach",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453368540-a21ed07f-4e08-4a8a-bf97-6de8129c83b6.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453368540-a21ed07f-4e08-4a8a-bf97-6de8129c83b6.webp"
+    },
+    {
+      "cultivarName": "Andy's Legacy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784265561711-47bb299a-7562-4089-9261-b7538405c9b1.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784265561711-47bb299a-7562-4089-9261-b7538405c9b1.webp"
+    },
+    {
+      "cultivarName": "Andy's Legacy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784265561711-47bb299a-7562-4089-9261-b7538405c9b1.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784265561711-47bb299a-7562-4089-9261-b7538405c9b1.webp"
+    },
+    {
+      "cultivarName": "Andy's Legacy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782609283970-4086262a-5a65-4289-ab9d-cddba3e57554.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782609283970-4086262a-5a65-4289-ab9d-cddba3e57554.webp"
+    },
+    {
+      "cultivarName": "Blackjack",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780440749945-70cab750-0e0f-47d9-acf3-f266f6324129.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780440749945-70cab750-0e0f-47d9-acf3-f266f6324129.webp"
+    },
+    {
+      "cultivarName": "Ad Lib",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782714373139-8a2141b4-90f4-4a2a-9e1b-4656919627a1.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782714373139-8a2141b4-90f4-4a2a-9e1b-4656919627a1.webp"
+    },
+    {
+      "cultivarName": "Koko Puff",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782714586177-3efbaf75-46d4-4de0-acc4-c89fb5511715.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782714586177-3efbaf75-46d4-4de0-acc4-c89fb5511715.webp"
+    },
+    {
+      "cultivarName": "Marionberry Milkshake",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783640752780-e0b42680-7cc1-4419-8e1b-9d2fed727371.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783640752780-e0b42680-7cc1-4419-8e1b-9d2fed727371.webp"
+    },
+    {
+      "cultivarName": "Marionberry Milkshake",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783640740633-a117be1f-5ec8-4099-ad71-9880090cfdd8.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783640740633-a117be1f-5ec8-4099-ad71-9880090cfdd8.webp"
+    },
+    {
+      "cultivarName": "Tempest",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454365353-365d05f2-c4cb-4fa4-a5c0-f4809a939a04.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454365353-365d05f2-c4cb-4fa4-a5c0-f4809a939a04.webp"
+    },
+    {
+      "cultivarName": "Otto's Thrill",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783993936324-62f3deb7-1037-4c50-ba86-a520482680f8.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783993936324-62f3deb7-1037-4c50-ba86-a520482680f8.webp"
+    },
+    {
+      "cultivarName": "Otto's Thrill",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454358604-54e9efb6-9d6e-453b-a11e-4eabb6a703f4.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454358604-54e9efb6-9d6e-453b-a11e-4eabb6a703f4.webp"
+    },
+    {
+      "cultivarName": "Otto's Thrill",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454358604-54e9efb6-9d6e-453b-a11e-4eabb6a703f4.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454358604-54e9efb6-9d6e-453b-a11e-4eabb6a703f4.webp"
+    },
+    {
+      "cultivarName": "BLQ Splash",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453299573-313b539b-5471-4a6b-844c-babaf8185229.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453299573-313b539b-5471-4a6b-844c-babaf8185229.webp"
+    },
+    {
+      "cultivarName": "Chloe Janae",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454349135-5f5485d7-44d5-44f2-93db-e987ee516cf0.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454349135-5f5485d7-44d5-44f2-93db-e987ee516cf0.webp"
+    },
+    {
+      "cultivarName": "Jenna",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782676713452-0cc42337-0888-400a-a2c3-d5de99be7cb4.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782676713452-0cc42337-0888-400a-a2c3-d5de99be7cb4.webp"
+    },
+    {
+      "cultivarName": "Belle Of Barmera",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453309090-35bd40ac-d4b3-43d5-8472-ac7bc411ec93.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453309090-35bd40ac-d4b3-43d5-8472-ac7bc411ec93.webp"
+    },
+    {
+      "cultivarName": "HH Pandora",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453317846-6871494b-f93a-49bf-b3bc-f454da21991a.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453317846-6871494b-f93a-49bf-b3bc-f454da21991a.webp"
+    },
+    {
+      "cultivarName": "Raspberry Royale",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782686967260-f8b38f48-986e-47b7-b7c1-d783d5e785a8.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782686967260-f8b38f48-986e-47b7-b7c1-d783d5e785a8.webp"
+    },
+    {
+      "cultivarName": "Kenora Wildfire",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782678457434-e774fc81-0f1a-498c-835a-8828d4c55fc5.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782678457434-e774fc81-0f1a-498c-835a-8828d4c55fc5.webp"
+    },
+    {
+      "cultivarName": "Mingus Randy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453333595-367780b9-ee85-4cee-a05f-3f706b66246e.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453333595-367780b9-ee85-4cee-a05f-3f706b66246e.webp"
+    },
+    {
+      "cultivarName": "Aitara Diadem",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782608514908-bcdcae89-d439-4816-a0e0-adece5e5fef3.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782608514908-bcdcae89-d439-4816-a0e0-adece5e5fef3.webp"
+    },
+    {
+      "cultivarName": "Millennium",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782681821204-899e43ab-19dd-4a1a-b139-1afec5ee7bf9.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782681821204-899e43ab-19dd-4a1a-b139-1afec5ee7bf9.webp"
+    },
+    {
+      "cultivarName": "Ferncliff Violet",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453349743-8b2e58a3-d38c-45eb-83e7-8506f9d6ab0b.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453349743-8b2e58a3-d38c-45eb-83e7-8506f9d6ab0b.webp"
+    },
+    {
+      "cultivarName": "Ferncliff Violet",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453349743-8b2e58a3-d38c-45eb-83e7-8506f9d6ab0b.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453349743-8b2e58a3-d38c-45eb-83e7-8506f9d6ab0b.webp"
+    },
+    {
+      "cultivarName": "Ferncliff Violet",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782627696304-e6ed0810-795e-4ed8-92ef-adaa696f253d.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782627696304-e6ed0810-795e-4ed8-92ef-adaa696f253d.webp"
+    },
+    {
+      "cultivarName": "Ferncliff Violet",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453349743-8b2e58a3-d38c-45eb-83e7-8506f9d6ab0b.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453349743-8b2e58a3-d38c-45eb-83e7-8506f9d6ab0b.webp"
+    },
+    {
+      "cultivarName": "Bubbling Over",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453350422-4007b01a-bc1d-490e-a7d3-0b587b1c8d38.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453350422-4007b01a-bc1d-490e-a7d3-0b587b1c8d38.webp"
+    },
+    {
+      "cultivarName": "HH Black Beauty",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453354055-54ac0bb6-4e0b-4410-8bec-c77e88262b2e.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453354055-54ac0bb6-4e0b-4410-8bec-c77e88262b2e.webp"
+    },
+    {
+      "cultivarName": "Night Silence",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782683268541-7c2ddbdb-b83a-4dfb-8e9b-f6e152e58fdd.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782683268541-7c2ddbdb-b83a-4dfb-8e9b-f6e152e58fdd.webp"
+    },
+    {
+      "cultivarName": "Karma Prospero",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782677896204-0e914bb8-79b7-4404-9e50-4be44baed44e.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782677896204-0e914bb8-79b7-4404-9e50-4be44baed44e.webp"
+    },
+    {
+      "cultivarName": "Kenora Lisa",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453360076-67014a45-f5b1-49ab-88b3-d3a7268f8aae.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453360076-67014a45-f5b1-49ab-88b3-d3a7268f8aae.webp"
+    },
+    {
+      "cultivarName": "KA Rosie Jo",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454345290-7ea98294-a28e-4cb7-821b-84266fe6e1e0.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454345290-7ea98294-a28e-4cb7-821b-84266fe6e1e0.webp"
+    },
+    {
+      "cultivarName": "HY Patti",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454351154-24d75280-1eb1-42ec-8111-9f5ea5282af9.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454351154-24d75280-1eb1-42ec-8111-9f5ea5282af9.webp"
+    },
+    {
+      "cultivarName": "HY Patti",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454351154-24d75280-1eb1-42ec-8111-9f5ea5282af9.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454351154-24d75280-1eb1-42ec-8111-9f5ea5282af9.webp"
+    },
+    {
+      "cultivarName": "Copper Boy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782622835027-ee2694de-d749-4563-a7ef-a97770260d76.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782622835027-ee2694de-d749-4563-a7ef-a97770260d76.webp"
+    },
+    {
+      "cultivarName": "Black Satin",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453373413-9d5a6cae-84aa-464f-a9de-55af08e3549b.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453373413-9d5a6cae-84aa-464f-a9de-55af08e3549b.webp"
+    },
+    {
+      "cultivarName": "Arabian Night",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780453374165-5b6b99d0-e2f6-4a2c-a791-57ea76e32559.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780453374165-5b6b99d0-e2f6-4a2c-a791-57ea76e32559.webp"
+    },
+    {
+      "cultivarName": "Sweet Nathalie",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782690833060-0a8a34f5-3d94-4b55-8ca7-97238b94acba.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782690833060-0a8a34f5-3d94-4b55-8ca7-97238b94acba.webp"
+    },
+    {
+      "cultivarName": "Hillcrest Jonathan",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783640693624-85106c6e-d3de-4024-b58e-fb1c01d08c45.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783640693624-85106c6e-d3de-4024-b58e-fb1c01d08c45.webp"
+    },
+    {
+      "cultivarName": "Amber Queen",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783639436913-2fb20cf2-2ce5-4e96-b221-a906e58ea468.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783639436913-2fb20cf2-2ce5-4e96-b221-a906e58ea468.webp"
+    },
+    {
+      "cultivarName": "Hana Hitosuji",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783639505906-64b73647-d5bd-42a8-82e8-a57844b8bcb9.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783639505906-64b73647-d5bd-42a8-82e8-a57844b8bcb9.webp"
+    },
+    {
+      "cultivarName": "Lover Boy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783641013144-9787d5cf-38a0-457a-859e-9dc337ffd5d1.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783641013144-9787d5cf-38a0-457a-859e-9dc337ffd5d1.webp"
+    },
+    {
+      "cultivarName": "BLQ Vigor",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783641066499-59483f44-ef81-456b-a33b-17339f4d0890.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783641066499-59483f44-ef81-456b-a33b-17339f4d0890.webp"
+    },
+    {
+      "cultivarName": "Nadia Ruth",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783639775942-cc0c525d-701d-481e-b667-670991372dea.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783639775942-cc0c525d-701d-481e-b667-670991372dea.webp"
+    },
+    {
+      "cultivarName": "Chateau De La Bourdaisiere",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783639862640-9501bf21-c191-4f68-82e6-dba89dc5a888.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783639862640-9501bf21-c191-4f68-82e6-dba89dc5a888.webp"
+    },
+    {
+      "cultivarName": "Barbarry Donimion",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783639994764-0616e29d-6df0-429f-aced-8ddb2c173423.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783639994764-0616e29d-6df0-429f-aced-8ddb2c173423.webp"
+    },
+    {
+      "cultivarName": "Avoca Amanda",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783640062653-fac88fb5-0820-4391-9d74-53edda013975.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783640062653-fac88fb5-0820-4391-9d74-53edda013975.webp"
+    },
+    {
+      "cultivarName": "HH Leda",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783640129877-d44e7e46-1dc6-476f-9cd5-3c31a4c97d7c.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783640129877-d44e7e46-1dc6-476f-9cd5-3c31a4c97d7c.webp"
+    },
+    {
+      "cultivarName": "Ferncliff Illusion",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783640458762-61325897-f2db-40fe-b50e-f6e64f158af9.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783640458762-61325897-f2db-40fe-b50e-f6e64f158af9.webp"
+    },
+    {
+      "cultivarName": "Miss Delilah",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783640532189-713d5edb-40f0-42a3-adff-9d025159a661.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783640532189-713d5edb-40f0-42a3-adff-9d025159a661.webp"
+    },
+    {
+      "cultivarName": "Brookside Cheri",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782609011113-5a984a8b-2062-496c-b073-0b8d4df88625.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782609011113-5a984a8b-2062-496c-b073-0b8d4df88625.webp"
+    },
+    {
+      "cultivarName": "Diva",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454449866-3bd8cfb9-8514-45c3-8a0d-30a2dd862874.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454449866-3bd8cfb9-8514-45c3-8a0d-30a2dd862874.webp"
+    },
+    {
+      "cultivarName": "Sandia Shomei",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454252338-e224adc6-6d39-4803-b1cb-48d4dc90b49b.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454252338-e224adc6-6d39-4803-b1cb-48d4dc90b49b.webp"
+    },
+    {
+      "cultivarName": "Juanita",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454252724-2bbc660d-25f4-4b83-a19f-30a9ca053cf6.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454252724-2bbc660d-25f4-4b83-a19f-30a9ca053cf6.webp"
+    },
+    {
+      "cultivarName": "Lavender Ruffles",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454253131-8c2daa8f-4055-4013-87a1-fbbca3e44893.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454253131-8c2daa8f-4055-4013-87a1-fbbca3e44893.webp"
+    },
+    {
+      "cultivarName": "Shaggy Chic",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782689995584-6de42209-d4e2-422a-9fd7-b5fae943dbb9.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782689995584-6de42209-d4e2-422a-9fd7-b5fae943dbb9.webp"
+    },
+    {
+      "cultivarName": "Shaggy Chic",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454255836-f7356936-64c0-49c6-a1da-aa00a5cbc260.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454255836-f7356936-64c0-49c6-a1da-aa00a5cbc260.webp"
+    },
+    {
+      "cultivarName": "Shockwave",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454435725-665a1506-76e2-4c03-83af-81d23c8c34d3.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454435725-665a1506-76e2-4c03-83af-81d23c8c34d3.webp"
+    },
+    {
+      "cultivarName": "Southern Belle",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454257179-1580d8f9-e50f-469a-bad3-9cfbbc51f7be.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454257179-1580d8f9-e50f-469a-bad3-9cfbbc51f7be.webp"
+    },
+    {
+      "cultivarName": "Southern Belle",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454422821-5a3c4fc5-4dfe-4c0a-a863-9f61640ea028.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454422821-5a3c4fc5-4dfe-4c0a-a863-9f61640ea028.webp"
+    },
+    {
+      "cultivarName": "BLQ Awaken",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783273081224-e56d6879-6ce0-4a22-b6b4-7d04de7a5e5b.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783273081224-e56d6879-6ce0-4a22-b6b4-7d04de7a5e5b.webp"
+    },
+    {
+      "cultivarName": "Jowey Winnie",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782676787416-4e2db659-7ed0-4933-85f6-ecd7a8829591.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782676787416-4e2db659-7ed0-4933-85f6-ecd7a8829591.webp"
+    },
+    {
+      "cultivarName": "Jowey Winnie",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782677626830-a4ee3fda-2fae-4459-bdce-91ee4c27bc5e.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782677626830-a4ee3fda-2fae-4459-bdce-91ee4c27bc5e.webp"
+    },
+    {
+      "cultivarName": "Pink Runner",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454450333-8c895ca9-edb6-433f-9009-9f556461573b.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454450333-8c895ca9-edb6-433f-9009-9f556461573b.webp"
+    },
+    {
+      "cultivarName": "Feline Yvonne",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784266415128-17bff257-6b1c-4cbb-9c46-003b380606b9.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784266415128-17bff257-6b1c-4cbb-9c46-003b380606b9.webp"
+    },
+    {
+      "cultivarName": "Feline Yvonne",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1780881194261-27b4b5b6-87d9-46e6-9c47-493127f26bc7.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780881194261-27b4b5b6-87d9-46e6-9c47-493127f26bc7.webp"
+    },
+    {
+      "cultivarName": "Feline Yvonne",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782693053067-a06f3a6d-cce7-497d-be2d-95308645d9fe.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782693053067-a06f3a6d-cce7-497d-be2d-95308645d9fe.webp"
+    },
+    {
+      "cultivarName": "Feline Yvonne",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454350747-d6910385-aa06-4c2e-8854-5c2661b073de.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454350747-d6910385-aa06-4c2e-8854-5c2661b073de.webp"
+    },
+    {
+      "cultivarName": "Feline Yvonne",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782693053067-a06f3a6d-cce7-497d-be2d-95308645d9fe.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782693053067-a06f3a6d-cce7-497d-be2d-95308645d9fe.webp"
+    },
+    {
+      "cultivarName": "Feline Yvonne",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1780881194261-27b4b5b6-87d9-46e6-9c47-493127f26bc7.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780881194261-27b4b5b6-87d9-46e6-9c47-493127f26bc7.webp"
+    },
+    {
+      "cultivarName": "Bristal Karma",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783641202195-cbca06b8-8c1a-4f91-92dd-36e9e941e880.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783641202195-cbca06b8-8c1a-4f91-92dd-36e9e941e880.webp"
+    },
+    {
+      "cultivarName": "Bristal Karma",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783641227470-4c261bb4-8093-425f-8b79-adb58f684063.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783641227470-4c261bb4-8093-425f-8b79-adb58f684063.webp"
+    },
+    {
+      "cultivarName": "Cecil",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782717174526-c83513d0-5bd2-4a34-9fda-b69f9cabc3e9.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782717174526-c83513d0-5bd2-4a34-9fda-b69f9cabc3e9.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782709415179-0cdf3a9b-249a-4169-ae3f-f5ec9cc7c4e4.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782709415179-0cdf3a9b-249a-4169-ae3f-f5ec9cc7c4e4.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267776993-9b4b70c0-a9db-48d9-8e38-8446ab41a5dc.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Mystery",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267629401-aac908dc-e715-4521-9643-29b1c98bd687.webp"
+    },
+    {
+      "cultivarName": "Sandra",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782687931375-d8fd52f3-776a-4dc2-9f18-233431e6212f.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782687931375-d8fd52f3-776a-4dc2-9f18-233431e6212f.webp"
+    },
+    {
+      "cultivarName": "Sandra",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454360601-96da0b9c-784b-4b18-a57d-c3eadf55c84f.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454360601-96da0b9c-784b-4b18-a57d-c3eadf55c84f.webp"
+    },
+    {
+      "cultivarName": "Senior's Hope",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782689670831-855ac7e2-4684-4560-8c70-d8a61c3514d4.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782689670831-855ac7e2-4684-4560-8c70-d8a61c3514d4.webp"
+    },
+    {
+      "cultivarName": "Senior's Hope",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783983651180-aaf48aa0-775b-4614-875b-ae7f65ef6be3.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783983651180-aaf48aa0-775b-4614-875b-ae7f65ef6be3.webp"
+    },
+    {
+      "cultivarName": "Senior's Hope",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782689670831-855ac7e2-4684-4560-8c70-d8a61c3514d4.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782689670831-855ac7e2-4684-4560-8c70-d8a61c3514d4.webp"
+    },
+    {
+      "cultivarName": "Strawberry Cream",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782709285955-97b7b921-d19f-4f63-8a4b-25461b59ee77.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782709285955-97b7b921-d19f-4f63-8a4b-25461b59ee77.webp"
+    },
+    {
+      "cultivarName": "Wine Eyed Jill",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782714694039-9e4fb6ee-6b7b-43a5-8a4f-71f0a17d82d8.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782714694039-9e4fb6ee-6b7b-43a5-8a4f-71f0a17d82d8.webp"
+    },
+    {
+      "cultivarName": "HH Bill M",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782628897710-5abfe76b-740f-4832-8212-a9730c5c01c8.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782628897710-5abfe76b-740f-4832-8212-a9730c5c01c8.webp"
+    },
+    {
+      "cultivarName": "Muchacha",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782682740245-5d9cbcde-7594-45ac-b2f8-b76b48a50882.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782682740245-5d9cbcde-7594-45ac-b2f8-b76b48a50882.webp"
+    },
+    {
+      "cultivarName": "Admiral Rawlings",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782712949776-99bda5f9-7cf9-4244-ab6a-1b1c38d7edd4.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782712949776-99bda5f9-7cf9-4244-ab6a-1b1c38d7edd4.webp"
+    },
+    {
+      "cultivarName": "Versa",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783133076983-109a8e7b-ddd3-4dc9-9f48-07bb9527fced.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783133076983-109a8e7b-ddd3-4dc9-9f48-07bb9527fced.webp"
+    },
+    {
+      "cultivarName": "Sonic Bloom",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454364746-72743bbb-d9dc-4963-940a-5db4ee89feae.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454364746-72743bbb-d9dc-4963-940a-5db4ee89feae.webp"
+    },
+    {
+      "cultivarName": "Sonic Bloom",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782690355823-b3773045-601d-4aff-a004-e4c415ae57a5.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782690355823-b3773045-601d-4aff-a004-e4c415ae57a5.webp"
+    },
+    {
+      "cultivarName": "Coseytown Bermuda Pink",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783641780718-93fe32c7-1be8-462d-b093-7637900bb0fa.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783641780718-93fe32c7-1be8-462d-b093-7637900bb0fa.webp"
+    },
+    {
+      "cultivarName": "Normandy Sweet Lucy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783824864627-7d35abd2-be89-4eb4-b7c4-a842019b1d11.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783824864627-7d35abd2-be89-4eb4-b7c4-a842019b1d11.webp"
+    },
+    {
+      "cultivarName": "Odyssey",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454364225-d63294f7-1ea8-4c44-8929-0ccf6eb46dca.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454364225-d63294f7-1ea8-4c44-8929-0ccf6eb46dca.webp"
+    },
+    {
+      "cultivarName": "HH Augustina",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454356452-83127c24-f344-4983-9a7f-684c1c32673f.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454356452-83127c24-f344-4983-9a7f-684c1c32673f.webp"
+    },
+    {
+      "cultivarName": "Purple Taiheijo",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454401500-03fee1b2-244e-4bc5-9563-707fce0b3501.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454401500-03fee1b2-244e-4bc5-9563-707fce0b3501.webp"
+    },
+    {
+      "cultivarName": "Purple Taiheijo",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782686810117-8bf0fdeb-35bf-4612-a71f-075358233245.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782686810117-8bf0fdeb-35bf-4612-a71f-075358233245.webp"
+    },
+    {
+      "cultivarName": "Purple Taiheijo",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454401500-03fee1b2-244e-4bc5-9563-707fce0b3501.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454401500-03fee1b2-244e-4bc5-9563-707fce0b3501.webp"
+    },
+    {
+      "cultivarName": "Polka",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454369071-b1e75fea-4d81-4337-a2e2-aceec275caf2.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454369071-b1e75fea-4d81-4337-a2e2-aceec275caf2.webp"
+    },
+    {
+      "cultivarName": "Penhill Dark Monarch",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782686514799-8d50c961-aaeb-4e90-8aca-7a5563a5621b.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782686514799-8d50c961-aaeb-4e90-8aca-7a5563a5621b.webp"
+    },
+    {
+      "cultivarName": "Penhill Dark Monarch",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782686532393-9d8aec92-5b2b-48a8-8a55-201af2203333.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782686532393-9d8aec92-5b2b-48a8-8a55-201af2203333.webp"
+    },
+    {
+      "cultivarName": "Penhill Dark Monarch",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782686532393-9d8aec92-5b2b-48a8-8a55-201af2203333.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782686532393-9d8aec92-5b2b-48a8-8a55-201af2203333.webp"
+    },
+    {
+      "cultivarName": "Penhill Dark Monarch",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782686500625-4fdbb7ae-fa82-41d4-a2c6-b48c3b1b56f5.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782686500625-4fdbb7ae-fa82-41d4-a2c6-b48c3b1b56f5.webp"
+    },
+    {
+      "cultivarName": "Tartan",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783641878325-43e1bdd7-2c68-4322-ba76-cff2a4ed1c46.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783641878325-43e1bdd7-2c68-4322-ba76-cff2a4ed1c46.webp"
+    },
+    {
+      "cultivarName": "Senior’s Hope",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783983651180-aaf48aa0-775b-4614-875b-ae7f65ef6be3.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783983651180-aaf48aa0-775b-4614-875b-ae7f65ef6be3.webp"
+    },
+    {
+      "cultivarName": "Enchantress",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782624624332-cebe34cd-1060-4712-ad2b-e4456c608fc5.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782624624332-cebe34cd-1060-4712-ad2b-e4456c608fc5.webp"
+    },
+    {
+      "cultivarName": "Enchantress",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782624847116-eb61054c-75ff-4393-a9c3-0c4c140f5bd0.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782624847116-eb61054c-75ff-4393-a9c3-0c4c140f5bd0.webp"
+    },
+    {
+      "cultivarName": "Enchantress",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782624632417-cd9e59ed-0f8b-4478-9826-fc02f73328f3.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782624632417-cd9e59ed-0f8b-4478-9826-fc02f73328f3.webp"
+    },
+    {
+      "cultivarName": "Enchantress",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782624601987-16cd3f87-23ce-4642-bdc9-33d537380314.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782624601987-16cd3f87-23ce-4642-bdc9-33d537380314.webp"
+    },
+    {
+      "cultivarName": "Boom Boom White",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780472136820-63a2c064-927f-4927-8b5c-c0f975fb82b0.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780472136820-63a2c064-927f-4927-8b5c-c0f975fb82b0.webp"
+    },
+    {
+      "cultivarName": "Tami To Name",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782691299943-4430a5de-5fe4-424c-b928-5b9e963510ac.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782691299943-4430a5de-5fe4-424c-b928-5b9e963510ac.webp"
+    },
+    {
+      "cultivarName": "Tami To Name",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454409245-20e631d9-468c-4199-8991-5a76cb2bab2c.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454409245-20e631d9-468c-4199-8991-5a76cb2bab2c.webp"
+    },
+    {
+      "cultivarName": "Bluetiful",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1780880728684-b3ea62af-44b9-4694-a3b5-203cddc4ea08.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780880728684-b3ea62af-44b9-4694-a3b5-203cddc4ea08.webp"
+    },
+    {
+      "cultivarName": "Bluetiful",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782610590069-c88c084e-ee88-4b2e-a17c-b4f689ebf459.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782610590069-c88c084e-ee88-4b2e-a17c-b4f689ebf459.webp"
+    },
+    {
+      "cultivarName": "Lilac Time",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782679856105-8845bf35-b8ab-46d0-ac04-d3add54edf50.webp",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782679856105-8845bf35-b8ab-46d0-ac04-d3add54edf50.webp"
+    },
+    {
+      "cultivarName": "Lilac Time",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782679926661-650dbcb4-8ff2-4da6-862a-04a3c0b76116.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782679926661-650dbcb4-8ff2-4da6-862a-04a3c0b76116.webp"
+    },
+    {
+      "cultivarName": "Lilac Time",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782679926661-650dbcb4-8ff2-4da6-862a-04a3c0b76116.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782679926661-650dbcb4-8ff2-4da6-862a-04a3c0b76116.webp"
+    },
+    {
+      "cultivarName": "Berner Oberland",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1780531425620-7a97bac5-a287-4eca-94a4-175c68fda7a4.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780531425620-7a97bac5-a287-4eca-94a4-175c68fda7a4.webp"
+    },
+    {
+      "cultivarName": "Berner Oberland",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454416107-a42c3ff6-4928-437b-99e6-7dce4f6d41f3.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454416107-a42c3ff6-4928-437b-99e6-7dce4f6d41f3.webp"
+    },
+    {
+      "cultivarName": "Leila Savanna Rose",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1780539663700-6d49f26e-4e21-44d2-bf35-f266e0f6131b.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780539663700-6d49f26e-4e21-44d2-bf35-f266e0f6131b.webp"
+    },
+    {
+      "cultivarName": "Leila Savanna Rose",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1780539663700-6d49f26e-4e21-44d2-bf35-f266e0f6131b.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780539663700-6d49f26e-4e21-44d2-bf35-f266e0f6131b.webp"
+    },
+    {
+      "cultivarName": "Sweet Dreams",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1780531258449-7e652443-15e2-4228-8676-aadb68c090b1.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780531258449-7e652443-15e2-4228-8676-aadb68c090b1.webp"
+    },
+    {
+      "cultivarName": "Sweet Dreams",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782690732281-08b5a7bc-136e-42fc-80be-48edfe5280d4.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782690732281-08b5a7bc-136e-42fc-80be-48edfe5280d4.webp"
+    },
+    {
+      "cultivarName": "Sweet Dreams",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782690732281-08b5a7bc-136e-42fc-80be-48edfe5280d4.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782690732281-08b5a7bc-136e-42fc-80be-48edfe5280d4.webp"
+    },
+    {
+      "cultivarName": "Sweet Dreams",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782690711117-a6730026-572e-4253-afdb-e037d133cbd7.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782690711117-a6730026-572e-4253-afdb-e037d133cbd7.webp"
+    },
+    {
+      "cultivarName": "Bold Accent",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783642025742-6872d5c4-bcac-4745-bab6-b85e8af65a84.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783642025742-6872d5c4-bcac-4745-bab6-b85e8af65a84.webp"
+    },
+    {
+      "cultivarName": "KA Snow Jo",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783642536766-73b3564d-2d1c-4504-8503-219dac2e5dd6.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783642536766-73b3564d-2d1c-4504-8503-219dac2e5dd6.webp"
+    },
+    {
+      "cultivarName": "Doodlebug",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782623537408-42851737-5d92-4018-8cb2-e27bc791e223.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782623537408-42851737-5d92-4018-8cb2-e27bc791e223.webp"
+    },
+    {
+      "cultivarName": "Excentric",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782692987655-4966c583-0bc2-4299-9927-28489477c2aa.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782692987655-4966c583-0bc2-4299-9927-28489477c2aa.webp"
+    },
+    {
+      "cultivarName": "Excentric",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2F1780454433953-34368bfd-5f2e-42a1-9690-a53a9af4ccfa.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780454433953-34368bfd-5f2e-42a1-9690-a53a9af4ccfa.webp"
+    },
+    {
+      "cultivarName": "Gandalf's Victory",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1780878421230-5d0b097f-f977-46a5-a61d-926c0fd3341f.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780878421230-5d0b097f-f977-46a5-a61d-926c0fd3341f.webp"
+    },
+    {
+      "cultivarName": "KA Coral Sea",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783642673019-57060781-b30a-4122-9abf-73d8588592e4.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783642673019-57060781-b30a-4122-9abf-73d8588592e4.webp"
+    },
+    {
+      "cultivarName": "Papa’s Love",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782720942727-8f487280-3f28-4e13-82f6-3c540b4d8fae.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782720942727-8f487280-3f28-4e13-82f6-3c540b4d8fae.webp"
+    },
+    {
+      "cultivarName": "Smarty Pants",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782721232591-ddf7c488-664e-443c-b82b-ef5046bbda81.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782721232591-ddf7c488-664e-443c-b82b-ef5046bbda81.webp"
+    },
+    {
+      "cultivarName": "Woodland's Wildthing",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783662888265-a650b875-eedf-43a3-b282-4c0734b8a551.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783662888265-a650b875-eedf-43a3-b282-4c0734b8a551.webp"
+    }
+  ],
+  "unknownCultivarSamples": [
+    {
+      "cultivarName": "KA Mocha Katie",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782713105985-ed8cd1cc-7503-4c75-adde-31ed0c962b90.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782713105985-ed8cd1cc-7503-4c75-adde-31ed0c962b90.webp"
+    },
+    {
+      "cultivarName": "Ferncliff Carefree",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783635933458-6345c416-1b95-40bf-a224-25ac9a4a14d1.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783635933458-6345c416-1b95-40bf-a224-25ac9a4a14d1.webp"
+    },
+    {
+      "cultivarName": "Robinhood",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782719230352-aa8a38a6-7cfe-4b53-a0e3-95b1c0ac3d2d.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782719230352-aa8a38a6-7cfe-4b53-a0e3-95b1c0ac3d2d.webp"
+    },
+    {
+      "cultivarName": "AC Thornbird",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783915717745-c7acd3a6-4ad7-4405-8ae9-9a935020bb33.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783915717745-c7acd3a6-4ad7-4405-8ae9-9a935020bb33.webp"
+    },
+    {
+      "cultivarName": "Miss Brandy",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782718192366-1ae4d56a-6710-4378-96fe-a0e8d557a9d6.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782718192366-1ae4d56a-6710-4378-96fe-a0e8d557a9d6.webp"
+    },
+    {
+      "cultivarName": "Moonstruck",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782682654942-c56849ea-3a7f-47d3-942b-abb5fcda546b.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782682654942-c56849ea-3a7f-47d3-942b-abb5fcda546b.webp"
+    },
+    {
+      "cultivarName": "Dazzle Me",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1780521616967-a5232638-8be0-43e0-8c13-982f332efde8.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780521616967-a5232638-8be0-43e0-8c13-982f332efde8.webp"
+    },
+    {
+      "cultivarName": "Spartacus",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782714878514-231d2cc6-c002-4b78-9dcf-92f6c2db617c.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782714878514-231d2cc6-c002-4b78-9dcf-92f6c2db617c.webp"
+    },
+    {
+      "cultivarName": "RM Berry Bliss",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1784267181770-47e35020-58b0-40d7-b056-cade7ce22828.jpeg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1784267181770-47e35020-58b0-40d7-b056-cade7ce22828.webp"
+    },
+    {
+      "cultivarName": "Grand Finale",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782713971500-9359b6a3-e983-44ca-963e-4b5a185b0ff0.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782713971500-9359b6a3-e983-44ca-963e-4b5a185b0ff0.webp"
+    },
+    {
+      "cultivarName": "BLQ Bethany",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782713866147-cdcddf6e-734e-4f51-9642-f0f8190da9e1.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782713866147-cdcddf6e-734e-4f51-9642-f0f8190da9e1.webp"
+    },
+    {
+      "cultivarName": "Cornel",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782716564350-e43e8f1a-2fbb-4053-b143-0809365d7017.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782716564350-e43e8f1a-2fbb-4053-b143-0809365d7017.webp"
+    },
+    {
+      "cultivarName": "Maks Betty Ann",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783634517742-10b814b4-52ab-4c53-81cc-4d06827cd60d.avif",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783634517742-10b814b4-52ab-4c53-81cc-4d06827cd60d.webp"
+    },
+    {
+      "cultivarName": "Sweet Nathalie?",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782690833060-0a8a34f5-3d94-4b55-8ca7-97238b94acba.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782690833060-0a8a34f5-3d94-4b55-8ca7-97238b94acba.webp"
+    },
+    {
+      "cultivarName": "Wilder Christopher",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782694209703-1ffae0e2-803c-4505-a380-a4faa2c73601.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782694209703-1ffae0e2-803c-4505-a380-a4faa2c73601.webp"
+    },
+    {
+      "cultivarName": "Walter Hardisty",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1780522325281-9dafdf48-40d5-47f8-a41e-48cbbf9f9b0a.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1780522325281-9dafdf48-40d5-47f8-a41e-48cbbf9f9b0a.webp"
+    },
+    {
+      "cultivarName": "Jeannie Laroux",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1783636946904-27c822d2-0d33-4293-aa60-5904a8f2c942.jpg",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1783636946904-27c822d2-0d33-4293-aa60-5904a8f2c942.webp"
+    },
+    {
+      "cultivarName": "Linda's Baby",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782718692629-0bc4a9f8-e18b-4f8a-a697-a69ccf99118d.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782718692629-0bc4a9f8-e18b-4f8a-a697-a69ccf99118d.webp"
+    },
+    {
+      "cultivarName": "HH Liz",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782719323677-6498d66e-2109-488f-8333-0ca7133fc87f.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782719323677-6498d66e-2109-488f-8333-0ca7133fc87f.webp"
+    },
+    {
+      "cultivarName": "White Nettie",
+      "gardenId": "default-e2bfbc813611e5b3324b6f746e2298bb537a7814",
+      "imageUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Foriginals%2F1782714733779-f98aacc7-9d6d-436a-a5dd-b8591dfb3b90.png",
+      "thumbnailUrl": "https://storage.googleapis.com/dahlia-tracker-1dfcb.firebasestorage.app/dahlia-photos%2Fthumbnails%2F1782714733779-f98aacc7-9d6d-436a-a5dd-b8591dfb3b90.webp"
+    }
+  ]
+}

@@ -1,20 +1,16 @@
-import { getDb } from './firebase.js'
+import crypto from 'node:crypto'
+import { query } from './db.js'
 
-const COLLECTION = 'maintenanceReminders'
+const SELECT_COLUMNS = `
+  id, garden_id AS "gardenId", title, notes, due_date AS "dueDate",
+  related_record_ids AS "relatedRecordIds", source,
+  created_by_user_id AS "createdByUserId", owner_user_id AS "ownerUserId", assigned_to_user_id AS "assignedToUserId",
+  visibility, priority, completed_at AS "completedAt", completed_by_user_id AS "completedByUserId",
+  created_at AS "createdAt", updated_at AS "updatedAt"
+`
 
 function nowIso() {
   return new Date().toISOString()
-}
-
-function withoutUndefined(value) {
-  if (Array.isArray(value)) return value.map(withoutUndefined)
-  if (!value || typeof value !== 'object') return value
-
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => [k, withoutUndefined(v)]),
-  )
 }
 
 function sortReminders(a, b) {
@@ -23,10 +19,14 @@ function sortReminders(a, b) {
   return String(a.dueDate ?? '').localeCompare(String(b.dueDate ?? '')) || String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))
 }
 
+async function getMaintenanceReminderById(id) {
+  const { rows } = await query(`SELECT ${SELECT_COLUMNS} FROM maintenance_reminders WHERE id = $1`, [id])
+  return rows[0] ?? null
+}
+
 export async function listMaintenanceReminders({ gardenId, userId, includeLegacyUnassigned = false } = {}) {
-  const snap = await getDb().collection(COLLECTION).get()
-  return snap.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() }))
+  const { rows } = await query(`SELECT ${SELECT_COLUMNS} FROM maintenance_reminders`)
+  return rows
     .filter((reminder) => !gardenId || reminder.gardenId === gardenId || (includeLegacyUnassigned && !reminder.gardenId))
     .map((reminder) => ({
       ...reminder,
@@ -40,106 +40,124 @@ export async function listMaintenanceReminders({ gardenId, userId, includeLegacy
 
 export async function createMaintenanceReminder(input, { gardenId, userId } = {}) {
   const timestamp = nowIso()
-  const ref = await getDb()
-    .collection(COLLECTION)
-    .add(
-      withoutUndefined({
-        title: input.title,
-        notes: input.notes || undefined,
-        dueDate: input.dueDate || undefined,
-        relatedRecordIds: input.relatedRecordIds ?? [],
-        source: input.source ?? 'user',
-        gardenId,
-        createdByUserId: userId,
-        ownerUserId: input.ownerUserId || userId,
-        assignedToUserId: input.assignedToUserId || undefined,
-        visibility: input.visibility ?? 'garden',
-        priority: input.priority ?? 'normal',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      }),
-    )
-  const doc = await ref.get()
-  return { id: doc.id, ...doc.data() }
+  const id = crypto.randomUUID()
+
+  await query(
+    `INSERT INTO maintenance_reminders (
+       id, garden_id, title, notes, due_date, related_record_ids, source,
+       created_by_user_id, owner_user_id, assigned_to_user_id, visibility, priority,
+       created_at, updated_at
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+    [
+      id,
+      gardenId ?? null,
+      input.title,
+      input.notes || null,
+      input.dueDate || null,
+      JSON.stringify(input.relatedRecordIds ?? []),
+      input.source ?? 'user',
+      userId ?? null,
+      input.ownerUserId || userId || null,
+      input.assignedToUserId || null,
+      input.visibility ?? 'garden',
+      input.priority ?? 'normal',
+      timestamp,
+      timestamp,
+    ],
+  )
+
+  return getMaintenanceReminderById(id)
 }
 
 export async function updateMaintenanceReminder(id, input, { gardenId, userId } = {}) {
-  const doc = await getDb().collection(COLLECTION).doc(id).get()
-  if (!doc.exists) return null
-  if (gardenId && doc.data().gardenId && doc.data().gardenId !== gardenId) return null
+  const existing = await getMaintenanceReminderById(id)
+  if (!existing) return null
+  if (gardenId && existing.gardenId && existing.gardenId !== gardenId) return null
 
-  await doc.ref.set(
-    withoutUndefined({
-      ...doc.data(),
-      ...input,
-      notes: input.notes || undefined,
-      dueDate: input.dueDate || undefined,
-      relatedRecordIds: input.relatedRecordIds ?? doc.data().relatedRecordIds ?? [],
-      gardenId: doc.data().gardenId ?? gardenId,
-      createdByUserId: doc.data().createdByUserId ?? userId,
-      ownerUserId: input.ownerUserId ?? doc.data().ownerUserId ?? userId,
-      assignedToUserId: input.assignedToUserId || undefined,
-      visibility: input.visibility ?? doc.data().visibility ?? 'garden',
-      priority: input.priority ?? doc.data().priority ?? 'normal',
-      updatedAt: nowIso(),
-    }),
-    { merge: false },
+  const timestamp = nowIso()
+  await query(
+    `UPDATE maintenance_reminders SET
+       title = $2, source = $3, notes = $4, due_date = $5, related_record_ids = $6,
+       garden_id = $7, created_by_user_id = $8, owner_user_id = $9, assigned_to_user_id = $10,
+       visibility = $11, priority = $12, updated_at = $13
+     WHERE id = $1`,
+    [
+      id,
+      input.title,
+      input.source ?? null,
+      input.notes || null,
+      input.dueDate || null,
+      JSON.stringify(input.relatedRecordIds ?? existing.relatedRecordIds ?? []),
+      existing.gardenId ?? gardenId ?? null,
+      existing.createdByUserId ?? userId ?? null,
+      input.ownerUserId ?? existing.ownerUserId ?? userId ?? null,
+      input.assignedToUserId || null,
+      input.visibility ?? existing.visibility ?? 'garden',
+      input.priority ?? existing.priority ?? 'normal',
+      timestamp,
+    ],
   )
-  const updated = await doc.ref.get()
-  return { id: updated.id, ...updated.data() }
+
+  return getMaintenanceReminderById(id)
 }
 
 export async function completeMaintenanceReminder(id, { gardenId, userId } = {}) {
-  const doc = await getDb().collection(COLLECTION).doc(id).get()
-  if (!doc.exists) return null
-  if (gardenId && doc.data().gardenId && doc.data().gardenId !== gardenId) return null
+  const existing = await getMaintenanceReminderById(id)
+  if (!existing) return null
+  if (gardenId && existing.gardenId && existing.gardenId !== gardenId) return null
 
   const timestamp = nowIso()
-  await doc.ref.set(
-    withoutUndefined({
-      ...doc.data(),
-      gardenId: doc.data().gardenId ?? gardenId,
-      createdByUserId: doc.data().createdByUserId ?? userId,
-      ownerUserId: doc.data().ownerUserId ?? userId,
-      visibility: doc.data().visibility ?? 'garden',
-      priority: doc.data().priority ?? 'normal',
-      completedAt: timestamp,
-      completedByUserId: userId,
-      updatedAt: timestamp,
-    }),
-    { merge: false },
+  await query(
+    `UPDATE maintenance_reminders SET
+       garden_id = $2, created_by_user_id = $3, owner_user_id = $4, visibility = $5, priority = $6,
+       completed_at = $7, completed_by_user_id = $8, updated_at = $9
+     WHERE id = $1`,
+    [
+      id,
+      existing.gardenId ?? gardenId ?? null,
+      existing.createdByUserId ?? userId ?? null,
+      existing.ownerUserId ?? userId ?? null,
+      existing.visibility ?? 'garden',
+      existing.priority ?? 'normal',
+      timestamp,
+      userId ?? null,
+      timestamp,
+    ],
   )
-  const updated = await doc.ref.get()
-  return { id: updated.id, ...updated.data() }
+
+  return getMaintenanceReminderById(id)
 }
 
 export async function reopenMaintenanceReminder(id, { gardenId, userId } = {}) {
-  const doc = await getDb().collection(COLLECTION).doc(id).get()
-  if (!doc.exists) return null
-  if (gardenId && doc.data().gardenId && doc.data().gardenId !== gardenId) return null
+  const existing = await getMaintenanceReminderById(id)
+  if (!existing) return null
+  if (gardenId && existing.gardenId && existing.gardenId !== gardenId) return null
 
   const timestamp = nowIso()
-  const { completedAt, completedByUserId, ...data } = doc.data()
-  await doc.ref.set(
-    withoutUndefined({
-      ...data,
-      gardenId: data.gardenId ?? gardenId,
-      createdByUserId: data.createdByUserId ?? userId,
-      ownerUserId: data.ownerUserId ?? userId,
-      visibility: data.visibility ?? 'garden',
-      priority: data.priority ?? 'normal',
-      updatedAt: timestamp,
-    }),
-    { merge: false },
+  await query(
+    `UPDATE maintenance_reminders SET
+       garden_id = $2, created_by_user_id = $3, owner_user_id = $4, visibility = $5, priority = $6,
+       completed_at = NULL, completed_by_user_id = NULL, updated_at = $7
+     WHERE id = $1`,
+    [
+      id,
+      existing.gardenId ?? gardenId ?? null,
+      existing.createdByUserId ?? userId ?? null,
+      existing.ownerUserId ?? userId ?? null,
+      existing.visibility ?? 'garden',
+      existing.priority ?? 'normal',
+      timestamp,
+    ],
   )
-  const updated = await doc.ref.get()
-  return { id: updated.id, ...updated.data() }
+
+  return getMaintenanceReminderById(id)
 }
 
 export async function deleteMaintenanceReminder(id, { gardenId } = {}) {
-  const doc = await getDb().collection(COLLECTION).doc(id).get()
-  if (!doc.exists) return true
-  if (gardenId && doc.data().gardenId && doc.data().gardenId !== gardenId) return false
-  await doc.ref.delete()
+  const existing = await getMaintenanceReminderById(id)
+  if (!existing) return true
+  if (gardenId && existing.gardenId && existing.gardenId !== gardenId) return false
+
+  await query('DELETE FROM maintenance_reminders WHERE id = $1', [id])
   return true
 }

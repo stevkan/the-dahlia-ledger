@@ -196,17 +196,11 @@ export function useGardens({
   }
 
   async function deleteGarden(gardenId: string) {
-    setError(null)
-    try {
-      await api<{ ok: true }>(`/api/gardens/${encodeURIComponent(gardenId)}`, {
-        method: 'DELETE',
-      })
-      if (selectedGardenId === gardenId) setSelectedGardenId('')
-      await queryClient.invalidateQueries({ queryKey: gardensQueryKey })
-    } catch (e: any) {
-      setError(e?.message ?? String(e))
-      throw e
-    }
+    await api<{ ok: true }>(`/api/gardens/${encodeURIComponent(gardenId)}`, {
+      method: 'DELETE',
+    })
+    if (selectedGardenId === gardenId) setSelectedGardenId('')
+    await queryClient.invalidateQueries({ queryKey: gardensQueryKey })
   }
 
   async function listGardenMembers(gardenId: string) {
@@ -232,11 +226,16 @@ export function useGardens({
       `/api/gardens/${encodeURIComponent(gardenId)}/members/${encodeURIComponent(memberId)}`,
       { method: 'DELETE' },
     )
+    await queryClient.invalidateQueries({ queryKey: gardensQueryKey })
   }
 
   async function deleteKnownUser(userId: string) {
     await api<{ ok: true }>(`/api/users/${encodeURIComponent(userId)}`, { method: 'DELETE' })
     await queryClient.invalidateQueries({ queryKey: usersQueryKey })
+  }
+
+  async function deleteOwnAccount() {
+    await api<{ ok: true }>('/api/users/me', { method: 'DELETE' })
   }
 
   async function listInvites(input: { gardenId?: string }) {
@@ -300,6 +299,7 @@ export function useGardens({
     saveGardenMember,
     deleteGardenMember,
     deleteKnownUser,
+    deleteOwnAccount,
     listInvites,
     createInvite,
     resendInvite,

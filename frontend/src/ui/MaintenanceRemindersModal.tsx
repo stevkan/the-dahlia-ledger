@@ -1,13 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DahliaRecord, GardenMember, MaintenanceReminder, MaintenanceReminderInput } from '../types'
+import { DahliaPickerField } from './DahliaPickerField'
 
 type RelatedRecordSeasonFilter = 'current' | 'all'
 type ReminderView = 'list' | 'form'
-
-type ReminderDropdownOption = {
-  value: string
-  label: string
-}
 
 type Props = {
   reminders: MaintenanceReminder[]
@@ -67,50 +63,6 @@ function FieldLabel({ label, hint }: { label: string; hint?: string }) {
           ?
           {visible ? <span className="helpTooltip" role="tooltip">{hint}</span> : null}
         </button>
-      ) : null}
-    </div>
-  )
-}
-
-function ReminderDropdown({ label, value, options, onChange }: { label: string; value: string; options: ReminderDropdownOption[]; onChange: (value: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const selectedOption = options.find((option) => option.value === value) ?? options[0]
-
-  function selectOption(optionValue: string) {
-    onChange(optionValue)
-    setOpen(false)
-  }
-
-  return (
-    <div className="reminderDropdown" onBlur={(e) => {
-      if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false)
-    }}>
-      <button
-        className="reminderDropdownButton select"
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={label}
-        onClick={() => setOpen((current) => !current)}
-      >
-        {selectedOption?.label ?? ''}
-      </button>
-      {open ? (
-        <div className="reminderDropdownOptions" role="listbox" aria-label={label}>
-          {options.map((option) => (
-            <button
-              className="reminderDropdownOption"
-              key={option.value}
-              type="button"
-              role="option"
-              aria-selected={option.value === value}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => selectOption(option.value)}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
       ) : null}
     </div>
   )
@@ -204,6 +156,7 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
   const [confirmingDeleteReminderId, setConfirmingDeleteReminderId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [formSnapshot, setFormSnapshot] = useState('')
 
   const visibleReminders = reminders.filter((reminder) => canCurrentUserViewReminder(reminder, currentUserId))
   const dueReminders = sortActiveReminders(visibleReminders.filter((reminder) => isDue(reminder)))
@@ -218,6 +171,7 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
   const assigneeOptions = [{ value: '', label: 'Unassigned' }, ...members.map((member) => ({ value: member.userId, label: member.displayName || member.email || member.userId }))]
   const showRelatedRecordOptions = relatedRecordSearchFocused && relatedRecordOptions.length > 0
   const canSaveReminder = Boolean(title.trim() && dueDate && visibility)
+  const formHasChanges = view === 'form' && JSON.stringify({ title, notes, dueDate, relatedRecordId, relatedRecordSearch, assignedToUserId, visibility, priority }) !== formSnapshot
 
   function selectRelatedRecord(record: DahliaRecord) {
     setRelatedRecordId(record.id)
@@ -282,6 +236,7 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
   function openCreateForm() {
     setConfirmingDeleteReminderId(null)
     resetForm()
+    setFormSnapshot(JSON.stringify({ title: '', notes: '', dueDate: '', relatedRecordId: '', relatedRecordSearch: '', assignedToUserId: '', visibility: 'garden', priority: 'normal' }))
     setView('form')
   }
 
@@ -294,18 +249,36 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
   function editReminder(reminder: MaintenanceReminder) {
     const relatedRecord = records.find((record) => record.id === reminder.relatedRecordIds?.[0])
     setConfirmingDeleteReminderId(null)
-    setTitle(reminder.title)
-    setNotes(reminder.notes ?? '')
-    setDueDate(reminder.dueDate ?? '')
-    setRelatedRecordId(relatedRecord?.id ?? '')
-    setRelatedRecordSearch(relatedRecord ? recordLabel(relatedRecord) : '')
-    setAssignedToUserId(reminder.assignedToUserId ?? '')
-    setVisibility(reminder.visibility ?? 'garden')
-    setPriority(reminder.priority ?? 'normal')
+    const next = {
+      title: reminder.title,
+      notes: reminder.notes ?? '',
+      dueDate: reminder.dueDate ?? '',
+      relatedRecordId: relatedRecord?.id ?? '',
+      relatedRecordSearch: relatedRecord ? recordLabel(relatedRecord) : '',
+      assignedToUserId: reminder.assignedToUserId ?? '',
+      visibility: reminder.visibility ?? 'garden',
+      priority: reminder.priority ?? 'normal',
+    }
+    setTitle(next.title)
+    setNotes(next.notes)
+    setDueDate(next.dueDate)
+    setRelatedRecordId(next.relatedRecordId)
+    setRelatedRecordSearch(next.relatedRecordSearch)
+    setAssignedToUserId(next.assignedToUserId)
+    setVisibility(next.visibility)
+    setPriority(next.priority)
     setEditingReminderId(reminder.id)
+    setFormSnapshot(JSON.stringify(next))
     setView('form')
     setError(null)
     modalBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function cancelFormEdits() {
+    if (!formHasChanges) return
+    const editingReminder = editingReminderId ? reminders.find((reminder) => reminder.id === editingReminderId) : null
+    if (editingReminder) editReminder(editingReminder)
+    else openCreateForm()
   }
 
   function renderReminder(reminder: MaintenanceReminder) {
@@ -417,7 +390,7 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
           </div>
           <div className="rowActions modalHeaderActions">
             {view === 'list' ? <button className="btn" type="button" onClick={openCreateForm}>Add Reminder</button> : null}
-            <button className="btn ghost compact" type="button" onClick={onClose}>Close</button>
+            <button className="btn ghost compact" type="button" onClick={() => (view === 'form' ? returnToList() : onClose())}>Close</button>
           </div>
         </div>
         <div className="modalBody remindersBody" ref={modalBodyRef}>
@@ -429,25 +402,36 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
                   <FieldLabel label="Title" hint={REMINDER_FIELD_HINTS.title} />
                   <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Check storage notes for overwintered tubers" />
                 </label>
-                <label className="field">
-                  <FieldLabel label="Assigned user ID" hint={REMINDER_FIELD_HINTS.assignedUser} />
-                  {members.length ? (
-                    <ReminderDropdown label="Assigned user ID" value={assignedToUserId} options={assigneeOptions} onChange={setAssignedToUserId} />
-                  ) : (
+                {members.length ? (
+                  <DahliaPickerField
+                    label="Assigned User ID"
+                    hint={REMINDER_FIELD_HINTS.assignedUser}
+                    value={assignedToUserId}
+                    options={assigneeOptions}
+                    onChange={(value) => setAssignedToUserId(value ?? '')}
+                    clearable={false}
+                  />
+                ) : (
+                  <label className="field">
+                    <FieldLabel label="Assigned User ID" hint={REMINDER_FIELD_HINTS.assignedUser} />
                     <input className="input" value={assignedToUserId} onChange={(e) => setAssignedToUserId(e.target.value)} placeholder="Optional user ID" />
-                  )}
-                </label>
+                  </label>
+                )}
                 <label className="field">
-                  <FieldLabel label="Due date" hint={REMINDER_FIELD_HINTS.dueDate} />
+                  <FieldLabel label="Due Date" hint={REMINDER_FIELD_HINTS.dueDate} />
                   <input className="input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
                 </label>
-                <label className="field">
-                  <FieldLabel label="Visibility" hint={REMINDER_FIELD_HINTS.visibility} />
-                  <ReminderDropdown label="Visibility" value={visibility ?? 'garden'} options={[{ value: 'private', label: 'Private' }, { value: 'garden', label: 'Garden' }]} onChange={(value) => setVisibility(value as MaintenanceReminder['visibility'])} />
-                </label>
+                <DahliaPickerField
+                  label="Visibility"
+                  hint={REMINDER_FIELD_HINTS.visibility}
+                  value={visibility ?? 'garden'}
+                  options={[{ value: 'private', label: 'Private' }, { value: 'garden', label: 'Garden' }]}
+                  onChange={(value) => setVisibility((value ?? 'garden') as MaintenanceReminder['visibility'])}
+                  clearable={false}
+                />
                 <div className="field relatedRecordField">
                   <div className="relatedRecordHeader">
-                    <FieldLabel label="Related record" hint={REMINDER_FIELD_HINTS.relatedRecord} />
+                    <FieldLabel label="Related Record" hint={REMINDER_FIELD_HINTS.relatedRecord} />
                     <div className="seasonFilterControl" aria-label="Season filter">
                       <span className="seasonFilterLabel">Season</span>
                       <button
@@ -504,7 +488,7 @@ export function MaintenanceRemindersModal({ reminders, records, members = [], cu
               </div>
               <div className="rowActions reminderComposerActions">
                 <button className="btn" type="button" disabled={busy || !canSaveReminder} onClick={() => void submit()}>{busy ? 'Saving...' : editingReminderId ? 'Update Reminder' : 'Save Reminder'}</button>
-                <button className="btn ghost" type="button" disabled={busy} onClick={returnToList}>{editingReminderId ? 'Cancel Edit' : 'Cancel'}</button>
+                <button className="btn ghost" type="button" disabled={busy || !formHasChanges} onClick={cancelFormEdits}>Cancel</button>
                 {error ? <div className="error inlineError">{error}</div> : null}
               </div>
             </section>

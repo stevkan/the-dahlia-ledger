@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dahlia
+      POSTGRES_PASSWORD: dahlia
+      POSTGRES_DB: dahlia_ledger
+    ports:
+      - '5432:5432'
+    volumes:
+      - dahlia-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  dahlia-postgres-data:

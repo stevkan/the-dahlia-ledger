@@ -1,12 +1,12 @@
 import crypto from 'node:crypto'
 import { getDb } from './firebase.js'
 import { isGlobalAdmin } from './users.js'
+import { query } from './db.js'
+import { clearLegacyUnassignedCache } from './records.js'
 
 const GARDENS = 'gardens'
 const GARDEN_MEMBERS = 'gardenMembers'
 const INVITES = 'invites'
-const RECORDS = 'dahliaRecords'
-const REMINDERS = 'maintenanceReminders'
 const ORDER_ITEMS = 'orderItems'
 
 export const GARDEN_ROLES = ['owner', 'admin', 'editor', 'viewer']
@@ -165,14 +165,15 @@ async function ensureGardenMembership(user, gardenId, role) {
 }
 
 async function assignLegacyRecordsToGarden(gardenId) {
-  const snap = await getDb().collection(RECORDS).get()
-  if (snap.docs.some((doc) => doc.data().gardenId)) return 0
-
-  const unassigned = snap.docs.filter((doc) => !doc.data().gardenId)
-  await Promise.all(
-    unassigned.map((doc) => doc.ref.set(withoutUndefined({ ...doc.data(), gardenId }), { merge: false })),
+  const { rowCount } = await query(
+    `UPDATE dahlia_records
+     SET garden_id = $1
+     WHERE garden_id IS NULL
+       AND NOT EXISTS (SELECT 1 FROM dahlia_records WHERE garden_id IS NOT NULL)`,
+    [gardenId],
   )
-  return unassigned.length
+  if (rowCount > 0) clearLegacyUnassignedCache()
+  return rowCount
 }
 
 export async function listGardens(user) {
@@ -268,14 +269,14 @@ export async function updateGarden(user, gardenId, input) {
 }
 
 export async function getGardenUsageCounts(gardenId) {
-  const [recordsSnap, remindersSnap, orderItemsSnap] = await Promise.all([
-    getDb().collection(RECORDS).where('gardenId', '==', gardenId).get(),
-    getDb().collection(REMINDERS).where('gardenId', '==', gardenId).get(),
+  const [recordCountResult, reminderCountResult, orderItemsSnap] = await Promise.all([
+    query('SELECT COUNT(*)::int AS count FROM dahlia_records WHERE garden_id = $1', [gardenId]),
+    query('SELECT COUNT(*)::int AS count FROM maintenance_reminders WHERE garden_id = $1', [gardenId]),
     getDb().collection(ORDER_ITEMS).where('gardenId', '==', gardenId).get(),
   ])
   return {
-    records: recordsSnap.size,
-    reminders: remindersSnap.size,
+    records: recordCountResult.rows[0]?.count ?? 0,
+    reminders: reminderCountResult.rows[0]?.count ?? 0,
     orderItems: orderItemsSnap.size,
   }
 }
@@ -325,6 +326,18 @@ export async function listGardenMembers(user, gardenId) {
   return await dedupeMembers(GARDEN_MEMBERS, 'gardenId', gardenId)
 }
 
+export async function getKnownUserGardenUsage(userId) {
+  const db = getDb()
+  const [membersSnap, ownedGardensSnap] = await Promise.all([
+    db.collection(GARDEN_MEMBERS).where('userId', '==', userId).get(),
+    db.collection(GARDENS).where('ownerUserId', '==', userId).get(),
+  ])
+  const memberships = membersSnap.docs.map((doc) => doc.data())
+  const ownsGarden = ownedGardensSnap.size > 0 || memberships.some((member) => member.role === 'owner')
+  const addedByAnotherUser = memberships.some((member) => member.invitedByUserId && member.invitedByUserId !== userId)
+  return { ownsGarden, addedByAnotherUser }
+}
+
 export async function upsertGardenMember(user, gardenId, input) {
   const access = await requireGardenAccess(user, gardenId)
   if (access.role !== 'owner' && access.role !== 'admin') {
@@ -366,20 +379,47 @@ async function writeGardenMember(gardenId, input) {
 
 export async function removeGardenMember(user, gardenId, memberId) {
   const access = await requireGardenAccess(user, gardenId)
-  if (access.role !== 'owner' && access.role !== 'admin') {
+  const ref = getDb().collection(GARDEN_MEMBERS).doc(memberId)
+  const doc = await ref.get()
+  if (!doc.exists || doc.data().gardenId !== gardenId) return false
+  const isSelf = doc.data().userId === user.uid
+  if (access.role !== 'owner' && access.role !== 'admin' && !isSelf) {
     const error = new Error('Garden admin access denied.')
     error.code = 'garden_write_denied'
     throw error
   }
-  const ref = getDb().collection(GARDEN_MEMBERS).doc(memberId)
-  const doc = await ref.get()
-  if (!doc.exists || doc.data().gardenId !== gardenId) return false
   if (doc.data().role === 'owner') {
     const members = await dedupeMembers(GARDEN_MEMBERS, 'gardenId', gardenId)
     if (members.filter((member) => member.role === 'owner').length <= 1) throw lastOwnerError()
   }
   await ref.delete()
   return true
+}
+
+export async function removeUserFromAllGardens(userId) {
+  const snap = await getDb().collection(GARDEN_MEMBERS).where('userId', '==', userId).get()
+  const gardenIds = [...new Set(snap.docs.map((doc) => doc.data().gardenId).filter(Boolean))]
+  await Promise.all(snap.docs.map((doc) => doc.ref.delete()))
+
+  const orphanedGardenIds = []
+  for (const gardenId of gardenIds) {
+    const remainingMembers = await dedupeMembers(GARDEN_MEMBERS, 'gardenId', gardenId)
+    if (!remainingMembers.some((member) => member.role === 'owner')) orphanedGardenIds.push(gardenId)
+  }
+  await Promise.all(orphanedGardenIds.map((gardenId) => deleteOrphanedGardenShell(gardenId)))
+  return orphanedGardenIds
+}
+
+async function deleteOrphanedGardenShell(gardenId) {
+  const [membersSnap, invitesSnap] = await Promise.all([
+    getDb().collection(GARDEN_MEMBERS).where('gardenId', '==', gardenId).get(),
+    getDb().collection(INVITES).where('gardenId', '==', gardenId).get(),
+  ])
+  await Promise.all([
+    ...membersSnap.docs.map((doc) => doc.ref.delete()),
+    ...invitesSnap.docs.map((doc) => doc.ref.delete()),
+    getDb().collection(GARDENS).doc(gardenId).delete(),
+  ])
 }
 
 export async function createInvite(user, input) {

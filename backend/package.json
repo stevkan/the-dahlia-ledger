@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "0.24.1",
+  "version": "0.35.0",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
@@ -10,12 +10,35 @@
     "test:watch": "vitest",
     "backfill:thumbnails": "node scripts/backfill-photo-thumbnails.js",
     "backfill:thumbnails:dry-run": "node scripts/backfill-photo-thumbnails.js --dry-run",
+    "backfill:list-thumbnails": "node scripts/backfill-photo-list-thumbnails.js",
+    "backfill:list-thumbnails:dry-run": "node scripts/backfill-photo-list-thumbnails.js --dry-run",
     "normalize:bloom-widths": "node scripts/normalize-record-bloom-widths.js",
     "normalize:bloom-widths:dry-run": "node scripts/normalize-record-bloom-widths.js --dry-run",
     "backfill:file-names": "node scripts/backfill-file-names.js",
     "backfill:file-names:dry-run": "node scripts/backfill-file-names.js --dry-run",
     "backfill:garden-ids": "node scripts/backfill-garden-ids.js",
-    "backfill:garden-ids:dry-run": "node scripts/backfill-garden-ids.js --dry-run"
+    "backfill:garden-ids:dry-run": "node scripts/backfill-garden-ids.js --dry-run",
+    "backfill:photo-embeddings": "node scripts/backfill-photo-embeddings.js",
+    "backfill:photo-embeddings:dry-run": "node scripts/backfill-photo-embeddings.js --dry-run",
+    "recompute:centroids": "node scripts/recompute-cultivar-centroids.js",
+    "recompute:centroids:dry-run": "node scripts/recompute-cultivar-centroids.js --dry-run",
+    "eval:build-set": "node scripts/build-photo-eval-set.js",
+    "eval:photo-matching": "node scripts/evaluate-photo-matching.js",
+    "export:training-embeddings": "node scripts/export-embeddings-for-training.js",
+    "import:learned-projection": "node scripts/import-learned-projection.js",
+    "import:learned-projection:dry-run": "node scripts/import-learned-projection.js --dry-run",
+    "deactivate:learned-projection": "node scripts/deactivate-learned-projection.js",
+    "migrate": "node-pg-migrate --envPath .env",
+    "migrate:up": "node-pg-migrate up --envPath .env",
+    "migrate:down": "node-pg-migrate down --envPath .env",
+    "migrate:records-to-postgres": "node scripts/migrate-records-to-postgres.js",
+    "migrate:records-to-postgres:apply": "node scripts/migrate-records-to-postgres.js --apply",
+    "migrate:app-config-to-postgres": "node scripts/migrate-app-config-to-postgres.js",
+    "migrate:app-config-to-postgres:apply": "node scripts/migrate-app-config-to-postgres.js --apply",
+    "migrate:reminders-to-postgres": "node scripts/migrate-reminders-to-postgres.js",
+    "migrate:reminders-to-postgres:apply": "node scripts/migrate-reminders-to-postgres.js --apply",
+    "migrate:photos-to-blob": "node scripts/migrate-photos-to-azure-blob.js",
+    "migrate:photos-to-blob:apply": "node scripts/migrate-photos-to-azure-blob.js --apply"
   },
   "keywords": [],
   "author": "",
@@ -25,18 +48,23 @@
     "exec": "node --require ./src/appinsights.cjs src/server.js"
   },
   "dependencies": {
+    "@azure/storage-blob": "^12.33.0",
+    "@huggingface/transformers": "^4.2.0",
     "applicationinsights": "^3.15.1",
+    "compression": "^1.8.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "firebase-admin": "^13.9.0",
     "multer": "^2.1.1",
     "openai": "^6.37.0",
+    "pg": "^8.22.0",
     "sharp": "^0.34.5",
     "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "node-pg-migrate": "^9.0.0",
     "nodemon": "^3.1.14",
     "vitest": "^3.2.7"
   }

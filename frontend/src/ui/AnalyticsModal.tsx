@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import { jsPDF } from 'jspdf'
 import type { AgentVisualization, Company, DahliaRecord } from '../types'
 import { api } from '../api/client'
-import { DropdownField } from './DropdownField'
+import { DahliaPickerField } from './DahliaPickerField'
+import { compareGardenLocationsGrouped, formatGardenLocation, resolveRecordPhoto } from './RecordsTable'
 
 const AgentVisualizationView = lazy(async () => {
   const module = await import('./AgentVisualizationView')
@@ -119,6 +120,7 @@ type AnalyticsFilters = {
   plantingStates: string[]
   colors: string[]
   forms: string[]
+  nameStatuses: string[]
 }
 
 type AnalyticsDrilldownRecord = {
@@ -159,6 +161,80 @@ type DrilldownSort = {
   direction: 'asc' | 'desc'
 }
 
+type DrilldownRecordColumnId =
+  | 'recordNumber'
+  | 'thumb'
+  | 'flowerName'
+  | 'cultivar'
+  | 'color'
+  | 'size'
+  | 'height'
+  | 'location'
+  | 'seasonYearStart'
+  | 'source'
+  | 'plantedDate'
+
+const DRILLDOWN_RECORD_COLUMN_DEFINITIONS: Array<{ id: DrilldownRecordColumnId; label: string; sortable?: boolean }> = [
+  { id: 'recordNumber', label: 'Record #' },
+  { id: 'thumb', label: 'Photo', sortable: false },
+  { id: 'flowerName', label: 'Flower' },
+  { id: 'cultivar', label: 'Cultivar' },
+  { id: 'color', label: 'Color' },
+  { id: 'size', label: 'Bloom Width' },
+  { id: 'height', label: 'Height' },
+  { id: 'location', label: 'Location' },
+  { id: 'seasonYearStart', label: 'Season' },
+  { id: 'source', label: 'Company' },
+  { id: 'plantedDate', label: 'Planting Date' },
+]
+
+const ALPHABETICAL_DRILLDOWN_RECORD_COLUMN_DEFINITIONS = [...DRILLDOWN_RECORD_COLUMN_DEFINITIONS].sort((a, b) => a.label.localeCompare(b.label))
+const SORTABLE_DRILLDOWN_RECORD_COLUMN_DEFINITIONS = ALPHABETICAL_DRILLDOWN_RECORD_COLUMN_DEFINITIONS.filter((column) => column.sortable !== false)
+
+function toColumnMajorOrder<T>(items: T[], columns: number) {
+  const rows = Math.ceil(items.length / columns)
+  const ordered: T[] = []
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < columns; col++) {
+      const index = col * rows + row
+      if (index < items.length) ordered.push(items[index])
+    }
+  }
+  return ordered
+}
+
+const DRILLDOWN_RECORD_COLUMN_CHECKLIST_READING_ORDER = [
+  ...DRILLDOWN_RECORD_COLUMN_DEFINITIONS.filter((column) => column.id === 'recordNumber'),
+  ...ALPHABETICAL_DRILLDOWN_RECORD_COLUMN_DEFINITIONS.filter((column) => column.id !== 'recordNumber'),
+]
+const DRILLDOWN_RECORD_COLUMN_CHECKLIST = toColumnMajorOrder(DRILLDOWN_RECORD_COLUMN_CHECKLIST_READING_ORDER, 2)
+
+const SORTABLE_DRILLDOWN_RECORD_COLUMN_READING_ORDER = [
+  ...SORTABLE_DRILLDOWN_RECORD_COLUMN_DEFINITIONS.filter((column) => column.id === 'recordNumber'),
+  ...SORTABLE_DRILLDOWN_RECORD_COLUMN_DEFINITIONS.filter((column) => column.id !== 'recordNumber'),
+]
+const SORTABLE_DRILLDOWN_RECORD_COLUMN_CHECKLIST = toColumnMajorOrder(SORTABLE_DRILLDOWN_RECORD_COLUMN_READING_ORDER, 2)
+
+const DEFAULT_DRILLDOWN_RECORD_COLUMN_VISIBILITY: Record<DrilldownRecordColumnId, boolean> = {
+  recordNumber: false,
+  thumb: true,
+  flowerName: true,
+  cultivar: false,
+  color: true,
+  size: false,
+  height: false,
+  location: true,
+  seasonYearStart: true,
+  source: false,
+  plantedDate: false,
+}
+
+const DRILLDOWN_THUMB_SIZE = 42
+
+const DEFAULT_DRILLDOWN_RECORD_SORT: DrilldownSort = { table: 'records', key: 'location', direction: 'asc' }
+
+const NAME_STATUS_FILTER_OPTIONS = ['Known', 'Unknown', 'Mystery', 'Seedling']
+
 export function AnalyticsModal({
   records = [],
   companies = [],
@@ -172,24 +248,25 @@ export function AnalyticsModal({
   onOpenRecord?: (record: DahliaRecord) => void
   onOpenOrder?: (orderId: string) => void
 }) {
-  const [metric, setMetric] = useState<AnalyticsMetric>('flower_purchase_count_by_company')
+  const [metric, setMetric] = useState<AnalyticsMetric>('flower_count_by_season')
   const [selectedSeasonYears, setSelectedSeasonYears] = useState<number[]>([])
-  const [seasonFilterOpen, setSeasonFilterOpen] = useState(false)
+  const defaultSeasonAppliedRef = useRef(false)
   const [optionsOpen, setOptionsOpen] = useState(false)
-  const [filters, setFilters] = useState<AnalyticsFilters>({ companies: [], gardenAreas: [], plantingStates: [], colors: [], forms: [] })
+  const [filters, setFilters] = useState<AnalyticsFilters>({ companies: [], gardenAreas: [], plantingStates: [], colors: [], forms: [], nameStatuses: [] })
   const [sortBy, setSortBy] = useState<AnalyticsSort>('company')
-  const [chartType, setChartType] = useState<AnalyticsChartType>('bar')
+  const [chartType, setChartType] = useState<AnalyticsChartType>('table')
   const [photoTypes, setPhotoTypes] = useState<Array<'any' | 'record' | 'cultivar' | 'none'>>(['any', 'none'])
   const [busy, setBusy] = useState(false)
-  const [expandedDropdownOptions, setExpandedDropdownOptions] = useState(0)
   const [result, setResult] = useState<string | null>(null)
   const [visualization, setVisualization] = useState<AgentVisualization | null>(null)
   const [drilldown, setDrilldown] = useState<AnalyticsDrilldown | null>(null)
   const [drilldownSort, setDrilldownSort] = useState<DrilldownSort | null>(null)
+  const [drilldownColumnVisibility, setDrilldownColumnVisibility] = useState<Record<DrilldownRecordColumnId, boolean>>(DEFAULT_DRILLDOWN_RECORD_COLUMN_VISIBILITY)
+  const [drilldownTableOptionsOpen, setDrilldownTableOptionsOpen] = useState(false)
+  const [drilldownGroupEvenOdd, setDrilldownGroupEvenOdd] = useState(false)
   const [drilldownBusy, setDrilldownBusy] = useState(false)
   const [clarify, setClarify] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const seasonFilterRef = useRef<HTMLDetailsElement>(null)
   const chartExportRef = useRef<HTMLDivElement>(null)
 
   const seasonYears = useMemo(
@@ -199,6 +276,13 @@ export function AnalyticsModal({
       ),
     [records],
   )
+
+  useEffect(() => {
+    if (!defaultSeasonAppliedRef.current && selectedSeasonYears.length === 0 && seasonYears.length > 0) {
+      defaultSeasonAppliedRef.current = true
+      setSelectedSeasonYears([seasonYears[0]])
+    }
+  }, [seasonYears, selectedSeasonYears.length])
 
   const seasonFilterLabel = useMemo(() => {
     if (selectedSeasonYears.length === 0) return 'All seasons'
@@ -218,12 +302,26 @@ export function AnalyticsModal({
       .join(' ')
   }
 
+  const PLANTING_STATE_OPTION_ORDER = ['Garden Tray', 'In Garden', 'Did Not Grow', 'Not Planted', 'Not Viable', 'Purchased Container']
+
+  function sortedPlantingStates(values: Array<string | undefined | null>, fallback = 'Unspecified') {
+    return sortedUnique(values, fallback).sort((a, b) => {
+      const orderA = PLANTING_STATE_OPTION_ORDER.indexOf(a)
+      const orderB = PLANTING_STATE_OPTION_ORDER.indexOf(b)
+      if (orderA !== -1 && orderB !== -1) return orderA - orderB
+      if (orderA !== -1) return -1
+      if (orderB !== -1) return 1
+      return a.localeCompare(b)
+    })
+  }
+
   const analyticsOptions = useMemo(() => ({
-    companies: companies.map((company) => company.name).filter(Boolean).sort((a, b) => a.localeCompare(b)),
+    companies: Array.from(new Set(companies.map((company) => company.name).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
     gardenAreas: sortedUnique(records.map((record) => record.meta?.gardenArea), 'Unassigned'),
-    plantingStates: sortedUnique(records.map((record) => plantingStateLabel(record.meta?.plantingState)), 'Unspecified'),
+    plantingStates: sortedPlantingStates(records.map((record) => plantingStateLabel(record.meta?.plantingState)), 'Unspecified'),
     colors: sortedUnique(records.map((record) => record.core?.color), 'Unspecified'),
     forms: sortedUnique(records.map((record) => record.core?.form), 'Unspecified'),
+    nameStatuses: NAME_STATUS_FILTER_OPTIONS,
   }), [companies, records])
 
   const photoTypesModified = !(photoTypes.length === 2 && photoTypes.includes('any') && photoTypes.includes('none'))
@@ -297,13 +395,19 @@ export function AnalyticsModal({
   const sortedDrilldownRecords = useMemo(() => {
     const rows = [...(drilldown?.records ?? [])]
     if (drilldownSort?.table !== 'records') return rows
-    rows.sort((a, b) => {
-      const left = drilldownSort.key === 'location' ? [a.gardenArea, a.gardenRow, a.gardenPosition].filter(Boolean).join(' - ') : a[drilldownSort.key as keyof typeof a]
-      const right = drilldownSort.key === 'location' ? [b.gardenArea, b.gardenRow, b.gardenPosition].filter(Boolean).join(' - ') : b[drilldownSort.key as keyof typeof b]
-      return compareValues(left, right) * (drilldownSort.direction === 'asc' ? 1 : -1)
-    })
+    const direction = drilldownSort.direction === 'asc' ? 1 : -1
+    if (drilldownSort.key === 'location' && drilldownGroupEvenOdd) {
+      rows.sort((a, b) => compareGardenLocationsGrouped(a.record, b.record) * direction)
+      return rows
+    }
+    function sortFieldValue(row: AnalyticsDrilldownRecord) {
+      if (drilldownSort!.key === 'location') return formatGardenLocation(row.record)
+      if (drilldownSort!.key === 'plantedDate') return row.record.core?.plantedDate ?? ''
+      return row[drilldownSort!.key as keyof AnalyticsDrilldownRecord]
+    }
+    rows.sort((a, b) => compareValues(sortFieldValue(a), sortFieldValue(b)) * direction)
     return rows
-  }, [drilldown?.records, drilldownSort])
+  }, [drilldown?.records, drilldownSort, drilldownGroupEvenOdd])
 
   async function exportAnalyticsChart(targetWindow?: Window | null) {
     try {
@@ -368,17 +472,18 @@ export function AnalyticsModal({
         return
       }
 
+      const pdfColumns = DRILLDOWN_RECORD_COLUMN_DEFINITIONS
+        .filter((column) => column.id !== 'thumb' && drilldownColumnVisibility[column.id])
+        .map((column) => ({ key: column.id, label: column.label }))
+
       const pdf = addTablePdf({
         title: drilldown.title,
-        columns: [
-          { key: 'recordNumber', label: 'Record #' },
-          { key: 'flowerName', label: 'Flower' },
-          { key: 'cultivar', label: 'Cultivar' },
-          { key: 'seasonYearStart', label: 'Season' },
-          { key: 'location', label: 'Location' },
-          { key: 'source', label: 'Source' },
-        ],
-        rows: sortedDrilldownRecords.map((row) => ({ ...row, location: [row.gardenArea, row.gardenRow, row.gardenPosition].filter(Boolean).join(' - ') })),
+        columns: pdfColumns.length ? pdfColumns : [{ key: 'flowerName', label: 'Flower' }],
+        rows: sortedDrilldownRecords.map((row) => ({
+          ...row,
+          location: formatGardenLocation(row.record),
+          plantedDate: row.record.core?.plantedDate ?? '',
+        })),
       })
       openPdfInNewTab(pdf, targetWindow)
     } catch (e: any) {
@@ -397,30 +502,11 @@ export function AnalyticsModal({
     void runExport(targetWindow)
   }
 
-  useEffect(() => {
-    if (!seasonFilterOpen) return
-
-    function closeOnOutsideClick(event: PointerEvent) {
-      if (!seasonFilterRef.current?.contains(event.target as Node)) {
-        setSeasonFilterOpen(false)
-      }
-    }
-
-    document.addEventListener('pointerdown', closeOnOutsideClick)
-    return () => document.removeEventListener('pointerdown', closeOnOutsideClick)
-  }, [seasonFilterOpen])
-
-  function toggleSeasonYear(year: number, checked: boolean) {
-    setSelectedSeasonYears((previous) => {
-      const next = checked ? Array.from(new Set([...previous, year])) : previous.filter((selectedYear) => selectedYear !== year)
-      return next.sort((a, b) => b - a)
-    })
-  }
-
   function defaultChartTypeForMetric(nextMetric: AnalyticsMetric): AnalyticsChartType {
     if (nextMetric === 'height_vs_bloom_size') return 'scatter'
     if (nextMetric === 'linked_vs_unlinked_purchase_records') return 'pie'
     if (nextMetric === 'flower_count_by_photo_type') return 'table'
+    if (nextMetric === 'flower_count_by_season') return 'table'
     if (['missing_data_summary', 'garden_area_by_planting_state', 'flower_count_by_company_and_season', 'garden_fill_by_area'].includes(nextMetric)) return 'table'
     if (nextMetric === 'invoice_total_by_season' || nextMetric === 'average_item_cost_by_season') return 'line'
     return 'bar'
@@ -429,10 +515,6 @@ export function AnalyticsModal({
   function selectMetric(nextMetric: AnalyticsMetric) {
     setMetric(nextMetric)
     setChartType(defaultChartTypeForMetric(nextMetric))
-  }
-
-  function updateExpandedDropdown(open: boolean, optionCount: number) {
-    setExpandedDropdownOptions(open ? optionCount : 0)
   }
 
   function canDrilldown(nextMetric: AnalyticsMetric) {
@@ -549,7 +631,7 @@ export function AnalyticsModal({
         }),
       })
       setDrilldown(out)
-      setDrilldownSort(null)
+      setDrilldownSort(out.type === 'orders' ? null : DEFAULT_DRILLDOWN_RECORD_SORT)
     } catch (e: any) {
       setError(e?.message ?? String(e))
     } finally {
@@ -572,86 +654,75 @@ export function AnalyticsModal({
         <div className="modalBody">
           <div className="agent analyticsPanel">
             <div className="muted">Choose a supported chart, set parameters, then generate the visualization from saved records.</div>
-            <div
-              className="analyticsControls"
-              style={expandedDropdownOptions ? { paddingBottom: Math.min(expandedDropdownOptions * 40, 220) + 4 } : undefined}
-            >
-              <label className="field">
-                <div className="label">Query</div>
-                <DropdownField
-                  label="Query"
-                  value={metric}
-                  options={[
-                    { value: 'flower_count_by_bloom_size', label: 'Flowers by Bloom Size' },
-                    { value: 'flower_count_by_color', label: 'Flowers by Color' },
-                    { value: 'flower_count_by_form', label: 'Flowers by Form' },
-                    { value: 'flower_count_by_garden_area', label: 'Flowers by Garden Area' },
-                    { value: 'flower_count_by_height', label: 'Flowers by Height' },
-                    { value: 'flower_count_by_planting_state', label: 'Flowers by Planting State' },
-                    { value: 'flower_count_by_season', label: 'Flowers by Season' },
-                    { value: 'flower_count_by_photo_type', label: 'Flowers by Photo Type' },
-                    { value: 'flower_count_by_source', label: 'Flowers by Source' },
-                    { value: 'flower_purchase_count_by_company', label: 'Flowers Purchased by Company' },
-                    { value: 'not_planted_reason_summary', label: 'Not Planted Reason Summary' },
-                    { value: 'not_viable_reason_summary', label: 'Not Viable Reason Summary' },
-                    { value: '', label: '', separator: true },
-                    { value: 'average_item_cost_by_company', label: 'Average Item Cost by Company' },
-                    { value: 'average_item_cost_by_form', label: 'Average Item Cost by Form' },
-                    { value: 'average_item_cost_by_season', label: 'Average Item Cost by Season' },
-                    { value: 'flower_count_by_company_and_season', label: 'Flower Count by Company and Season' },
-                    { value: 'garden_area_by_planting_state', label: 'Garden Area by Planting State' },
-                    { value: 'garden_fill_by_area', label: 'Garden Fill by Area' },
-                    { value: 'height_vs_bloom_size', label: 'Height vs Bloom Size' },
-                    { value: 'invoice_total_by_company', label: 'Invoice Total by Company' },
-                    { value: 'invoice_total_by_season', label: 'Invoice Total by Season' },
-                    { value: 'linked_vs_unlinked_purchase_records', label: 'Linked vs Unlinked Purchase Records' },
-                    { value: 'missing_data_summary', label: 'Missing Data Summary' },
-                    { value: 'order_count_by_company', label: 'Order Count by Company' },
-                  ]}
-                  onChange={(value) => selectMetric(value as AnalyticsMetric)}
-                  onOpenChange={updateExpandedDropdown}
-                />
-              </label>
-              <label className="field">
-                <div className="label">Season year</div>
-                <details className="seasonFilter analyticsSeasonFilter" ref={seasonFilterRef} open={seasonFilterOpen}>
-                  <summary
-                    className="input seasonFilterSummary"
-                    onClick={(event) => {
-                      event.preventDefault()
-                      setSeasonFilterOpen((open) => !open)
-                    }}
-                  >
-                    {seasonFilterLabel}
-                  </summary>
-                  <fieldset className="seasonFilterOptions">
-                    <legend className="srOnly">Filter analytics by season year</legend>
-                    <label className="seasonFilterOption">
-                      <input type="checkbox" checked={selectedSeasonYears.length === 0} onChange={() => setSelectedSeasonYears([])} />
-                      All seasons
-                    </label>
-                    {seasonYears.map((year) => (
-                      <label key={year} className="seasonFilterOption">
-                        <input
-                          type="checkbox"
-                          value={year}
-                          checked={selectedSeasonYears.includes(year)}
-                          onChange={(event) => toggleSeasonYear(year, event.target.checked)}
-                        />
-                        {year}
-                      </label>
-                    ))}
-                  </fieldset>
-                </details>
-              </label>
-              <label className="field">
-                <div className="label">Sort by</div>
-                <DropdownField label="Sort by" value={sortBy} options={[{ value: 'company', label: 'Name' }, { value: 'value_desc', label: 'Highest count first' }, { value: 'value_asc', label: 'Lowest count first' }]} onChange={(value) => setSortBy(value as AnalyticsSort)} onOpenChange={updateExpandedDropdown} />
-              </label>
-              <label className="field">
-                <div className="label">Display</div>
-                <DropdownField label="Display" value={chartType} options={[{ value: 'bar', label: 'Bar chart' }, { value: 'line', label: 'Line chart' }, { value: 'pie', label: 'Pie chart' }, { value: 'scatter', label: 'Scatter plot' }, { value: 'table', label: 'Table' }]} onChange={(value) => setChartType(value as AnalyticsChartType)} onOpenChange={updateExpandedDropdown} />
-              </label>
+            <div className="analyticsControls">
+              <DahliaPickerField
+                label="Query"
+                required
+                clearable={false}
+                layout="grid"
+                columns={2}
+                wrapOptionText
+                value={metric}
+                options={[
+                  { value: 'flower_count_by_season', label: 'Flowers by Season' },
+                  { value: 'flower_count_by_bloom_size', label: 'Flowers by Bloom Size' },
+                  { value: 'flower_count_by_color', label: 'Flowers by Color' },
+                  { value: 'flower_count_by_form', label: 'Flowers by Form' },
+                  { value: 'flower_count_by_garden_area', label: 'Flowers by Garden Area' },
+                  { value: 'flower_count_by_height', label: 'Flowers by Height' },
+                  { value: 'flower_count_by_planting_state', label: 'Flowers by Planting State' },
+                  { value: 'flower_count_by_photo_type', label: 'Flowers by Photo Type' },
+                  { value: 'flower_count_by_source', label: 'Flowers by Source' },
+                  { value: 'flower_purchase_count_by_company', label: 'Flowers Purchased by Company' },
+                  { value: 'not_planted_reason_summary', label: 'Not Planted Reason Summary' },
+                  { value: 'not_viable_reason_summary', label: 'Not Viable Reason Summary' },
+                  { value: 'average_item_cost_by_company', label: 'Average Item Cost by Company' },
+                  { value: 'average_item_cost_by_form', label: 'Average Item Cost by Form' },
+                  { value: 'average_item_cost_by_season', label: 'Average Item Cost by Season' },
+                  { value: 'flower_count_by_company_and_season', label: 'Flower Count by Company and Season' },
+                  { value: 'garden_area_by_planting_state', label: 'Garden Area by Planting State' },
+                  { value: 'garden_fill_by_area', label: 'Garden Fill by Area' },
+                  { value: 'height_vs_bloom_size', label: 'Height vs Bloom Size' },
+                  { value: 'invoice_total_by_company', label: 'Invoice Total by Company' },
+                  { value: 'invoice_total_by_season', label: 'Invoice Total by Season' },
+                  { value: 'linked_vs_unlinked_purchase_records', label: 'Linked vs Unlinked Purchase Records' },
+                  { value: 'missing_data_summary', label: 'Missing Data Summary' },
+                  { value: 'order_count_by_company', label: 'Order Count by Company' },
+                ]}
+                onChange={(value) => selectMetric(value as AnalyticsMetric)}
+              />
+              <DahliaPickerField
+                label="Season Year"
+                multiple
+                layout="grid"
+                columns={3}
+                allLabel="All seasons"
+                summary={seasonFilterLabel}
+                values={selectedSeasonYears.map(String)}
+                options={seasonYears.map(String)}
+                onChange={(values) => setSelectedSeasonYears(values.map(Number).sort((a, b) => b - a))}
+              />
+              <DahliaPickerField
+                label="Sort By"
+                required
+                clearable={false}
+                layout="list"
+                centerOptionText
+                modalWidth="min(320px, 100%)"
+                value={sortBy}
+                options={[{ value: 'company', label: 'Name' }, { value: 'value_desc', label: 'Highest count first' }, { value: 'value_asc', label: 'Lowest count first' }]}
+                onChange={(value) => setSortBy(value as AnalyticsSort)}
+              />
+              <DahliaPickerField
+                label="Display"
+                required
+                clearable={false}
+                layout="grid"
+                columns={2}
+                value={chartType}
+                options={[{ value: 'bar', label: 'Bar chart' }, { value: 'line', label: 'Line chart' }, { value: 'pie', label: 'Pie chart' }, { value: 'scatter', label: 'Scatter plot' }, { value: 'table', label: 'Table' }]}
+                onChange={(value) => setChartType(value as AnalyticsChartType)}
+              />
             </div>
             <div className="agentInputFooter analyticsActions">
               <button className="btn" disabled={busy} onClick={() => void submit()}>
@@ -663,7 +734,7 @@ export function AnalyticsModal({
             </div>
             {activeOptionCount ? (
               <div className="muted analyticsFilterSummary">
-                {filterSummary('companies', 'All Companies')} · {filterSummary('gardenAreas', 'All Garden Areas')} · {filterSummary('plantingStates', 'All Planting States')} · {filterSummary('colors', 'All Colors')} · {filterSummary('forms', 'All Forms')}
+                {filterSummary('companies', 'All Companies')} · {filterSummary('gardenAreas', 'All Garden Areas')} · {filterSummary('plantingStates', 'All Planting States')} · {filterSummary('colors', 'All Colors')} · {filterSummary('forms', 'All Forms')} · {filterSummary('nameStatuses', 'All Flowers')}
               </div>
             ) : null}
             {optionsOpen ? (
@@ -678,19 +749,20 @@ export function AnalyticsModal({
                   </div>
                   <div className="modalBody analyticsOptionsBody">
                     {([
-                      ['companies', 'Companies', 'All Companies', analyticsOptions.companies],
-                      ['gardenAreas', 'Garden Areas', 'All Garden Areas', analyticsOptions.gardenAreas],
-                      ['plantingStates', 'Planting States', 'All Planting States', analyticsOptions.plantingStates],
-                      ['colors', 'Colors', 'All Colors', analyticsOptions.colors],
-                      ['forms', 'Forms', 'All Forms', analyticsOptions.forms],
-                    ] as Array<[keyof AnalyticsFilters, string, string, string[]]>).map(([key, title, allLabel, options]) => (
+                      ['plantingStates', 'Planting States', 'All Planting States', analyticsOptions.plantingStates, true],
+                      ['gardenAreas', 'Garden Areas', 'All Garden Areas', analyticsOptions.gardenAreas, true],
+                      ['companies', 'Companies', 'All Companies', analyticsOptions.companies, false],
+                      ['colors', 'Colors', 'All Colors', analyticsOptions.colors, false],
+                      ['forms', 'Forms', 'All Forms', analyticsOptions.forms, false],
+                      ['nameStatuses', 'Flower Name Status', 'All Flowers', analyticsOptions.nameStatuses, true],
+                    ] as Array<[keyof AnalyticsFilters, string, string, string[], boolean]>).map(([key, title, allLabel, options, compact]) => (
                       <fieldset className="analyticsOptionGroup" key={key}>
                         <legend>{title}</legend>
                         <label className="seasonFilterOption">
                           <input type="checkbox" checked={filters[key].length === 0} onChange={() => setFilters((previous) => ({ ...previous, [key]: [] }))} />
                           {allLabel}
                         </label>
-                        <div className="analyticsOptionList">
+                        <div className={compact ? 'analyticsOptionList analyticsOptionListCompact' : 'analyticsOptionList'}>
                           {options.map((option) => (
                             <label key={option} className="seasonFilterOption">
                               <input
@@ -733,7 +805,7 @@ export function AnalyticsModal({
                       </div>
                     </fieldset>
                     <div className="agentInputFooter analyticsActions">
-                      <button className="btn ghost compact" type="button" onClick={() => { setFilters({ companies: [], gardenAreas: [], plantingStates: [], colors: [], forms: [] }); setPhotoTypes(['any', 'none']) }}>Clear Options</button>
+                      <button className="btn ghost compact" type="button" onClick={() => { setFilters({ companies: [], gardenAreas: [], plantingStates: [], colors: [], forms: [], nameStatuses: [] }); setPhotoTypes(['any', 'none']) }}>Clear Options</button>
                       <button className="btn compact" type="button" onClick={() => setOptionsOpen(false)}>Apply Options</button>
                     </div>
                   </div>
@@ -759,8 +831,111 @@ export function AnalyticsModal({
               <div className="agentChart analyticsDrilldown">
                 <div className="analyticsDrilldownHeader">
                   <div className="agentChartTitle">{drilldown.title}</div>
-                  <button className="btn ghost compact" type="button" onClick={() => beginPdfExport(exportDrilldownTable)}>Export Table PDF</button>
+                  <div className="analyticsDrilldownHeaderActions">
+                    {drilldown.type !== 'orders' ? (
+                      <button className="btn ghost compact tableOptionsButton" type="button" onClick={() => setDrilldownTableOptionsOpen(true)}>
+                        Table Options
+                      </button>
+                    ) : null}
+                    <button className="btn ghost compact" type="button" onClick={() => beginPdfExport(exportDrilldownTable)}>Export Table PDF</button>
+                  </div>
                 </div>
+
+                {drilldownTableOptionsOpen ? (
+                  <div
+                    className="modalOverlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="drilldown-table-options-title"
+                    onMouseDown={() => setDrilldownTableOptionsOpen(false)}
+                  >
+                    <div className="modal tableOptionsModal" onMouseDown={(event) => event.stopPropagation()}>
+                      <div className="modalHeader">
+                        <div>
+                          <div className="modalTitle" id="drilldown-table-options-title">Table Options</div>
+                          <div className="modalSub">Choose visible columns and sort order.</div>
+                        </div>
+                        <button className="btn ghost" type="button" onClick={() => setDrilldownTableOptionsOpen(false)}>Close</button>
+                      </div>
+                      <div className="modalBody tableOptionsBody">
+                        <div className="tableOptionsControls">
+                          <DahliaPickerField
+                            label="Sort By"
+                            required
+                            clearable={false}
+                            layout="grid"
+                            columns={2}
+                            value={drilldownSort?.table === 'records' ? drilldownSort.key : DEFAULT_DRILLDOWN_RECORD_SORT.key}
+                            options={SORTABLE_DRILLDOWN_RECORD_COLUMN_CHECKLIST.map((column) => ({ value: column.id, label: column.label }))}
+                            onChange={(value) =>
+                              setDrilldownSort((current) => ({
+                                table: 'records',
+                                key: value as string,
+                                direction: current?.table === 'records' ? current.direction : 'asc',
+                              }))
+                            }
+                          />
+                          <DahliaPickerField
+                            label="Direction"
+                            required
+                            clearable={false}
+                            layout="list"
+                            centerOptionText
+                            modalWidth="min(320px, 100%)"
+                            value={drilldownSort?.table === 'records' && drilldownSort.direction === 'desc' ? 'desc' : 'asc'}
+                            options={[
+                              { value: 'asc', label: 'Ascending' },
+                              { value: 'desc', label: 'Descending' },
+                            ]}
+                            onChange={(value) =>
+                              setDrilldownSort((current) => ({
+                                table: 'records',
+                                key: current?.table === 'records' ? current.key : DEFAULT_DRILLDOWN_RECORD_SORT.key,
+                                direction: value === 'desc' ? 'desc' : 'asc',
+                              }))
+                            }
+                          />
+                        </div>
+
+                        {(drilldownSort?.table === 'records' ? drilldownSort.key : DEFAULT_DRILLDOWN_RECORD_SORT.key) === 'location' ? (
+                          <label className="seasonFilterOption">
+                            <input
+                              type="checkbox"
+                              checked={drilldownGroupEvenOdd}
+                              onChange={(event) => setDrilldownGroupEvenOdd(event.target.checked)}
+                            />
+                            Group Location By Even/Odd
+                          </label>
+                        ) : null}
+
+                        <fieldset className="tableOptionsColumnsGroup">
+                          <legend>Columns</legend>
+                          <button
+                            className="btn ghost compact tableOptionsColumnsReset"
+                            type="button"
+                            onClick={() => setDrilldownColumnVisibility(DEFAULT_DRILLDOWN_RECORD_COLUMN_VISIBILITY)}
+                          >
+                            Reset
+                          </button>
+                          <div className="tableOptionsColumnList">
+                            {DRILLDOWN_RECORD_COLUMN_CHECKLIST.map((column) => (
+                              <label key={column.id} className="seasonFilterOption">
+                                <input
+                                  type="checkbox"
+                                  checked={drilldownColumnVisibility[column.id]}
+                                  onChange={(event) =>
+                                    setDrilldownColumnVisibility((previous) => ({ ...previous, [column.id]: event.target.checked }))
+                                  }
+                                />
+                                {column.label}
+                              </label>
+                            ))}
+                          </div>
+                        </fieldset>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
                 {drilldown.type === 'orders' ? (
                   <div className="agentChartTableWrap">
                     <table className="table agentChartTable">
@@ -800,31 +975,52 @@ export function AnalyticsModal({
                     <table className="table agentChartTable">
                       <thead>
                         <tr>
-                          <SortHeader table="records" columnKey="recordNumber">Record #</SortHeader>
-                          <SortHeader table="records" columnKey="flowerName">Flower</SortHeader>
-                          <SortHeader table="records" columnKey="cultivar">Cultivar</SortHeader>
-                          <SortHeader table="records" columnKey="seasonYearStart">Season</SortHeader>
-                          <SortHeader table="records" columnKey="location">Location</SortHeader>
-                          <SortHeader table="records" columnKey="source">Source</SortHeader>
+                          {drilldownColumnVisibility.recordNumber ? <SortHeader table="records" columnKey="recordNumber">#</SortHeader> : null}
+                          {drilldownColumnVisibility.thumb ? <th>Photo</th> : null}
+                          {drilldownColumnVisibility.flowerName ? <SortHeader table="records" columnKey="flowerName">Flower</SortHeader> : null}
+                          {drilldownColumnVisibility.cultivar ? <SortHeader table="records" columnKey="cultivar">Cultivar</SortHeader> : null}
+                          {drilldownColumnVisibility.color ? <SortHeader table="records" columnKey="color">Color</SortHeader> : null}
+                          {drilldownColumnVisibility.size ? <SortHeader table="records" columnKey="size">W (in.)</SortHeader> : null}
+                          {drilldownColumnVisibility.height ? <SortHeader table="records" columnKey="height">H (ft.)</SortHeader> : null}
+                          {drilldownColumnVisibility.location ? <SortHeader table="records" columnKey="location">Location</SortHeader> : null}
+                          {drilldownColumnVisibility.seasonYearStart ? <SortHeader table="records" columnKey="seasonYearStart">Season</SortHeader> : null}
+                          {drilldownColumnVisibility.source ? <SortHeader table="records" columnKey="source">Company</SortHeader> : null}
+                          {drilldownColumnVisibility.plantedDate ? <SortHeader table="records" columnKey="plantedDate">Planting Date</SortHeader> : null}
                           <th>Action</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {sortedDrilldownRecords.map((row) => (
-                          <tr key={row.id}>
-                            <td>{row.recordNumber ?? ''}</td>
-                            <td>{row.flowerName}</td>
-                            <td>{row.cultivar ?? ''}</td>
-                            <td>{row.seasonYearStart ?? ''}</td>
-                            <td>{[row.gardenArea, row.gardenRow, row.gardenPosition].filter(Boolean).join(' - ')}</td>
-                            <td>{row.source ?? ''}</td>
-                            <td>
-                              <button className="btn ghost compact" type="button" onClick={() => onOpenRecord?.(row.record)}>
-                                Open
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        {sortedDrilldownRecords.map((row) => {
+                          const photoUrl = drilldownColumnVisibility.thumb ? resolveRecordPhoto(row.record) : undefined
+                          return (
+                            <tr key={row.id}>
+                              {drilldownColumnVisibility.recordNumber ? <td>{row.recordNumber ?? ''}</td> : null}
+                              {drilldownColumnVisibility.thumb ? (
+                                <td>
+                                  {photoUrl ? (
+                                    <img className="thumb" src={photoUrl} alt="" loading="lazy" decoding="async" width={DRILLDOWN_THUMB_SIZE} height={DRILLDOWN_THUMB_SIZE} />
+                                  ) : (
+                                    <div className="thumb ph" />
+                                  )}
+                                </td>
+                              ) : null}
+                              {drilldownColumnVisibility.flowerName ? <td>{row.flowerName}</td> : null}
+                              {drilldownColumnVisibility.cultivar ? <td>{row.cultivar ?? ''}</td> : null}
+                              {drilldownColumnVisibility.color ? <td>{row.color ?? ''}</td> : null}
+                              {drilldownColumnVisibility.size ? <td>{row.size ?? ''}</td> : null}
+                              {drilldownColumnVisibility.height ? <td>{row.height ?? ''}</td> : null}
+                              {drilldownColumnVisibility.location ? <td>{formatGardenLocation(row.record)}</td> : null}
+                              {drilldownColumnVisibility.seasonYearStart ? <td>{row.seasonYearStart ?? ''}</td> : null}
+                              {drilldownColumnVisibility.source ? <td>{row.source ?? ''}</td> : null}
+                              {drilldownColumnVisibility.plantedDate ? <td>{row.record.core?.plantedDate ?? ''}</td> : null}
+                              <td>
+                                <button className="btn ghost compact" type="button" onClick={() => onOpenRecord?.(row.record)}>
+                                  Open
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                     {(drilldown.records ?? []).length === 0 ? <div className="muted">No matching records found.</div> : null}
