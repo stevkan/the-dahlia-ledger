@@ -25,6 +25,16 @@ const ORDER_FILE_SELECT_COLUMNS = `
   created_at AS "createdAt"
 `
 
+// Nests the joined company as a single JSON object per order, null when there's no match,
+// instead of fetching every company into a Map for an app-side lookup.
+const COMPANY_JSON_BUILD = `
+  CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
+    'id', c.id, 'gardenId', c.garden_id, 'ownerUserId', c.owner_user_id, 'name', c.name,
+    'website', c.website, 'email', c.email, 'phone', c.phone, 'notes', c.notes,
+    'createdAt', c.created_at, 'updatedAt', c.updated_at
+  ) END AS company
+`
+
 function nowIso() {
   return new Date().toISOString()
 }
@@ -286,13 +296,18 @@ export async function reassignCompanies(companyIds, ownerUserId) {
 }
 
 export async function listOrders(context = {}) {
-  const [{ rows: companies }, { rows: orders }, { rows: items }, { rows: files }] = await Promise.all([
-    query(`SELECT ${COMPANY_SELECT_COLUMNS} FROM companies`),
-    query(`SELECT ${ORDER_SELECT_COLUMNS} FROM orders`),
+  const [{ rows: orders }, { rows: items }, { rows: files }] = await Promise.all([
+    query(`
+      SELECT
+        o.id, o.company_id AS "companyId", o.owner_user_id AS "ownerUserId", o.invoice_number AS "invoiceNumber",
+        o.order_date AS "orderDate", o.total_cost AS "totalCost", o.notes, o.created_at AS "createdAt", o.updated_at AS "updatedAt",
+        ${COMPANY_JSON_BUILD}
+      FROM orders o
+      LEFT JOIN companies c ON o.company_id = c.id
+    `),
     query(`SELECT ${ORDER_ITEM_SELECT_COLUMNS} FROM order_items`),
     query(`SELECT ${ORDER_FILE_SELECT_COLUMNS} FROM order_files`),
   ])
-  const companyById = new Map(companies.map((company) => [company.id, company]))
   const itemsByOrder = new Map()
   const filesByOrder = new Map()
 
@@ -313,7 +328,6 @@ export async function listOrders(context = {}) {
       if (!orderMatchesContext(order, context)) return null
       return {
         ...order,
-        company: companyById.get(order.companyId) ?? null,
         items: itemsByOrder.get(order.id) ?? [],
         files: filesByOrder.get(order.id) ?? [],
       }
@@ -424,11 +438,8 @@ export async function deleteOrder(id, context = {}) {
   if (!existing) return false
   if (!orderMatchesContext(existing, context)) return false
 
-  await withTransaction(async (client) => {
-    await client.query('DELETE FROM order_items WHERE order_id = $1', [id])
-    await client.query('DELETE FROM order_files WHERE order_id = $1', [id])
-    await client.query('DELETE FROM orders WHERE id = $1', [id])
-  })
+  // order_items and order_files cascade automatically (ON DELETE CASCADE).
+  await query('DELETE FROM orders WHERE id = $1', [id])
   return true
 }
 

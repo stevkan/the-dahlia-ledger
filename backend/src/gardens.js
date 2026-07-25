@@ -318,11 +318,9 @@ export async function deleteGarden(user, gardenId) {
     throw error
   }
 
-  await withTransaction(async (client) => {
-    await client.query('DELETE FROM garden_members WHERE garden_id = $1', [gardenId])
-    await client.query('DELETE FROM invites WHERE garden_id = $1', [gardenId])
-    await client.query('DELETE FROM gardens WHERE id = $1', [gardenId])
-  })
+  // garden_members and invites cascade automatically (ON DELETE CASCADE); the usage check above
+  // already guarantees no records/reminders/order items remain to violate their FK into gardens.
+  await query('DELETE FROM gardens WHERE id = $1', [gardenId])
   return { deleted: true, counts }
 }
 
@@ -403,6 +401,11 @@ export async function removeGardenMember(user, gardenId, memberId) {
   return true
 }
 
+// Only removes this user's own memberships and reports which gardens that orphans (no owner
+// left) — it does NOT delete the orphaned gardens themselves. Callers that need those gardens'
+// content gone (e.g. full account deletion) must clean up records/reminders/order items via
+// their own modules FIRST, then call deleteOrphanedGardens — garden_id has a real foreign key
+// into gardens now, so tearing down a garden shell while content still points at it would fail.
 export async function removeUserFromAllGardens(userId) {
   const { rows: memberships } = await query('SELECT garden_id AS "gardenId" FROM garden_members WHERE user_id = $1', [userId])
   const gardenIds = [...new Set(memberships.map((membership) => membership.gardenId).filter(Boolean))]
@@ -413,16 +416,14 @@ export async function removeUserFromAllGardens(userId) {
     const remainingMembers = await dedupeMembersForGarden(gardenId)
     if (!remainingMembers.some((member) => member.role === 'owner')) orphanedGardenIds.push(gardenId)
   }
-  await Promise.all(orphanedGardenIds.map((gardenId) => deleteOrphanedGardenShell(gardenId)))
   return orphanedGardenIds
 }
 
-async function deleteOrphanedGardenShell(gardenId) {
-  await withTransaction(async (client) => {
-    await client.query('DELETE FROM garden_members WHERE garden_id = $1', [gardenId])
-    await client.query('DELETE FROM invites WHERE garden_id = $1', [gardenId])
-    await client.query('DELETE FROM gardens WHERE id = $1', [gardenId])
-  })
+// garden_members/invites cascade automatically (ON DELETE CASCADE); dahlia_records,
+// maintenance_reminders, and order_items do not, so their content must already be gone by the
+// time this runs or the FK will reject the delete.
+export async function deleteOrphanedGardens(gardenIds) {
+  await Promise.all(gardenIds.map((gardenId) => query('DELETE FROM gardens WHERE id = $1', [gardenId])))
 }
 
 export async function createInvite(user, input) {

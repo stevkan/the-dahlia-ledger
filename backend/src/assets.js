@@ -1,6 +1,5 @@
 import crypto from 'node:crypto'
-import { query, withTransaction } from './db.js'
-import { listCompanies } from './orders.js'
+import { query } from './db.js'
 import { toTitleCase } from './textFormat.js'
 
 const ASSET_SELECT_COLUMNS = `
@@ -14,6 +13,16 @@ const ASSET_FILE_SELECT_COLUMNS = `
   id, asset_id AS "assetId", original_file_name AS "originalFileName", stored_file_name AS "storedFileName",
   mime_type AS "mimeType", file_size AS "fileSize", file_url AS "fileUrl", source_type AS "sourceType",
   created_at AS "createdAt"
+`
+
+// Nests the joined company as a single JSON object per asset, null when there's no match,
+// instead of fetching every company into a Map for an app-side lookup.
+const COMPANY_JSON_BUILD = `
+  CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
+    'id', c.id, 'gardenId', c.garden_id, 'ownerUserId', c.owner_user_id, 'name', c.name,
+    'website', c.website, 'email', c.email, 'phone', c.phone, 'notes', c.notes,
+    'createdAt', c.created_at, 'updatedAt', c.updated_at
+  ) END AS company
 `
 
 function nowIso() {
@@ -42,12 +51,19 @@ function cleanAssetInput(input, context = {}, existing = {}) {
 }
 
 export async function listAssets(context = {}) {
-  const [companies, { rows: assets }, { rows: files }] = await Promise.all([
-    listCompanies(context),
-    query(`SELECT ${ASSET_SELECT_COLUMNS} FROM assets`),
+  const [{ rows: assets }, { rows: files }] = await Promise.all([
+    query(`
+      SELECT
+        a.id, a.owner_user_id AS "ownerUserId", a.company_id AS "companyId", a.asset, a.category, a.quantity,
+        a.total_cost AS "totalCost", a.purchase_date AS "purchaseDate", a.notes,
+        a.linked_order_item_ids AS "linkedOrderItemIds", a.invoice_number AS "invoiceNumber",
+        a.invoice_total AS "invoiceTotal", a.created_at AS "createdAt", a.updated_at AS "updatedAt",
+        ${COMPANY_JSON_BUILD}
+      FROM assets a
+      LEFT JOIN companies c ON a.company_id = c.id
+    `),
     query(`SELECT ${ASSET_FILE_SELECT_COLUMNS} FROM asset_files`),
   ])
-  const companyById = new Map(companies.map((company) => [company.id, company]))
   const filesByAsset = new Map()
 
   for (const file of files) {
@@ -61,7 +77,6 @@ export async function listAssets(context = {}) {
       if (!contextMatches(asset, context)) return null
       return {
         ...asset,
-        company: asset.companyId ? companyById.get(asset.companyId) ?? null : null,
         files: filesByAsset.get(asset.id) ?? [],
       }
     })
@@ -136,10 +151,8 @@ export async function deleteAsset(id, context = {}) {
   if (!existing) return false
   if (!contextMatches(existing, context)) return false
 
-  await withTransaction(async (client) => {
-    await client.query('DELETE FROM asset_files WHERE asset_id = $1', [id])
-    await client.query('DELETE FROM assets WHERE id = $1', [id])
-  })
+  // asset_files cascades automatically (ON DELETE CASCADE).
+  await query('DELETE FROM assets WHERE id = $1', [id])
   return true
 }
 

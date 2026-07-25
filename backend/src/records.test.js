@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import './env.js'
 import { getPool } from './db.js'
 import {
@@ -24,10 +24,24 @@ async function cleanUpTestData() {
   await pool.query('DELETE FROM dahlia_record_summaries_snapshot WHERE garden_id = ANY($1)', [TEST_GARDEN_IDS])
 }
 
+// dahlia_records.garden_id has a real FK into gardens now — these fixture rows must exist
+// before any record can reference them.
+async function ensureTestGardens() {
+  for (const gardenId of TEST_GARDEN_IDS) {
+    await pool.query(
+      `INSERT INTO gardens (id, name, created_at, updated_at) VALUES ($1, $1, now()::text, now()::text)
+       ON CONFLICT (id) DO NOTHING`,
+      [gardenId],
+    )
+  }
+}
+
+beforeAll(ensureTestGardens)
 beforeEach(cleanUpTestData)
 
 afterAll(async () => {
   await cleanUpTestData()
+  await pool.query('DELETE FROM gardens WHERE id = ANY($1)', [TEST_GARDEN_IDS])
   await pool.end()
 })
 

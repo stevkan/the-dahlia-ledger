@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { isGlobalAdmin } = vi.hoisted(() => ({ isGlobalAdmin: vi.fn(() => false) }))
 vi.mock('../users.js', () => ({ isGlobalAdmin }))
@@ -14,10 +14,23 @@ const TEST_GARDEN_IDS = [OWNER_GARDEN_ID, CREATED_BY_GARDEN_ID, MEMBER_GARDEN_ID
 
 const pool = getPool()
 const user = { uid: 'user-1', email: 'user@example.com' }
+const TEST_USER_IDS = [user.uid, 'other']
 
 async function cleanUpTestData() {
   await pool.query('DELETE FROM garden_members WHERE garden_id = ANY($1)', [TEST_GARDEN_IDS])
   await pool.query('DELETE FROM gardens WHERE id = ANY($1)', [TEST_GARDEN_IDS])
+}
+
+// gardens.owner_user_id/created_by_user_id and garden_members.user_id have real FKs into
+// users now — these fixture rows must exist before any garden/member can reference them.
+async function ensureTestUsers() {
+  for (const userId of TEST_USER_IDS) {
+    await pool.query(
+      `INSERT INTO users (id, user_id, created_at, updated_at) VALUES ($1, $1, now()::text, now()::text)
+       ON CONFLICT (id) DO NOTHING`,
+      [userId],
+    )
+  }
 }
 
 async function insertGarden(id, { ownerUserId = 'other', createdByUserId = 'other' } = {}) {
@@ -36,6 +49,7 @@ async function insertMember(gardenId, role) {
   )
 }
 
+beforeAll(ensureTestUsers)
 beforeEach(cleanUpTestData)
 
 afterEach(() => {
@@ -44,6 +58,7 @@ afterEach(() => {
 
 afterAll(async () => {
   await cleanUpTestData()
+  await pool.query('DELETE FROM users WHERE id = ANY($1)', [TEST_USER_IDS])
   await pool.end()
 })
 
