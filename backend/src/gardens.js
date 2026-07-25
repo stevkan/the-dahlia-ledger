@@ -1,29 +1,29 @@
 import crypto from 'node:crypto'
-import { getDb } from './firebase.js'
 import { isGlobalAdmin } from './users.js'
-import { query } from './db.js'
+import { query, withTransaction } from './db.js'
 import { clearLegacyUnassignedCache } from './records.js'
-
-const GARDENS = 'gardens'
-const GARDEN_MEMBERS = 'gardenMembers'
-const INVITES = 'invites'
-const ORDER_ITEMS = 'orderItems'
 
 export const GARDEN_ROLES = ['owner', 'admin', 'editor', 'viewer']
 
+const GARDEN_SELECT_COLUMNS = `
+  id, name, ownership_type AS "ownershipType", owner_user_id AS "ownerUserId", created_by_user_id AS "createdByUserId",
+  organization_name AS "organizationName", location_name AS "locationName", address, notes,
+  is_default AS "isDefault", garden_options AS "gardenOptions", created_at AS "createdAt", updated_at AS "updatedAt"
+`
+
+const MEMBER_SELECT_COLUMNS = `
+  id, garden_id AS "gardenId", user_id AS "userId", email, display_name AS "displayName", role,
+  invited_by_user_id AS "invitedByUserId", created_at AS "createdAt", updated_at AS "updatedAt"
+`
+
+const INVITE_SELECT_COLUMNS = `
+  id, token, garden_id AS "gardenId", email, role, created_by_user_id AS "createdByUserId",
+  expires_at AS "expiresAt", accepted_at AS "acceptedAt", accepted_by_user_id AS "acceptedByUserId",
+  resent_at AS "resentAt", resent_by_user_id AS "resentByUserId", created_at AS "createdAt", updated_at AS "updatedAt"
+`
+
 function nowIso() {
   return new Date().toISOString()
-}
-
-function withoutUndefined(value) {
-  if (Array.isArray(value)) return value.map(withoutUndefined)
-  if (!value || typeof value !== 'object') return value
-
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => [k, withoutUndefined(v)]),
-  )
 }
 
 function userDisplayName(user) {
@@ -71,12 +71,11 @@ function isNewerMember(a, b) {
   return String(a.updatedAt ?? a.createdAt ?? '').localeCompare(String(b.updatedAt ?? b.createdAt ?? '')) > 0
 }
 
-async function dedupeMembers(collectionName, scopeKey, scopeId) {
-  const snap = await getDb().collection(collectionName).where(scopeKey, '==', scopeId).get()
+async function dedupeMembersForGarden(gardenId) {
+  const { rows } = await query(`SELECT ${MEMBER_SELECT_COLUMNS} FROM garden_members WHERE garden_id = $1`, [gardenId])
   const byUserId = new Map()
   const duplicates = []
-  for (const doc of snap.docs) {
-    const member = { id: doc.id, ...doc.data() }
+  for (const member of rows) {
     const existing = byUserId.get(member.userId)
     if (!existing || isNewerMember(member, existing)) {
       if (existing) duplicates.push(existing)
@@ -85,7 +84,9 @@ async function dedupeMembers(collectionName, scopeKey, scopeId) {
       duplicates.push(member)
     }
   }
-  await Promise.all(duplicates.map((member) => getDb().collection(collectionName).doc(member.id).delete()))
+  if (duplicates.length > 0) {
+    await query('DELETE FROM garden_members WHERE id = ANY($1::text[])', [duplicates.map((member) => member.id)])
+  }
   return Array.from(byUserId.values()).sort(sortMembers)
 }
 
@@ -105,63 +106,77 @@ function defaultGardenId(user) {
   return `default-${crypto.createHash('sha1').update(user.uid).digest('hex')}`
 }
 
+async function getGardenById(gardenId) {
+  const { rows } = await query(`SELECT ${GARDEN_SELECT_COLUMNS} FROM gardens WHERE id = $1`, [gardenId])
+  return rows[0] ?? null
+}
+
 export async function ensureDefaultGarden(user) {
-  const db = getDb()
-  const stableRef = db.collection(GARDENS).doc(defaultGardenId(user))
-  const stableDoc = await stableRef.get()
-  if (stableDoc.exists) {
-    await ensureGardenMembership(user, stableRef.id, 'owner')
-    return { id: stableDoc.id, ...stableDoc.data() }
+  const stableId = defaultGardenId(user)
+  const stable = await getGardenById(stableId)
+  if (stable) {
+    await ensureGardenMembership(user, stableId, 'owner')
+    return stable
   }
 
-  const existing = await db.collection(GARDENS).where('ownerUserId', '==', user.uid).where('isDefault', '==', true).get()
-  if (!existing.empty) {
-    const doc = existing.docs[0]
-    await stableRef.set(withoutUndefined({ ...doc.data(), updatedAt: nowIso() }), { merge: false })
-    await ensureGardenMembership(user, stableRef.id, 'owner')
-    return { id: stableRef.id, ...(await stableRef.get()).data() }
+  const { rows: legacyDefaultRows } = await query(
+    `SELECT ${GARDEN_SELECT_COLUMNS} FROM gardens WHERE owner_user_id = $1 AND is_default = true LIMIT 1`,
+    [user.uid],
+  )
+  if (legacyDefaultRows.length > 0) {
+    const legacy = legacyDefaultRows[0]
+    await query(
+      `INSERT INTO gardens (id, name, ownership_type, owner_user_id, created_by_user_id, organization_name, location_name, address, notes, is_default, garden_options, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      [
+        stableId,
+        legacy.name,
+        legacy.ownershipType,
+        legacy.ownerUserId,
+        legacy.createdByUserId,
+        legacy.organizationName,
+        legacy.locationName,
+        legacy.address,
+        legacy.notes,
+        legacy.isDefault,
+        legacy.gardenOptions ? JSON.stringify(legacy.gardenOptions) : null,
+        legacy.createdAt,
+        nowIso(),
+      ],
+    )
+    await ensureGardenMembership(user, stableId, 'owner')
+    return await getGardenById(stableId)
   }
 
-  const existingMemberships = await db.collection(GARDEN_MEMBERS).where('userId', '==', user.uid).get()
-  for (const membershipDoc of existingMemberships.docs) {
-    const gardenId = membershipDoc.data().gardenId
+  const { rows: membershipRows } = await query('SELECT garden_id AS "gardenId" FROM garden_members WHERE user_id = $1', [user.uid])
+  for (const { gardenId } of membershipRows) {
     if (!gardenId) continue
-    const gardenDoc = await db.collection(GARDENS).doc(gardenId).get()
-    if (gardenDoc.exists) return { id: gardenDoc.id, ...gardenDoc.data() }
+    const garden = await getGardenById(gardenId)
+    if (garden) return garden
   }
 
   const timestamp = nowIso()
-  await stableRef.set(withoutUndefined({
-    name: `${userDisplayName(user)} Garden`,
-    ownershipType: 'personal',
-    ownerUserId: user.uid,
-    createdByUserId: user.uid,
-    isDefault: true,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }), { merge: false })
+  await query(
+    `INSERT INTO gardens (id, name, ownership_type, owner_user_id, created_by_user_id, is_default, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
+    [stableId, `${userDisplayName(user)} Garden`, 'personal', user.uid, user.uid, true, timestamp],
+  )
 
-  await ensureGardenMembership(user, stableRef.id, 'owner')
-  await assignLegacyRecordsToGarden(stableRef.id)
+  await ensureGardenMembership(user, stableId, 'owner')
+  await assignLegacyRecordsToGarden(stableId)
 
-  const doc = await stableRef.get()
-  return { id: doc.id, ...doc.data() }
+  return await getGardenById(stableId)
 }
 
 async function ensureGardenMembership(user, gardenId, role) {
-  const existing = await getDb().collection(GARDEN_MEMBERS).where('gardenId', '==', gardenId).where('userId', '==', user.uid).limit(1).get()
-  if (!existing.empty) return
+  const { rows } = await query('SELECT 1 AS present FROM garden_members WHERE garden_id = $1 AND user_id = $2 LIMIT 1', [gardenId, user.uid])
+  if (rows.length > 0) return
   const timestamp = nowIso()
-  await getDb().collection(GARDEN_MEMBERS).add(withoutUndefined({
-    gardenId,
-    userId: user.uid,
-    email: user.email || undefined,
-    displayName: user.name || undefined,
-    role,
-    invitedByUserId: user.uid,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }))
+  await query(
+    `INSERT INTO garden_members (id, garden_id, user_id, email, display_name, role, invited_by_user_id, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
+    [crypto.randomUUID(), gardenId, user.uid, user.email || null, user.name || null, role, user.uid, timestamp],
+  )
 }
 
 async function assignLegacyRecordsToGarden(gardenId) {
@@ -178,30 +193,26 @@ async function assignLegacyRecordsToGarden(gardenId) {
 
 export async function listGardens(user) {
   await ensureDefaultGarden(user)
-  const db = getDb()
-  const directMemberships = await db.collection(GARDEN_MEMBERS).where('userId', '==', user.uid).get()
-  const gardenIds = new Set(directMemberships.docs.map((doc) => doc.data().gardenId).filter(Boolean))
+  const { rows: memberships } = await query('SELECT DISTINCT garden_id AS "gardenId" FROM garden_members WHERE user_id = $1', [user.uid])
+  const gardenIds = memberships.map((membership) => membership.gardenId).filter(Boolean)
+  if (gardenIds.length === 0) return []
 
-  const docs = await Promise.all([...gardenIds].map((id) => db.collection(GARDENS).doc(id).get()))
-  const unique = new Map()
-  for (const doc of docs.filter((doc) => doc.exists)) {
-    const garden = { id: doc.id, ...doc.data() }
-    unique.set(garden.id, garden)
-  }
-  return Array.from(unique.values()).sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')))
+  const { rows } = await query(`SELECT ${GARDEN_SELECT_COLUMNS} FROM gardens WHERE id = ANY($1::text[])`, [gardenIds])
+  return rows.sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')))
 }
 
 async function listAccessibleGardens(user) {
-  const db = getDb()
-  const directMemberships = await db.collection(GARDEN_MEMBERS).where('userId', '==', user.uid).get()
-  const gardenIds = new Set(directMemberships.docs.map((doc) => doc.data().gardenId).filter(Boolean))
-  const owned = await db.collection(GARDENS).where('ownerUserId', '==', user.uid).get()
-  for (const doc of owned.docs) gardenIds.add(doc.id)
-  const created = await db.collection(GARDENS).where('createdByUserId', '==', user.uid).get()
-  for (const doc of created.docs) gardenIds.add(doc.id)
+  const { rows: memberships } = await query('SELECT garden_id AS "gardenId" FROM garden_members WHERE user_id = $1', [user.uid])
+  const gardenIds = new Set(memberships.map((membership) => membership.gardenId).filter(Boolean))
 
-  const docs = await Promise.all([...gardenIds].map((id) => db.collection(GARDENS).doc(id).get()))
-  return docs.filter((doc) => doc.exists).map((doc) => ({ id: doc.id, ...doc.data() })).sort(sortGardensByCreatedAt)
+  const { rows: owned } = await query('SELECT id FROM gardens WHERE owner_user_id = $1', [user.uid])
+  for (const row of owned) gardenIds.add(row.id)
+  const { rows: created } = await query('SELECT id FROM gardens WHERE created_by_user_id = $1', [user.uid])
+  for (const row of created) gardenIds.add(row.id)
+
+  if (gardenIds.size === 0) return []
+  const { rows } = await query(`SELECT ${GARDEN_SELECT_COLUMNS} FROM gardens WHERE id = ANY($1::text[])`, [[...gardenIds]])
+  return rows.sort(sortGardensByCreatedAt)
 }
 
 async function listOwnerAccessibleGardens(user) {
@@ -212,33 +223,34 @@ async function listOwnerAccessibleGardens(user) {
 
 export async function createGarden(user, input) {
   const timestamp = nowIso()
+  const id = crypto.randomUUID()
 
-  const ref = await getDb().collection(GARDENS).add(withoutUndefined({
-    name: String(input.name ?? '').trim(),
-    ownershipType: 'personal',
-    ownerUserId: user.uid,
-    organizationName: input.organizationName || undefined,
-    locationName: input.locationName || undefined,
-    address: input.address || undefined,
-    notes: input.notes || undefined,
-    createdByUserId: user.uid,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }))
+  await withTransaction(async (client) => {
+    await client.query(
+      `INSERT INTO gardens (id, name, ownership_type, owner_user_id, created_by_user_id, organization_name, location_name, address, notes, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)`,
+      [
+        id,
+        String(input.name ?? '').trim(),
+        'personal',
+        user.uid,
+        user.uid,
+        input.organizationName || null,
+        input.locationName || null,
+        input.address || null,
+        input.notes || null,
+        timestamp,
+      ],
+    )
 
-  await getDb().collection(GARDEN_MEMBERS).add(withoutUndefined({
-    gardenId: ref.id,
-    userId: user.uid,
-    email: user.email || undefined,
-    displayName: user.name || user.displayName || undefined,
-    role: 'owner',
-    invitedByUserId: user.uid,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }))
+    await client.query(
+      `INSERT INTO garden_members (id, garden_id, user_id, email, display_name, role, invited_by_user_id, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
+      [crypto.randomUUID(), id, user.uid, user.email || null, user.name || user.displayName || null, 'owner', user.uid, timestamp],
+    )
+  })
 
-  const doc = await ref.get()
-  return { id: doc.id, ...doc.data() }
+  return await getGardenById(id)
 }
 
 export async function updateGarden(user, gardenId, input) {
@@ -249,35 +261,34 @@ export async function updateGarden(user, gardenId, input) {
     throw error
   }
 
-  const ref = getDb().collection(GARDENS).doc(gardenId)
-  const doc = await ref.get()
-  if (!doc.exists) return null
-  const current = doc.data()
+  const current = await getGardenById(gardenId)
+  if (!current) return null
 
-  await ref.set(withoutUndefined({
-    ...current,
-    name: String(input.name ?? current.name ?? '').trim(),
-    organizationName: input.organizationName === undefined ? current.organizationName : input.organizationName || undefined,
-    locationName: input.locationName === undefined ? current.locationName : input.locationName || undefined,
-    address: input.address === undefined ? current.address : input.address || undefined,
-    notes: input.notes === undefined ? current.notes : input.notes || undefined,
-    gardenOptions: input.gardenOptions ? normalizedGardenOptions(input.gardenOptions) : current.gardenOptions,
-    updatedAt: nowIso(),
-  }), { merge: false })
-  const updated = await ref.get()
-  return { id: updated.id, ...updated.data() }
+  const name = String(input.name ?? current.name ?? '').trim()
+  const organizationName = input.organizationName === undefined ? current.organizationName : (input.organizationName || null)
+  const locationName = input.locationName === undefined ? current.locationName : (input.locationName || null)
+  const address = input.address === undefined ? current.address : (input.address || null)
+  const notes = input.notes === undefined ? current.notes : (input.notes || null)
+  const gardenOptions = input.gardenOptions ? normalizedGardenOptions(input.gardenOptions) : current.gardenOptions
+
+  await query(
+    `UPDATE gardens SET name = $2, organization_name = $3, location_name = $4, address = $5, notes = $6, garden_options = $7, updated_at = $8
+     WHERE id = $1`,
+    [gardenId, name, organizationName, locationName, address, notes, gardenOptions ? JSON.stringify(gardenOptions) : null, nowIso()],
+  )
+  return await getGardenById(gardenId)
 }
 
 export async function getGardenUsageCounts(gardenId) {
-  const [recordCountResult, reminderCountResult, orderItemsSnap] = await Promise.all([
+  const [recordCountResult, reminderCountResult, orderItemCountResult] = await Promise.all([
     query('SELECT COUNT(*)::int AS count FROM dahlia_records WHERE garden_id = $1', [gardenId]),
     query('SELECT COUNT(*)::int AS count FROM maintenance_reminders WHERE garden_id = $1', [gardenId]),
-    getDb().collection(ORDER_ITEMS).where('gardenId', '==', gardenId).get(),
+    query('SELECT COUNT(*)::int AS count FROM order_items WHERE garden_id = $1', [gardenId]),
   ])
   return {
     records: recordCountResult.rows[0]?.count ?? 0,
     reminders: reminderCountResult.rows[0]?.count ?? 0,
-    orderItems: orderItemsSnap.size,
+    orderItems: orderItemCountResult.rows[0]?.count ?? 0,
   }
 }
 
@@ -289,10 +300,8 @@ export async function deleteGarden(user, gardenId) {
     throw error
   }
 
-  const ref = getDb().collection(GARDENS).doc(gardenId)
-  const doc = await ref.get()
-  if (!doc.exists) return { deleted: false, counts: { records: 0, reminders: 0, orderItems: 0 } }
-  const garden = { id: doc.id, ...doc.data() }
+  const garden = await getGardenById(gardenId)
+  if (!garden) return { deleted: false, counts: { records: 0, reminders: 0, orderItems: 0 } }
 
   const ownerAccessibleGardens = await listOwnerAccessibleGardens(user)
   if (ownerAccessibleGardens.filter((ownedGarden) => ownedGarden.id !== garden.id).length === 0) {
@@ -309,31 +318,23 @@ export async function deleteGarden(user, gardenId) {
     throw error
   }
 
-  const [membersSnap, invitesSnap] = await Promise.all([
-    getDb().collection(GARDEN_MEMBERS).where('gardenId', '==', gardenId).get(),
-    getDb().collection(INVITES).where('gardenId', '==', gardenId).get(),
-  ])
-  await Promise.all([
-    ...membersSnap.docs.map((member) => member.ref.delete()),
-    ...invitesSnap.docs.map((invite) => invite.ref.delete()),
-    ref.delete(),
-  ])
+  // garden_members and invites cascade automatically (ON DELETE CASCADE); the usage check above
+  // already guarantees no records/reminders/order items remain to violate their FK into gardens.
+  await query('DELETE FROM gardens WHERE id = $1', [gardenId])
   return { deleted: true, counts }
 }
 
 export async function listGardenMembers(user, gardenId) {
   await requireGardenAccess(user, gardenId)
-  return await dedupeMembers(GARDEN_MEMBERS, 'gardenId', gardenId)
+  return await dedupeMembersForGarden(gardenId)
 }
 
 export async function getKnownUserGardenUsage(userId) {
-  const db = getDb()
-  const [membersSnap, ownedGardensSnap] = await Promise.all([
-    db.collection(GARDEN_MEMBERS).where('userId', '==', userId).get(),
-    db.collection(GARDENS).where('ownerUserId', '==', userId).get(),
+  const [{ rows: memberships }, { rows: ownedGardens }] = await Promise.all([
+    query(`SELECT ${MEMBER_SELECT_COLUMNS} FROM garden_members WHERE user_id = $1`, [userId]),
+    query('SELECT id FROM gardens WHERE owner_user_id = $1', [userId]),
   ])
-  const memberships = membersSnap.docs.map((doc) => doc.data())
-  const ownsGarden = ownedGardensSnap.size > 0 || memberships.some((member) => member.role === 'owner')
+  const ownsGarden = ownedGardens.length > 0 || memberships.some((member) => member.role === 'owner')
   const addedByAnotherUser = memberships.some((member) => member.invitedByUserId && member.invitedByUserId !== userId)
   return { ownsGarden, addedByAnotherUser }
 }
@@ -354,114 +355,120 @@ async function writeGardenMember(gardenId, input) {
   const userId = String(input.userId ?? '').trim()
   if (!userId) throw new Error('Member user ID is required.')
 
-  await dedupeMembers(GARDEN_MEMBERS, 'gardenId', gardenId)
-  const existing = await getDb().collection(GARDEN_MEMBERS).where('gardenId', '==', gardenId).where('userId', '==', userId).limit(1).get()
-  const existingData = existing.empty ? null : existing.docs[0].data()
+  await dedupeMembersForGarden(gardenId)
+  const { rows: existingRows } = await query(
+    `SELECT ${MEMBER_SELECT_COLUMNS} FROM garden_members WHERE garden_id = $1 AND user_id = $2 LIMIT 1`,
+    [gardenId, userId],
+  )
+  const existingData = existingRows[0] ?? null
   if (existingData) throw duplicateMemberError()
   if (existingData?.role === 'owner' && role !== 'owner') {
-    const members = await dedupeMembers(GARDEN_MEMBERS, 'gardenId', gardenId)
+    const members = await dedupeMembersForGarden(gardenId)
     if (members.filter((member) => member.role === 'owner').length <= 1) throw lastOwnerError()
   }
-  const ref = existing.empty ? getDb().collection(GARDEN_MEMBERS).doc() : existing.docs[0].ref
-  await ref.set(withoutUndefined({
-    gardenId,
-    userId,
-    email: input.email || undefined,
-    displayName: input.displayName || undefined,
-    role,
-    invitedByUserId: input.invitedByUserId,
-    createdAt: existing.empty ? timestamp : existingData.createdAt,
-    updatedAt: timestamp,
-  }), { merge: false })
-  const doc = await ref.get()
-  return { id: doc.id, ...doc.data() }
+
+  const id = existingData ? existingData.id : crypto.randomUUID()
+  const createdAt = existingData ? existingData.createdAt : timestamp
+
+  await query(
+    `INSERT INTO garden_members (id, garden_id, user_id, email, display_name, role, invited_by_user_id, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     ON CONFLICT (id) DO UPDATE SET
+       garden_id = $2, user_id = $3, email = $4, display_name = $5, role = $6, invited_by_user_id = $7, updated_at = $9`,
+    [id, gardenId, userId, input.email || null, input.displayName || null, role, input.invitedByUserId || null, createdAt, timestamp],
+  )
+
+  const { rows } = await query(`SELECT ${MEMBER_SELECT_COLUMNS} FROM garden_members WHERE id = $1`, [id])
+  return rows[0]
 }
 
 export async function removeGardenMember(user, gardenId, memberId) {
   const access = await requireGardenAccess(user, gardenId)
-  const ref = getDb().collection(GARDEN_MEMBERS).doc(memberId)
-  const doc = await ref.get()
-  if (!doc.exists || doc.data().gardenId !== gardenId) return false
-  const isSelf = doc.data().userId === user.uid
+  const { rows } = await query(`SELECT ${MEMBER_SELECT_COLUMNS} FROM garden_members WHERE id = $1`, [memberId])
+  const member = rows[0]
+  if (!member || member.gardenId !== gardenId) return false
+  const isSelf = member.userId === user.uid
   if (access.role !== 'owner' && access.role !== 'admin' && !isSelf) {
     const error = new Error('Garden admin access denied.')
     error.code = 'garden_write_denied'
     throw error
   }
-  if (doc.data().role === 'owner') {
-    const members = await dedupeMembers(GARDEN_MEMBERS, 'gardenId', gardenId)
-    if (members.filter((member) => member.role === 'owner').length <= 1) throw lastOwnerError()
+  if (member.role === 'owner') {
+    const members = await dedupeMembersForGarden(gardenId)
+    if (members.filter((m) => m.role === 'owner').length <= 1) throw lastOwnerError()
   }
-  await ref.delete()
+  await query('DELETE FROM garden_members WHERE id = $1', [memberId])
   return true
 }
 
+// Only removes this user's own memberships and reports which gardens that orphans (no owner
+// left) — it does NOT delete the orphaned gardens themselves. Callers that need those gardens'
+// content gone (e.g. full account deletion) must clean up records/reminders/order items via
+// their own modules FIRST, then call deleteOrphanedGardens — garden_id has a real foreign key
+// into gardens now, so tearing down a garden shell while content still points at it would fail.
 export async function removeUserFromAllGardens(userId) {
-  const snap = await getDb().collection(GARDEN_MEMBERS).where('userId', '==', userId).get()
-  const gardenIds = [...new Set(snap.docs.map((doc) => doc.data().gardenId).filter(Boolean))]
-  await Promise.all(snap.docs.map((doc) => doc.ref.delete()))
+  const { rows: memberships } = await query('SELECT garden_id AS "gardenId" FROM garden_members WHERE user_id = $1', [userId])
+  const gardenIds = [...new Set(memberships.map((membership) => membership.gardenId).filter(Boolean))]
+  await query('DELETE FROM garden_members WHERE user_id = $1', [userId])
 
   const orphanedGardenIds = []
   for (const gardenId of gardenIds) {
-    const remainingMembers = await dedupeMembers(GARDEN_MEMBERS, 'gardenId', gardenId)
+    const remainingMembers = await dedupeMembersForGarden(gardenId)
     if (!remainingMembers.some((member) => member.role === 'owner')) orphanedGardenIds.push(gardenId)
   }
-  await Promise.all(orphanedGardenIds.map((gardenId) => deleteOrphanedGardenShell(gardenId)))
   return orphanedGardenIds
 }
 
-async function deleteOrphanedGardenShell(gardenId) {
-  const [membersSnap, invitesSnap] = await Promise.all([
-    getDb().collection(GARDEN_MEMBERS).where('gardenId', '==', gardenId).get(),
-    getDb().collection(INVITES).where('gardenId', '==', gardenId).get(),
-  ])
-  await Promise.all([
-    ...membersSnap.docs.map((doc) => doc.ref.delete()),
-    ...invitesSnap.docs.map((doc) => doc.ref.delete()),
-    getDb().collection(GARDENS).doc(gardenId).delete(),
-  ])
+// garden_members/invites cascade automatically (ON DELETE CASCADE); dahlia_records,
+// maintenance_reminders, and order_items do not, so their content must already be gone by the
+// time this runs or the FK will reject the delete.
+export async function deleteOrphanedGardens(gardenIds) {
+  await Promise.all(gardenIds.map((gardenId) => query('DELETE FROM gardens WHERE id = $1', [gardenId])))
 }
 
 export async function createInvite(user, input) {
   const gardenId = input.gardenId || undefined
   if (!gardenId) throw new Error('Invite must target a garden.')
-  if (gardenId) {
-    const access = await requireGardenAccess(user, gardenId)
-    if (access.role !== 'owner' && access.role !== 'admin') {
-      const error = new Error('Garden admin access denied.')
-      error.code = 'garden_write_denied'
-      throw error
-    }
+
+  const access = await requireGardenAccess(user, gardenId)
+  if (access.role !== 'owner' && access.role !== 'admin') {
+    const error = new Error('Garden admin access denied.')
+    error.code = 'garden_write_denied'
+    throw error
   }
   const timestamp = nowIso()
   const token = randomToken()
-  const ref = await getDb().collection(INVITES).add(withoutUndefined({
-    token,
-    gardenId,
-    email: input.email || undefined,
-    role: input.role || 'viewer',
-    createdByUserId: user.uid,
-    expiresAt: input.expiresAt || new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }))
-  const doc = await ref.get()
-  return { id: doc.id, ...doc.data() }
+  const id = crypto.randomUUID()
+  await query(
+    `INSERT INTO invites (id, token, garden_id, email, role, created_by_user_id, expires_at, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
+    [
+      id,
+      token,
+      gardenId,
+      input.email || null,
+      input.role || 'viewer',
+      user.uid,
+      input.expiresAt || new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
+      timestamp,
+    ],
+  )
+  const { rows } = await query(`SELECT ${INVITE_SELECT_COLUMNS} FROM invites WHERE id = $1`, [id])
+  return rows[0]
 }
 
 export async function listInvites(user, { gardenId } = {}) {
   if (gardenId) await requireGardenAccess(user, gardenId)
-  let snap
-  if (gardenId) snap = await getDb().collection(INVITES).where('gardenId', '==', gardenId).get()
-  else snap = await getDb().collection(INVITES).where('createdByUserId', '==', user.uid).get()
-  return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })).sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
+  const { rows } = gardenId
+    ? await query(`SELECT ${INVITE_SELECT_COLUMNS} FROM invites WHERE garden_id = $1`, [gardenId])
+    : await query(`SELECT ${INVITE_SELECT_COLUMNS} FROM invites WHERE created_by_user_id = $1`, [user.uid])
+  return rows.sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
 }
 
 export async function resendInvite(user, inviteId) {
-  const ref = getDb().collection(INVITES).doc(inviteId)
-  const doc = await ref.get()
-  if (!doc.exists) return null
-  const invite = { id: doc.id, ...doc.data() }
+  const { rows } = await query(`SELECT ${INVITE_SELECT_COLUMNS} FROM invites WHERE id = $1`, [inviteId])
+  const invite = rows[0]
+  if (!invite) return null
   if (!invite.gardenId) return null
 
   const access = await requireGardenAccess(user, invite.gardenId)
@@ -477,23 +484,18 @@ export async function resendInvite(user, inviteId) {
   }
 
   const timestamp = nowIso()
-  await ref.set(withoutUndefined({
-    ...invite,
-    token: randomToken(),
-    expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
-    resentAt: timestamp,
-    resentByUserId: user.uid,
-    updatedAt: timestamp,
-  }), { merge: false })
-  const updated = await ref.get()
-  return { id: updated.id, ...updated.data() }
+  await query(
+    `UPDATE invites SET token = $2, expires_at = $3, resent_at = $4, resent_by_user_id = $5, updated_at = $4 WHERE id = $1`,
+    [inviteId, randomToken(), new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(), timestamp, user.uid],
+  )
+  const { rows: updatedRows } = await query(`SELECT ${INVITE_SELECT_COLUMNS} FROM invites WHERE id = $1`, [inviteId])
+  return updatedRows[0]
 }
 
 export async function deleteInvite(user, inviteId) {
-  const ref = getDb().collection(INVITES).doc(inviteId)
-  const doc = await ref.get()
-  if (!doc.exists) return false
-  const invite = doc.data()
+  const { rows } = await query(`SELECT ${INVITE_SELECT_COLUMNS} FROM invites WHERE id = $1`, [inviteId])
+  const invite = rows[0]
+  if (!invite) return false
   if (!invite.gardenId) return false
 
   const access = await requireGardenAccess(user, invite.gardenId)
@@ -503,15 +505,14 @@ export async function deleteInvite(user, inviteId) {
     throw error
   }
 
-  await ref.delete()
+  await query('DELETE FROM invites WHERE id = $1', [inviteId])
   return true
 }
 
 export async function acceptInvite(user, token) {
-  const snap = await getDb().collection(INVITES).where('token', '==', token).limit(1).get()
-  if (snap.empty) return null
-  const inviteDoc = snap.docs[0]
-  const invite = { id: inviteDoc.id, ...inviteDoc.data() }
+  const { rows } = await query(`SELECT ${INVITE_SELECT_COLUMNS} FROM invites WHERE token = $1 LIMIT 1`, [token])
+  const invite = rows[0]
+  if (!invite) return null
   if (invite.acceptedAt) return invite
   if (invite.expiresAt && invite.expiresAt < nowIso()) {
     const error = new Error('Invite has expired.')
@@ -526,22 +527,25 @@ export async function acceptInvite(user, token) {
 
   if (invite.gardenId) await writeGardenMember(invite.gardenId, { userId: user.uid, email: user.email, displayName: user.name, role: invite.role, invitedByUserId: invite.createdByUserId })
 
-  await inviteDoc.ref.set(withoutUndefined({ ...invite, acceptedAt: nowIso(), acceptedByUserId: user.uid, updatedAt: nowIso() }), { merge: false })
-  const accepted = await inviteDoc.ref.get()
-  return { id: accepted.id, ...accepted.data() }
+  const timestamp = nowIso()
+  await query(
+    `UPDATE invites SET accepted_at = $2, accepted_by_user_id = $3, updated_at = $2 WHERE id = $1`,
+    [invite.id, timestamp, user.uid],
+  )
+  const { rows: acceptedRows } = await query(`SELECT ${INVITE_SELECT_COLUMNS} FROM invites WHERE id = $1`, [invite.id])
+  return acceptedRows[0]
 }
 
 export async function getGardenAccess(user, gardenId) {
   if (!gardenId) return null
-  const gardenDoc = await getDb().collection(GARDENS).doc(gardenId).get()
-  if (!gardenDoc.exists) return null
-  const garden = { id: gardenDoc.id, ...gardenDoc.data() }
+  const garden = await getGardenById(gardenId)
+  if (!garden) return null
   if (isGlobalAdmin(user)) return { garden, role: 'owner' }
   if (garden.ownerUserId === user.uid) return { garden, role: 'owner' }
   if (garden.createdByUserId === user.uid) return { garden, role: 'owner' }
 
-  const direct = await getDb().collection(GARDEN_MEMBERS).where('gardenId', '==', gardenId).where('userId', '==', user.uid).limit(1).get()
-  if (!direct.empty) return { garden, role: direct.docs[0].data().role }
+  const { rows } = await query('SELECT role FROM garden_members WHERE garden_id = $1 AND user_id = $2 LIMIT 1', [gardenId, user.uid])
+  if (rows.length > 0) return { garden, role: rows[0].role }
 
   return null
 }

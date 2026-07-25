@@ -1,13 +1,13 @@
 import dotenv from 'dotenv'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { getDb } from '../src/firebase.js'
+import { getDb } from '../../src/firebase.js'
 
 const COMPANIES = 'companies'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-dotenv.config({ path: path.resolve(__dirname, '../.env') })
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 
 function globalAdminUid() {
   const uid = String(process.env.GLOBAL_ADMIN_UIDS ?? '').split(',').map((value) => value.trim()).filter(Boolean)[0]

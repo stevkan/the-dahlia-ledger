@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.36.0 - 2026-07-25
+
+- Continued the Firestore/Postgres migration: companies, orders/orderItems/orderFiles, assets/assetFiles, known users, gardens/gardenMembers/invites, and the photo-identification cluster (embeddings, learned projections, cultivar centroids) now all live in Postgres (`backend/migrations/`, `backend/scripts/migrate-companies-to-postgres.js`, `migrate-orders-to-postgres.js`, `migrate-assets-to-postgres.js`, `migrate-users-to-postgres.js`, `migrate-gardens-to-postgres.js`, `migrate-photo-id-to-postgres.js`, all dry-run by default). Order-invoice and asset-invoice PDFs also moved from Firebase Storage to Azure Blob (`migrate-order-files-to-azure-blob.js`). Foreign keys are now enforced across all migrated tables, and company lookups join through SQL instead of per-record Firestore reads.
+- Fixed the Varieties tab showing no matches when viewing an existing record: `useRecords`' full-records query only fetched while Analytics, Maintenance Reminders, Garden Options, or Create-new was open, never while simply viewing/editing a record, so the tab had no data to match against.
+- `main_dahlia-ledger.yml`'s deploy job now targets the `production` GitHub environment.
+
 ## 0.35.0 - 2026-07-24
 
 - Continued the Firestore/Postgres migration: `app_config` and `maintenance_reminders` now live in Postgres (new `backend/migrations/`, `backend/scripts/migrate-app-config-to-postgres.js`, `backend/scripts/migrate-reminders-to-postgres.js`, both dry-run by default), and color/flower name listing and renaming (`backend/src/colors.js`, `backend/src/flowerNames.js`) now query `dahlia_records` directly instead of Firestore. `assignLegacyRecordsToGarden` (`backend/src/gardens.js`) and `getGardenUsageCounts`'s reminder count now use Postgres as well.

@@ -1,6 +1,9 @@
-import { getDb } from './firebase.js'
+import { query } from './db.js'
 
-const USERS = 'users'
+const USER_SELECT_COLUMNS = `
+  id, user_id AS "userId", email, display_name AS "displayName", photo_url AS "photoUrl", provider,
+  created_at AS "createdAt", last_seen_at AS "lastSeenAt", updated_at AS "updatedAt"
+`
 
 function adminValues(name) {
   return new Set(String(process.env[name] ?? '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean))
@@ -17,50 +20,40 @@ function nowIso() {
   return new Date().toISOString()
 }
 
-function withoutUndefined(value) {
-  if (Array.isArray(value)) return value.map(withoutUndefined)
-  if (!value || typeof value !== 'object') return value
-
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => [k, withoutUndefined(v)]),
-  )
-}
-
 export async function upsertKnownUser(user) {
   if (!user?.uid) return null
   const timestamp = nowIso()
-  const ref = getDb().collection(USERS).doc(user.uid)
-  const existing = await ref.get()
-  await ref.set(withoutUndefined({
-    userId: user.uid,
-    email: user.email || undefined,
-    displayName: user.name || user.displayName || undefined,
-    photoUrl: user.picture || undefined,
-    provider: user.firebase?.sign_in_provider || undefined,
-    createdAt: existing.exists ? existing.data().createdAt : timestamp,
-    lastSeenAt: timestamp,
-    updatedAt: timestamp,
-  }), { merge: false })
-  const doc = await ref.get()
-  return { id: doc.id, ...doc.data() }
+
+  const { rows } = await query(
+    `INSERT INTO users (id, user_id, email, display_name, photo_url, provider, created_at, last_seen_at, updated_at)
+     VALUES ($1, $1, $2, $3, $4, $5, $6, $6, $6)
+     ON CONFLICT (id) DO UPDATE SET
+       user_id = $1, email = $2, display_name = $3, photo_url = $4, provider = $5,
+       last_seen_at = $6, updated_at = $6
+     RETURNING ${USER_SELECT_COLUMNS}`,
+    [
+      user.uid,
+      user.email || null,
+      user.name || user.displayName || null,
+      user.picture || null,
+      user.firebase?.sign_in_provider || null,
+      timestamp,
+    ],
+  )
+  return rows[0]
 }
 
 export async function listKnownUsers() {
-  const snap = await getDb().collection(USERS).get()
-  return snap.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() }))
-    .sort((a, b) => String(a.displayName || a.email || a.userId).localeCompare(String(b.displayName || b.email || b.userId)))
+  const { rows } = await query(`SELECT ${USER_SELECT_COLUMNS} FROM users`)
+  return rows.sort((a, b) => String(a.displayName || a.email || a.userId).localeCompare(String(b.displayName || b.email || b.userId)))
 }
 
 export async function getKnownUser(userId) {
   const id = String(userId ?? '').trim()
   if (!id) return null
 
-  const doc = await getDb().collection(USERS).doc(id).get()
-  if (!doc.exists) return null
-  return { id: doc.id, ...doc.data() }
+  const { rows } = await query(`SELECT ${USER_SELECT_COLUMNS} FROM users WHERE id = $1`, [id])
+  return rows[0] ?? null
 }
 
 export async function deleteKnownUser(userId, usage = {}) {
@@ -77,10 +70,6 @@ export async function deleteKnownUser(userId, usage = {}) {
     throw error
   }
 
-  const ref = getDb().collection(USERS).doc(id)
-  const doc = await ref.get()
-  if (!doc.exists) return false
-
-  await ref.delete()
-  return true
+  const { rowCount } = await query('DELETE FROM users WHERE id = $1', [id])
+  return rowCount > 0
 }

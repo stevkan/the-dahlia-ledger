@@ -47,6 +47,7 @@ export function useRecords({
   maintenanceRemindersOpen,
   gardenOptionsOpen,
   createOpen,
+  recordViewOpen,
   recordsRefreshIntervalMs,
   setActive,
   setCreateDraft,
@@ -61,6 +62,7 @@ export function useRecords({
   maintenanceRemindersOpen: boolean
   gardenOptionsOpen: boolean
   createOpen: boolean
+  recordViewOpen: boolean
   recordsRefreshIntervalMs: number
   setActive: (record: DahliaRecord | null) => void
   setCreateDraft: (draft: DahliaRecordInput | null) => void
@@ -99,7 +101,7 @@ export function useRecords({
       (await api<{ records: DahliaRecord[] }>(`/api/records${gardenQuery}`)).records,
     enabled:
       Boolean(user) &&
-      (analyticsOpen || maintenanceRemindersOpen || gardenOptionsOpen || createOpen),
+      (analyticsOpen || maintenanceRemindersOpen || gardenOptionsOpen || createOpen || recordViewOpen),
     staleTime: 30_000,
   })
 

@@ -1,5 +1,4 @@
 import '../src/env.js'
-import { getDb } from '../src/firebase.js'
 import { listRecords } from '../src/records.js'
 import { embedImage, EMBEDDING_MODEL_ID, warmEmbeddingModel } from '../src/embeddings.js'
 import { embedImageDino, DINO_MODEL_ID, warmDinoModel } from '../src/dino.js'
@@ -9,13 +8,14 @@ import {
   photoEmbeddingId,
   embedColorText,
   upsertPhotoEmbedding,
+  updatePhotoEmbeddingMetadata,
+  deletePhotoEmbeddingsByIds,
   listAllPhotoEmbeddings,
   computeColorFeatures,
   LEGACY_CLIP_WRITES_ENABLED,
 } from '../src/photoEmbeddings.js'
 
 const DRY_RUN = process.argv.includes('--dry-run')
-const BATCH_LIMIT = 450
 
 function livePhotoUrls(records) {
   const byUrl = new Map()
@@ -71,7 +71,7 @@ for (const [imageUrl, { gardenId, cultivarName, thumbnailUrl, color, form }] of 
           console.log(`${DRY_RUN ? '[dry-run] ' : ''}update legacy metadata ${cultivarName}: ${imageUrl}`)
           if (!DRY_RUN) {
             const colorEmbedding = colorChanged || needsColorEmbedding ? await embedColorText(color) : (existingLegacyDoc.colorEmbedding ?? null)
-            await getDb().collection('photoEmbeddings').doc(legacyId).set({ color, form, colorEmbedding }, { merge: true })
+            await updatePhotoEmbeddingMetadata(legacyId, { color, form, colorEmbedding })
           }
           metadataUpdatedLegacy += 1
         }
@@ -102,7 +102,7 @@ for (const [imageUrl, { gardenId, cultivarName, thumbnailUrl, color, form }] of 
       if ((existingNewDoc.color ?? null) !== color || (existingNewDoc.form ?? null) !== form) {
         console.log(`${DRY_RUN ? '[dry-run] ' : ''}update new-generation metadata ${cultivarName}: ${imageUrl}`)
         if (!DRY_RUN) {
-          await getDb().collection('photoEmbeddings').doc(newId).set({ color, form }, { merge: true })
+          await updatePhotoEmbeddingMetadata(newId, { color, form })
         }
         metadataUpdatedNew += 1
       }
@@ -142,25 +142,12 @@ const staleDocs = existing.filter((doc) => !live.has(doc.imageUrl))
 let pruned = 0
 
 if (staleDocs.length > 0) {
-  const db = getDb()
-  let batch = db.batch()
-  let pendingWrites = 0
-
   for (const doc of staleDocs) {
     console.log(`${DRY_RUN ? '[dry-run] ' : ''}prune ${doc.cultivarName ?? 'unknown'}: ${doc.imageUrl}`)
-    if (!DRY_RUN) {
-      batch.delete(db.collection('photoEmbeddings').doc(doc.id))
-      pendingWrites += 1
-      if (pendingWrites >= BATCH_LIMIT) {
-        await batch.commit()
-        batch = db.batch()
-        pendingWrites = 0
-      }
-    }
     pruned += 1
   }
-
-  if (!DRY_RUN && pendingWrites > 0) await batch.commit()
+  // Postgres has no Firestore-style 500-write batch limit -- one DELETE ... = ANY(...) handles them all.
+  if (!DRY_RUN) await deletePhotoEmbeddingsByIds(staleDocs.map((doc) => doc.id))
 }
 
 console.log({

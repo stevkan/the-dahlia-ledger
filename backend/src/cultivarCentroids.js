@@ -1,8 +1,6 @@
 import crypto from 'node:crypto'
-import { getDb } from './firebase.js'
+import { query } from './db.js'
 import { kmeans, normalizedAverage } from './kmeans.js'
-
-const COLLECTION = 'cultivarCentroids'
 
 // Below this, clustering into multiple "appearance" centroids isn't meaningful -- fall back to a
 // single normalizedAverage centroid. This is a batch-recompute knob (how the script behaves), not a
@@ -11,16 +9,11 @@ const COLLECTION = 'cultivarCentroids'
 export const MIN_PHOTOS_FOR_CLUSTERING = 6
 const MAX_CENTROIDS_PER_CULTIVAR = 4
 
-function withoutUndefined(value) {
-  if (Array.isArray(value)) return value.map(withoutUndefined)
-  if (!value || typeof value !== 'object') return value
-
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => [k, withoutUndefined(v)]),
-  )
-}
+const CENTROID_SELECT_COLUMNS = `
+  id, garden_id AS "gardenId", cultivar_name AS "cultivarName", embedding_model AS "embeddingModel",
+  preprocessing_version AS "preprocessingVersion", centroids, color_centroid AS "colorCentroid",
+  clustering_applied AS "clusteringApplied", source_photo_count AS "sourcePhotoCount", computed_at AS "computedAt"
+`
 
 function normalizeCultivarKey(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -66,7 +59,7 @@ export function computeCultivarCentroids(referenceEmbeddings) {
   const byCultivar = new Map()
   for (const reference of referenceEmbeddings) {
     // A centroid with no gardenId could never be looked up by identifyPhoto() (which always scopes by
-    // a real resolved gardenId), and Firestore's `where('gardenId', '==', ...)` rejects `undefined`.
+    // a real resolved gardenId), so skip references missing either key.
     if (!Array.isArray(reference.embedding) || !reference.cultivarName || !reference.gardenId) continue
     const key = `${reference.gardenId}::${normalizeCultivarKey(reference.cultivarName)}`
     const bucket = byCultivar.get(key) ?? { gardenId: reference.gardenId, cultivarName: reference.cultivarName, references: [] }
@@ -107,23 +100,28 @@ export function computeCultivarCentroids(referenceEmbeddings) {
 }
 
 export async function upsertCultivarCentroids(centroidDocs, { embeddingModel, preprocessingVersion }) {
-  const db = getDb()
+  const timestamp = new Date().toISOString()
   await Promise.all(
     centroidDocs.map((doc) => {
       const id = cultivarCentroidId(doc.gardenId, doc.cultivarName, embeddingModel, preprocessingVersion)
-      return db.collection(COLLECTION).doc(id).set(
-        withoutUndefined({
-          gardenId: doc.gardenId,
-          cultivarName: doc.cultivarName,
+      return query(
+        `INSERT INTO cultivar_centroids (id, garden_id, cultivar_name, embedding_model, preprocessing_version, centroids, color_centroid, clustering_applied, source_photo_count, computed_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (id) DO UPDATE SET
+           garden_id = $2, cultivar_name = $3, embedding_model = $4, preprocessing_version = $5,
+           centroids = $6, color_centroid = $7, clustering_applied = $8, source_photo_count = $9, computed_at = $10`,
+        [
+          id,
+          doc.gardenId,
+          doc.cultivarName,
           embeddingModel,
           preprocessingVersion,
-          centroids: doc.centroids,
-          colorCentroid: doc.colorCentroid,
-          clusteringApplied: doc.clusteringApplied,
-          sourcePhotoCount: doc.sourcePhotoCount,
-          computedAt: new Date().toISOString(),
-        }),
-        { merge: false },
+          JSON.stringify(doc.centroids),
+          doc.colorCentroid ? JSON.stringify(doc.colorCentroid) : null,
+          doc.clusteringApplied ?? null,
+          doc.sourcePhotoCount ?? null,
+          timestamp,
+        ],
       )
     }),
   )
@@ -144,37 +142,30 @@ export async function recomputeCentroidForCultivar(cultivarReferenceEmbeddings, 
 }
 
 export async function listCultivarCentroids(gardenId, embeddingModel, preprocessingVersion) {
-  const snap = await getDb()
-    .collection(COLLECTION)
-    .where('gardenId', '==', gardenId)
-    .where('embeddingModel', '==', embeddingModel)
-    .where('preprocessingVersion', '==', preprocessingVersion)
-    .get()
-  return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+  const { rows } = await query(
+    `SELECT ${CENTROID_SELECT_COLUMNS} FROM cultivar_centroids WHERE garden_id = $1 AND embedding_model = $2 AND preprocessing_version = $3`,
+    [gardenId, embeddingModel, preprocessingVersion],
+  )
+  return rows
 }
 
 export async function pruneStaleCultivarCentroids(liveCentroidDocs, { embeddingModel, preprocessingVersion }) {
-  const db = getDb()
   const liveIds = new Set(
     liveCentroidDocs.map((doc) => cultivarCentroidId(doc.gardenId, doc.cultivarName, embeddingModel, preprocessingVersion)),
   )
 
   // Scan the whole embeddingModel+preprocessingVersion generation directly rather than grouping by the
-  // *current* live gardenIds -- a stale doc from a reference whose gardenId was missing/invalid (e.g. a
-  // legacy record with no gardenId) has no gardenId field at all, so a per-gardenId `where` query can
-  // never find it to prune it.
-  const snap = await db
-    .collection(COLLECTION)
-    .where('embeddingModel', '==', embeddingModel)
-    .where('preprocessingVersion', '==', preprocessingVersion)
-    .get()
+  // *current* live gardenIds -- a stale row from a reference whose gardenId was missing/invalid (e.g. a
+  // legacy record with no gardenId) has no gardenId at all, so a per-gardenId filter can never find it
+  // to prune it.
+  const { rows } = await query(
+    'SELECT id FROM cultivar_centroids WHERE embedding_model = $1 AND preprocessing_version = $2',
+    [embeddingModel, preprocessingVersion],
+  )
 
-  let pruned = 0
-  for (const doc of snap.docs) {
-    if (!liveIds.has(doc.id)) {
-      await db.collection(COLLECTION).doc(doc.id).delete()
-      pruned += 1
-    }
+  const staleIds = rows.map((row) => row.id).filter((id) => !liveIds.has(id))
+  if (staleIds.length > 0) {
+    await query('DELETE FROM cultivar_centroids WHERE id = ANY($1::text[])', [staleIds])
   }
-  return pruned
+  return staleIds.length
 }

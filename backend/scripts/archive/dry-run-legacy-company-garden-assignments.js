@@ -1,7 +1,7 @@
 import dotenv from 'dotenv'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { getDb } from '../src/firebase.js'
+import { getDb } from '../../src/firebase.js'
 
 const COMPANIES = 'companies'
 const GARDENS = 'gardens'
@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const applyChanges = process.argv.includes('--apply')
 
-dotenv.config({ path: path.resolve(__dirname, '../.env') })
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 
 function sortByName(a, b) {
   return String(a.name ?? '').localeCompare(String(b.name ?? '')) || String(a.id).localeCompare(String(b.id))

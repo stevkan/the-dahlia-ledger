@@ -318,6 +318,7 @@ export default function App() {
   } = useRecords({
     user, activeGardenId, gardenQuery,
     analyticsOpen, maintenanceRemindersOpen, gardenOptionsOpen, createOpen,
+    recordViewOpen: Boolean(active),
     recordsRefreshIntervalMs: effectiveRecordsRefreshIntervalMs,
     setActive: (r) => setActive(r),
     setCreateDraft: (d) => setCreateDraft(d),

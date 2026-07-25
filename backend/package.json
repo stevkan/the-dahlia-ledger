@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "0.35.0",
+  "version": "0.36.0",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
@@ -37,8 +37,22 @@
     "migrate:app-config-to-postgres:apply": "node scripts/migrate-app-config-to-postgres.js --apply",
     "migrate:reminders-to-postgres": "node scripts/migrate-reminders-to-postgres.js",
     "migrate:reminders-to-postgres:apply": "node scripts/migrate-reminders-to-postgres.js --apply",
+    "migrate:companies-to-postgres": "node scripts/migrate-companies-to-postgres.js",
+    "migrate:companies-to-postgres:apply": "node scripts/migrate-companies-to-postgres.js --apply",
+    "migrate:orders-to-postgres": "node scripts/migrate-orders-to-postgres.js",
+    "migrate:orders-to-postgres:apply": "node scripts/migrate-orders-to-postgres.js --apply",
     "migrate:photos-to-blob": "node scripts/migrate-photos-to-azure-blob.js",
-    "migrate:photos-to-blob:apply": "node scripts/migrate-photos-to-azure-blob.js --apply"
+    "migrate:photos-to-blob:apply": "node scripts/migrate-photos-to-azure-blob.js --apply",
+    "migrate:order-files-to-blob": "node scripts/migrate-order-files-to-azure-blob.js",
+    "migrate:order-files-to-blob:apply": "node scripts/migrate-order-files-to-azure-blob.js --apply",
+    "migrate:assets-to-postgres": "node scripts/migrate-assets-to-postgres.js",
+    "migrate:assets-to-postgres:apply": "node scripts/migrate-assets-to-postgres.js --apply",
+    "migrate:users-to-postgres": "node scripts/migrate-users-to-postgres.js",
+    "migrate:users-to-postgres:apply": "node scripts/migrate-users-to-postgres.js --apply",
+    "migrate:gardens-to-postgres": "node scripts/migrate-gardens-to-postgres.js",
+    "migrate:gardens-to-postgres:apply": "node scripts/migrate-gardens-to-postgres.js --apply",
+    "migrate:photo-id-to-postgres": "node scripts/migrate-photo-id-to-postgres.js",
+    "migrate:photo-id-to-postgres:apply": "node scripts/migrate-photo-id-to-postgres.js --apply"
   },
   "keywords": [],
   "author": "",

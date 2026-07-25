@@ -1,144 +1,154 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../firebase.js', () => ({ getDb: vi.fn() }))
-vi.mock('../users.js', () => ({ isGlobalAdmin: vi.fn(() => false) }))
+const { isGlobalAdmin } = vi.hoisted(() => ({ isGlobalAdmin: vi.fn(() => false) }))
+vi.mock('../users.js', () => ({ isGlobalAdmin }))
 
+import '../env.js'
+import { getPool } from '../db.js'
 import { requireGardenAccess, requireGardenWriteAccess } from '../gardens.js'
-import { getDb } from '../firebase.js'
-import { isGlobalAdmin } from '../users.js'
 
-/**
- * Builds a minimal Firestore double that handles:
- *   getDb().collection('gardens').doc(id).get()        → gardenDoc
- *   getDb().collection('gardenMembers').where(...).where(...).limit(1).get() → memberSnap
- */
-function makeDb({ garden = null, member = null } = {}) {
-  return {
-    collection: vi.fn((name) => {
-      if (name === 'gardens') {
-        return {
-          doc: vi.fn(() => ({
-            get: vi.fn(async () => ({
-              exists: !!garden,
-              id: 'garden-1',
-              data: () => garden,
-            })),
-          })),
-        }
-      }
-      // gardenMembers
-      return {
-        where: vi.fn(() => ({
-          where: vi.fn(() => ({
-            limit: vi.fn(() => ({
-              get: vi.fn(async () => ({
-                empty: !member,
-                docs: member ? [{ data: () => member }] : [],
-              })),
-            })),
-          })),
-        })),
-      }
-    }),
+const OWNER_GARDEN_ID = 'vitest-auth-owner-garden'
+const CREATED_BY_GARDEN_ID = 'vitest-auth-created-by-garden'
+const MEMBER_GARDEN_ID = 'vitest-auth-member-garden'
+const TEST_GARDEN_IDS = [OWNER_GARDEN_ID, CREATED_BY_GARDEN_ID, MEMBER_GARDEN_ID]
+
+const pool = getPool()
+const user = { uid: 'user-1', email: 'user@example.com' }
+const TEST_USER_IDS = [user.uid, 'other']
+
+async function cleanUpTestData() {
+  await pool.query('DELETE FROM garden_members WHERE garden_id = ANY($1)', [TEST_GARDEN_IDS])
+  await pool.query('DELETE FROM gardens WHERE id = ANY($1)', [TEST_GARDEN_IDS])
+}
+
+// gardens.owner_user_id/created_by_user_id and garden_members.user_id have real FKs into
+// users now — these fixture rows must exist before any garden/member can reference them.
+async function ensureTestUsers() {
+  for (const userId of TEST_USER_IDS) {
+    await pool.query(
+      `INSERT INTO users (id, user_id, created_at, updated_at) VALUES ($1, $1, now()::text, now()::text)
+       ON CONFLICT (id) DO NOTHING`,
+      [userId],
+    )
   }
 }
 
-const user = { uid: 'user-1', email: 'user@example.com' }
-const ownerGarden = { ownerUserId: 'user-1', createdByUserId: 'other' }
-const otherGarden = { ownerUserId: 'other', createdByUserId: 'other' }
+async function insertGarden(id, { ownerUserId = 'other', createdByUserId = 'other' } = {}) {
+  await pool.query(
+    `INSERT INTO gardens (id, name, owner_user_id, created_by_user_id, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, now()::text, now()::text)`,
+    [id, id, ownerUserId, createdByUserId],
+  )
+}
 
-describe('requireGardenAccess', () => {
-  beforeEach(() => {
-    isGlobalAdmin.mockReturnValue(false)
-  })
+async function insertMember(gardenId, role) {
+  await pool.query(
+    `INSERT INTO garden_members (id, garden_id, user_id, role, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, now()::text, now()::text)`,
+    [`${gardenId}-member`, gardenId, user.uid, role],
+  )
+}
 
+beforeAll(ensureTestUsers)
+beforeEach(cleanUpTestData)
+
+afterEach(() => {
+  isGlobalAdmin.mockReturnValue(false)
+})
+
+afterAll(async () => {
+  await cleanUpTestData()
+  await pool.query('DELETE FROM users WHERE id = ANY($1)', [TEST_USER_IDS])
+  await pool.end()
+})
+
+describe('requireGardenAccess (Postgres)', () => {
   it('grants owner access via ownerUserId', async () => {
-    getDb.mockReturnValue(makeDb({ garden: ownerGarden }))
-    const access = await requireGardenAccess(user, 'garden-1')
+    await insertGarden(OWNER_GARDEN_ID, { ownerUserId: user.uid })
+    const access = await requireGardenAccess(user, OWNER_GARDEN_ID)
     expect(access.role).toBe('owner')
-    expect(access.garden.ownerUserId).toBe('user-1')
+    expect(access.garden.ownerUserId).toBe(user.uid)
   })
 
   it('grants owner access via createdByUserId', async () => {
-    getDb.mockReturnValue(makeDb({ garden: { ownerUserId: 'other', createdByUserId: 'user-1' } }))
-    const access = await requireGardenAccess(user, 'garden-1')
+    await insertGarden(CREATED_BY_GARDEN_ID, { createdByUserId: user.uid })
+    const access = await requireGardenAccess(user, CREATED_BY_GARDEN_ID)
     expect(access.role).toBe('owner')
   })
 
   it('grants global admin owner-level access regardless of garden membership', async () => {
     isGlobalAdmin.mockReturnValue(true)
-    getDb.mockReturnValue(makeDb({ garden: otherGarden }))
-    const access = await requireGardenAccess(user, 'garden-1')
+    await insertGarden(MEMBER_GARDEN_ID)
+    const access = await requireGardenAccess(user, MEMBER_GARDEN_ID)
     expect(access.role).toBe('owner')
   })
 
-  it('grants member access with the role stored in the member doc', async () => {
-    getDb.mockReturnValue(makeDb({ garden: otherGarden, member: { role: 'editor' } }))
-    const access = await requireGardenAccess(user, 'garden-1')
+  it('grants member access with the role stored in the member row', async () => {
+    await insertGarden(MEMBER_GARDEN_ID)
+    await insertMember(MEMBER_GARDEN_ID, 'editor')
+    const access = await requireGardenAccess(user, MEMBER_GARDEN_ID)
     expect(access.role).toBe('editor')
   })
 
   it('grants viewer access to read-only members', async () => {
-    getDb.mockReturnValue(makeDb({ garden: otherGarden, member: { role: 'viewer' } }))
-    const access = await requireGardenAccess(user, 'garden-1')
+    await insertGarden(MEMBER_GARDEN_ID)
+    await insertMember(MEMBER_GARDEN_ID, 'viewer')
+    const access = await requireGardenAccess(user, MEMBER_GARDEN_ID)
     expect(access.role).toBe('viewer')
   })
 
   it('throws garden_access_denied when the garden does not exist', async () => {
-    getDb.mockReturnValue(makeDb({ garden: null }))
-    await expect(requireGardenAccess(user, 'garden-1')).rejects.toMatchObject({
+    await expect(requireGardenAccess(user, 'no-such-garden')).rejects.toMatchObject({
       code: 'garden_access_denied',
     })
   })
 
   it('throws garden_access_denied when the user is neither owner nor member', async () => {
-    getDb.mockReturnValue(makeDb({ garden: otherGarden, member: null }))
-    await expect(requireGardenAccess(user, 'garden-1')).rejects.toMatchObject({
+    await insertGarden(MEMBER_GARDEN_ID)
+    await expect(requireGardenAccess(user, MEMBER_GARDEN_ID)).rejects.toMatchObject({
       code: 'garden_access_denied',
     })
   })
 })
 
-describe('requireGardenWriteAccess', () => {
-  beforeEach(() => {
-    isGlobalAdmin.mockReturnValue(false)
-  })
-
+describe('requireGardenWriteAccess (Postgres)', () => {
   it('grants write access to the garden owner', async () => {
-    getDb.mockReturnValue(makeDb({ garden: ownerGarden }))
-    const access = await requireGardenWriteAccess(user, 'garden-1')
+    await insertGarden(OWNER_GARDEN_ID, { ownerUserId: user.uid })
+    const access = await requireGardenWriteAccess(user, OWNER_GARDEN_ID)
     expect(access.role).toBe('owner')
   })
 
   it('grants write access to admin members', async () => {
-    getDb.mockReturnValue(makeDb({ garden: otherGarden, member: { role: 'admin' } }))
-    const access = await requireGardenWriteAccess(user, 'garden-1')
+    await insertGarden(MEMBER_GARDEN_ID)
+    await insertMember(MEMBER_GARDEN_ID, 'admin')
+    const access = await requireGardenWriteAccess(user, MEMBER_GARDEN_ID)
     expect(access.role).toBe('admin')
   })
 
   it('grants write access to editor members', async () => {
-    getDb.mockReturnValue(makeDb({ garden: otherGarden, member: { role: 'editor' } }))
-    const access = await requireGardenWriteAccess(user, 'garden-1')
+    await insertGarden(MEMBER_GARDEN_ID)
+    await insertMember(MEMBER_GARDEN_ID, 'editor')
+    const access = await requireGardenWriteAccess(user, MEMBER_GARDEN_ID)
     expect(access.role).toBe('editor')
   })
 
   it('throws garden_write_denied for viewer members', async () => {
-    getDb.mockReturnValue(makeDb({ garden: otherGarden, member: { role: 'viewer' } }))
-    await expect(requireGardenWriteAccess(user, 'garden-1')).rejects.toMatchObject({
+    await insertGarden(MEMBER_GARDEN_ID)
+    await insertMember(MEMBER_GARDEN_ID, 'viewer')
+    await expect(requireGardenWriteAccess(user, MEMBER_GARDEN_ID)).rejects.toMatchObject({
       code: 'garden_write_denied',
     })
   })
 
   it('throws garden_access_denied when the garden does not exist', async () => {
-    getDb.mockReturnValue(makeDb({ garden: null }))
-    await expect(requireGardenWriteAccess(user, 'garden-1')).rejects.toMatchObject({
+    await expect(requireGardenWriteAccess(user, 'no-such-garden')).rejects.toMatchObject({
       code: 'garden_access_denied',
     })
   })
 
   it('throws garden_access_denied when the user has no membership at all', async () => {
-    getDb.mockReturnValue(makeDb({ garden: otherGarden, member: null }))
-    await expect(requireGardenWriteAccess(user, 'garden-1')).rejects.toMatchObject({
+    await insertGarden(MEMBER_GARDEN_ID)
+    await expect(requireGardenWriteAccess(user, MEMBER_GARDEN_ID)).rejects.toMatchObject({
       code: 'garden_access_denied',
     })
   })

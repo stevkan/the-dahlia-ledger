@@ -1,15 +1,11 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 
-const { docGet, docDelete, doc, collection, getDb } = vi.hoisted(() => {
-  const docGet = vi.fn()
-  const docDelete = vi.fn()
-  const doc = vi.fn(() => ({ get: docGet, delete: docDelete }))
-  const collection = vi.fn(() => ({ doc }))
-  const getDb = vi.fn(() => ({ collection }))
-  return { docGet, docDelete, doc, collection, getDb }
+const { query } = vi.hoisted(() => {
+  const query = vi.fn()
+  return { query }
 })
 
-vi.mock('../firebase.js', () => ({ getDb }))
+vi.mock('../db.js', () => ({ query }))
 
 import { deleteKnownUser, isGlobalAdmin } from '../users.js'
 
@@ -72,10 +68,7 @@ describe('isGlobalAdmin', () => {
 
 describe('deleteKnownUser', () => {
   afterEach(() => {
-    docGet.mockReset()
-    docDelete.mockReset()
-    doc.mockClear()
-    collection.mockClear()
+    query.mockReset()
   })
 
   it('throws known_user_in_use when the user owns a garden', async () => {
@@ -83,25 +76,24 @@ describe('deleteKnownUser', () => {
       code: 'known_user_in_use',
       reasons: { ownsGarden: true, addedByAnotherUser: false },
     })
-    expect(docDelete).not.toHaveBeenCalled()
+    expect(query).not.toHaveBeenCalled()
   })
 
   it('throws known_user_in_use when the user was added to a garden by another user', async () => {
     await expect(deleteKnownUser('user-1', { ownsGarden: false, addedByAnotherUser: true })).rejects.toMatchObject({
       code: 'known_user_in_use',
     })
-    expect(docDelete).not.toHaveBeenCalled()
+    expect(query).not.toHaveBeenCalled()
   })
 
   it('deletes the user when they own no garden and were not added by another user', async () => {
-    docGet.mockResolvedValue({ exists: true })
+    query.mockResolvedValue({ rowCount: 1 })
     await expect(deleteKnownUser('user-1', { ownsGarden: false, addedByAnotherUser: false })).resolves.toBe(true)
-    expect(docDelete).toHaveBeenCalled()
+    expect(query).toHaveBeenCalledWith('DELETE FROM users WHERE id = $1', ['user-1'])
   })
 
-  it('returns false when the user document does not exist', async () => {
-    docGet.mockResolvedValue({ exists: false })
+  it('returns false when the user does not exist', async () => {
+    query.mockResolvedValue({ rowCount: 0 })
     await expect(deleteKnownUser('user-1', {})).resolves.toBe(false)
-    expect(docDelete).not.toHaveBeenCalled()
   })
 })
