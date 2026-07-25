@@ -48,7 +48,9 @@
     "migrate:assets-to-postgres": "node scripts/migrate-assets-to-postgres.js",
     "migrate:assets-to-postgres:apply": "node scripts/migrate-assets-to-postgres.js --apply",
     "migrate:users-to-postgres": "node scripts/migrate-users-to-postgres.js",
-    "migrate:users-to-postgres:apply": "node scripts/migrate-users-to-postgres.js --apply"
+    "migrate:users-to-postgres:apply": "node scripts/migrate-users-to-postgres.js --apply",
+    "migrate:gardens-to-postgres": "node scripts/migrate-gardens-to-postgres.js",
+    "migrate:gardens-to-postgres:apply": "node scripts/migrate-gardens-to-postgres.js --apply"
   },
   "keywords": [],
   "author": "",
