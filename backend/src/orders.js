@@ -1,11 +1,17 @@
+import crypto from 'node:crypto'
 import { getDb } from './firebase.js'
+import { query } from './db.js'
 import { getGardenAccess, listGardens, resolveGardenId, requireGardenAccess } from './gardens.js'
+import { listRecords, clearRecordSummaryCache } from './records.js'
 
-const COMPANIES = 'companies'
 const ORDERS = 'orders'
 const ORDER_ITEMS = 'orderItems'
 const ORDER_FILES = 'orderFiles'
-const RECORDS = 'dahliaRecords'
+
+const COMPANY_SELECT_COLUMNS = `
+  id, garden_id AS "gardenId", owner_user_id AS "ownerUserId", name, website, email, phone, notes,
+  created_at AS "createdAt", updated_at AS "updatedAt"
+`
 
 function nowIso() {
   return new Date().toISOString()
@@ -62,11 +68,11 @@ function recordMatchesContext(record, context = {}, gardenIds = null) {
 }
 
 export async function listCompanies(context = {}) {
-  const [snap, gardenIds] = await Promise.all([
-    getDb().collection(COMPANIES).get(),
+  const [{ rows }, gardenIds] = await Promise.all([
+    query(`SELECT ${COMPANY_SELECT_COLUMNS} FROM companies`),
     getContextGardenIds(context),
   ])
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((company) => contextMatches(company, context, gardenIds)).map((company) => withCompanyPermissions(company, context, gardenIds)).sort(sortByName)
+  return rows.filter((company) => contextMatches(company, context, gardenIds)).map((company) => withCompanyPermissions(company, context, gardenIds)).sort(sortByName)
 }
 
 function withCompanyPermissions(company, context = {}, gardenIds = null) {
@@ -125,10 +131,10 @@ function cleanCompanyInput(input) {
 }
 
 export async function listCompaniesWithUsage(context = {}) {
-  const [companies, ordersSnap, recordsSnap, gardenIds] = await Promise.all([
+  const [companies, ordersSnap, records, gardenIds] = await Promise.all([
     listCompanies(context),
     getDb().collection(ORDERS).get(),
-    getDb().collection('dahliaRecords').get(),
+    listRecords(),
     getContextGardenIds(context),
   ])
   const usageByCompanyId = new Map(companies.map((company) => [company.id, emptyCompanyUsage()]))
@@ -141,8 +147,7 @@ export async function listCompaniesWithUsage(context = {}) {
     if (usage) usage.orders.push(order)
   }
 
-  for (const doc of recordsSnap.docs) {
-    const record = { id: doc.id, ...doc.data() }
+  for (const record of records) {
     if (!recordMatchesContext(record, context, gardenIds)) continue
     const companyId = companyIdByKey.get(normalizeCompanyKey(record.tuber?.source))
     const usage = companyId ? usageByCompanyId.get(companyId) : null
@@ -164,24 +169,26 @@ export async function createCompany(input, context = {}) {
   const timestamp = nowIso()
   const gardenId = input.gardenId || context.gardenId || (context.user ? await resolveGardenId(context.user, null) : undefined)
   if (gardenId && context.user) await requireGardenAccess(context.user, gardenId)
-  const ref = await getDb()
-    .collection(COMPANIES)
-    .add(
-      withoutUndefined({
-        ...input,
-        gardenId: gardenId || undefined,
-        ownerUserId: input.ownerUserId || context.userId || undefined,
-        name: String(input.name ?? '').trim(),
-        website: input.website || undefined,
-        email: input.email || undefined,
-        phone: input.phone || undefined,
-        notes: input.notes || undefined,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      }),
-    )
-  const doc = await ref.get()
-  return { id: doc.id, ...doc.data() }
+
+  const id = crypto.randomUUID()
+  await query(
+    `INSERT INTO companies (id, garden_id, owner_user_id, name, website, email, phone, notes, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [
+      id,
+      gardenId || null,
+      input.ownerUserId || context.userId || null,
+      String(input.name ?? '').trim(),
+      input.website || null,
+      input.email || null,
+      input.phone || null,
+      input.notes || null,
+      timestamp,
+      timestamp,
+    ],
+  )
+  const { rows } = await query(`SELECT ${COMPANY_SELECT_COLUMNS} FROM companies WHERE id = $1`, [id])
+  return rows[0]
 }
 
 export async function ensureCompany(name, context = {}) {
@@ -197,61 +204,44 @@ export async function ensureCompany(name, context = {}) {
 }
 
 export async function updateCompany(id, input, context = {}) {
-  const existing = await getDb().collection(COMPANIES).doc(id).get()
-  if (!existing.exists) return null
-  const existingCompany = { id: existing.id, ...existing.data() }
+  const { rows: existingRows } = await query(`SELECT ${COMPANY_SELECT_COLUMNS} FROM companies WHERE id = $1`, [id])
+  const existingCompany = existingRows[0]
+  if (!existingCompany) return null
   const gardenIds = await getContextGardenIds(context)
   if (!contextMatches(existingCompany, context, gardenIds)) return null
   const cleanedInput = cleanCompanyInput(input)
 
-  await getDb()
-    .collection(COMPANIES)
-    .doc(id)
-    .set(
-      withoutUndefined({
-        ...existingCompany,
-        id: undefined,
-        ...cleanedInput,
-        updatedAt: nowIso(),
-      }),
-      { merge: false },
-    )
+  await query(
+    `UPDATE companies SET name = $2, website = $3, email = $4, phone = $5, notes = $6, updated_at = $7 WHERE id = $1`,
+    [id, cleanedInput.name, cleanedInput.website || null, cleanedInput.email || null, cleanedInput.phone || null, cleanedInput.notes || null, nowIso()],
+  )
 
   if (normalizeCompanyKey(existingCompany.name) !== normalizeCompanyKey(cleanedInput.name)) {
-    const [recordsSnap, gardenIds] = await Promise.all([
-      getDb().collection(RECORDS).get(),
-      getContextGardenIds(context),
-    ])
-    const matchingRecords = recordsSnap.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
+    const allRecords = await listRecords()
+    const matchingRecords = allRecords
       .filter((record) => recordMatchesContext(record, context, gardenIds))
       .filter((record) => normalizeCompanyKey(record.tuber?.source) === normalizeCompanyKey(existingCompany.name))
 
-    await Promise.all(matchingRecords.map((record) => getDb().collection(RECORDS).doc(record.id).set(
-      withoutUndefined({
-        ...record,
-        id: undefined,
-        tuber: {
-          ...(record.tuber ?? {}),
-          source: cleanedInput.name,
-        },
-        meta: {
-          ...(record.meta ?? {}),
-          updatedAt: nowIso(),
-        },
-      }),
-      { merge: false },
-    )))
+    if (matchingRecords.length > 0) {
+      await query(
+        `UPDATE dahlia_records
+         SET tuber = jsonb_set(tuber, '{source}', to_jsonb($1::text)),
+             meta = jsonb_set(meta, '{updatedAt}', to_jsonb($2::text))
+         WHERE id = ANY($3::text[])`,
+        [cleanedInput.name, nowIso(), matchingRecords.map((record) => record.id)],
+      )
+      clearRecordSummaryCache()
+    }
   }
 
   return await getCompanyWithUsage(id, context)
 }
 
 export async function deleteCompany(id, context = {}) {
-  const companyDoc = await getDb().collection(COMPANIES).doc(id).get()
-  if (!companyDoc.exists) return true
+  const { rows: companyRows } = await query(`SELECT ${COMPANY_SELECT_COLUMNS} FROM companies WHERE id = $1`, [id])
+  const company = companyRows[0]
+  if (!company) return true
 
-  const company = { id: companyDoc.id, ...companyDoc.data() }
   const gardenIds = await getContextGardenIds(context)
   if (!contextMatches(company, context, gardenIds)) return true
   const isOwner = context.userId && company.ownerUserId === context.userId
@@ -261,14 +251,13 @@ export async function deleteCompany(id, context = {}) {
     error.code = 'company_delete_denied'
     throw error
   }
-  const [ordersSnap, recordsSnap] = await Promise.all([
+  const [ordersSnap, allRecords] = await Promise.all([
     getDb().collection(ORDERS).where('companyId', '==', id).get(),
-    getDb().collection('dahliaRecords').get(),
+    listRecords(),
   ])
   const linkedOrders = ordersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
     .filter((order) => ownerMatches(order, context))
-  const linkedFlowerRecords = recordsSnap.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() }))
+  const linkedFlowerRecords = allRecords
     .filter((record) => recordMatchesContext(record, context, gardenIds))
     .filter((record) => normalizeCompanyKey(record.tuber?.source) === normalizeCompanyKey(company.name))
 
@@ -279,7 +268,7 @@ export async function deleteCompany(id, context = {}) {
     throw error
   }
 
-  await getDb().collection(COMPANIES).doc(id).delete()
+  await query('DELETE FROM companies WHERE id = $1', [id])
   return true
 }
 
@@ -288,30 +277,23 @@ export async function reassignCompanies(companyIds, ownerUserId) {
   const nextOwnerUserId = String(ownerUserId ?? '').trim()
   if (!ids.length || !nextOwnerUserId) return []
 
-  const docs = await Promise.all(ids.map((id) => getDb().collection(COMPANIES).doc(id).get()))
-  const existingDocs = docs.filter((doc) => doc.exists)
   const timestamp = nowIso()
+  const { rows } = await query(
+    `UPDATE companies SET owner_user_id = $1, updated_at = $2 WHERE id = ANY($3::text[]) RETURNING ${COMPANY_SELECT_COLUMNS}`,
+    [nextOwnerUserId, timestamp, ids],
+  )
 
-  await Promise.all(existingDocs.map((doc) => doc.ref.set(
-    withoutUndefined({
-      ...doc.data(),
-      ownerUserId: nextOwnerUserId,
-      updatedAt: timestamp,
-    }),
-    { merge: false },
-  )))
-
-  return existingDocs.map((doc) => ({ id: doc.id, ...doc.data(), ownerUserId: nextOwnerUserId, updatedAt: timestamp })).sort(sortByName)
+  return rows.sort(sortByName)
 }
 
 export async function listOrders(context = {}) {
-  const [companiesSnap, ordersSnap, itemsSnap, filesSnap] = await Promise.all([
-    getDb().collection(COMPANIES).get(),
+  const [{ rows: companies }, ordersSnap, itemsSnap, filesSnap] = await Promise.all([
+    query(`SELECT ${COMPANY_SELECT_COLUMNS} FROM companies`),
     getDb().collection(ORDERS).get(),
     getDb().collection(ORDER_ITEMS).get(),
     getDb().collection(ORDER_FILES).get(),
   ])
-  const companyById = new Map(companiesSnap.docs.map((doc) => [doc.id, { id: doc.id, ...doc.data() }]))
+  const companyById = new Map(companies.map((company) => [company.id, company]))
   const itemsByOrder = new Map()
   const filesByOrder = new Map()
 
