@@ -50,7 +50,9 @@
     "migrate:users-to-postgres": "node scripts/migrate-users-to-postgres.js",
     "migrate:users-to-postgres:apply": "node scripts/migrate-users-to-postgres.js --apply",
     "migrate:gardens-to-postgres": "node scripts/migrate-gardens-to-postgres.js",
-    "migrate:gardens-to-postgres:apply": "node scripts/migrate-gardens-to-postgres.js --apply"
+    "migrate:gardens-to-postgres:apply": "node scripts/migrate-gardens-to-postgres.js --apply",
+    "migrate:photo-id-to-postgres": "node scripts/migrate-photo-id-to-postgres.js",
+    "migrate:photo-id-to-postgres:apply": "node scripts/migrate-photo-id-to-postgres.js --apply"
   },
   "keywords": [],
   "author": "",

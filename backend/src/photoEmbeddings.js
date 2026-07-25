@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { getDb } from './firebase.js'
+import { query } from './db.js'
 import { embedImage, embedTexts, EMBEDDING_MODEL_ID } from './embeddings.js'
 import { embedImageDino, DINO_MODEL_ID } from './dino.js'
 import { segmentFlower } from './segmentation.js'
@@ -7,28 +7,20 @@ import { extractColorFeatures } from './labColor.js'
 import { PREPROCESSING_VERSION } from './preprocessingVersion.js'
 import { recomputeCentroidForCultivar, cultivarCentroidId } from './cultivarCentroids.js'
 
-const CENTROIDS_COLLECTION = 'cultivarCentroids'
-
 function normalizeCultivarKey(value) {
   return String(value ?? '').trim().toLowerCase()
 }
-
-const COLLECTION = 'photoEmbeddings'
 
 // Frozen once the segmented-DINOv2 pipeline is validated in production; flip back to true only to
 // re-run the legacy CLIP pipeline against a garden that hasn't been backfilled onto the new one yet.
 export const LEGACY_CLIP_WRITES_ENABLED = false
 
-function withoutUndefined(value) {
-  if (Array.isArray(value)) return value.map(withoutUndefined)
-  if (!value || typeof value !== 'object') return value
-
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => [k, withoutUndefined(v)]),
-  )
-}
+const PHOTO_EMBEDDING_SELECT_COLUMNS = `
+  id, garden_id AS "gardenId", cultivar_name AS "cultivarName", image_url AS "imageUrl", thumbnail_url AS "thumbnailUrl",
+  embedding, model, embedding_model AS "embeddingModel", preprocessing_version AS "preprocessingVersion",
+  segmentation_applied AS "segmentationApplied", color, form, color_embedding AS "colorEmbedding",
+  color_features AS "colorFeatures", created_at AS "createdAt"
+`
 
 // Called with no second argument, reproduces the original legacy SHA1-of-URL id exactly (backward
 // compatible with every existing photoEmbeddings doc). Passing embeddingModel/preprocessingVersion
@@ -74,34 +66,58 @@ export async function upsertPhotoEmbedding({
   colorFeatures,
 }) {
   const id = photoEmbeddingId(imageUrl, { embeddingModel, preprocessingVersion })
-  await getDb().collection(COLLECTION).doc(id).set(
-    withoutUndefined({
-      gardenId,
-      cultivarName,
-      imageUrl,
-      thumbnailUrl,
-      embedding,
-      model: model ?? embeddingModel,
-      embeddingModel: embeddingModel ?? model,
-      preprocessingVersion: preprocessingVersion ?? null,
-      segmentationApplied: segmentationApplied ?? null,
-      color: color ?? null,
-      form: form ?? null,
-      colorEmbedding: colorEmbedding ?? null,
-      colorFeatures: colorFeatures ?? null,
-      createdAt: new Date().toISOString(),
-    }),
-    { merge: false },
+  await query(
+    `INSERT INTO photo_embeddings (id, garden_id, cultivar_name, image_url, thumbnail_url, embedding, model, embedding_model, preprocessing_version, segmentation_applied, color, form, color_embedding, color_features, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+     ON CONFLICT (id) DO UPDATE SET
+       garden_id = $2, cultivar_name = $3, image_url = $4, thumbnail_url = $5, embedding = $6, model = $7,
+       embedding_model = $8, preprocessing_version = $9, segmentation_applied = $10, color = $11, form = $12,
+       color_embedding = $13, color_features = $14, created_at = $15`,
+    [
+      id,
+      gardenId ?? null,
+      cultivarName ?? null,
+      imageUrl ?? null,
+      thumbnailUrl ?? null,
+      JSON.stringify(embedding ?? []),
+      model ?? embeddingModel ?? null,
+      embeddingModel ?? model ?? null,
+      preprocessingVersion ?? null,
+      segmentationApplied ?? null,
+      color ?? null,
+      form ?? null,
+      colorEmbedding ? JSON.stringify(colorEmbedding) : null,
+      colorFeatures ? JSON.stringify(colorFeatures) : null,
+      new Date().toISOString(),
+    ],
   )
+}
+
+// Partial update matching Firestore's { merge: true } semantics — colorEmbedding is only touched
+// when the caller explicitly passes it (legacy CLIP docs carry it; new-generation docs don't).
+export async function updatePhotoEmbeddingMetadata(id, { color, form, colorEmbedding } = {}) {
+  if (colorEmbedding !== undefined) {
+    await query(
+      'UPDATE photo_embeddings SET color = $2, form = $3, color_embedding = $4 WHERE id = $1',
+      [id, color ?? null, form ?? null, colorEmbedding ? JSON.stringify(colorEmbedding) : null],
+    )
+  } else {
+    await query('UPDATE photo_embeddings SET color = $2, form = $3 WHERE id = $1', [id, color ?? null, form ?? null])
+  }
+}
+
+export async function deletePhotoEmbeddingsByIds(ids) {
+  const unique = [...new Set(ids ?? [])]
+  if (unique.length === 0) return
+  await query('DELETE FROM photo_embeddings WHERE id = ANY($1::text[])', [unique])
 }
 
 export async function deletePhotoEmbeddings(imageUrls) {
   const urls = [...new Set((imageUrls ?? []).filter(Boolean))]
   if (urls.length === 0) return
 
-  const db = getDb()
-  // Each photo may have both a legacy CLIP doc and a new-generation segmented-DINOv2 doc; delete
-  // whichever exist (Firestore deletes of nonexistent doc ids are no-ops).
+  // Each photo may have both a legacy CLIP doc and a new-generation segmented-DINOv2 doc; deleting a
+  // nonexistent id is a no-op.
   const ids = urls.flatMap((url) => [
     photoEmbeddingId(url),
     photoEmbeddingId(url, { embeddingModel: DINO_MODEL_ID, preprocessingVersion: PREPROCESSING_VERSION }),
@@ -110,18 +126,16 @@ export async function deletePhotoEmbeddings(imageUrls) {
   // Look up which (gardenId, cultivarName) pairs these deletions could affect before deleting, so any
   // cultivar left with zero remaining new-generation reference photos can have its now-orphaned
   // centroid pruned too -- the mirror image of the auto-recompute-on-create in ensureEmbeddingsForRecord.
-  const docs = await Promise.all(ids.map((id) => db.collection(COLLECTION).doc(id).get()))
+  const { rows: docs } = await query(`SELECT ${PHOTO_EMBEDDING_SELECT_COLUMNS} FROM photo_embeddings WHERE id = ANY($1::text[])`, [ids])
   const affectedCultivars = new Map()
   for (const doc of docs) {
-    if (!doc.exists) continue
-    const data = doc.data()
-    if (data.embeddingModel !== DINO_MODEL_ID || data.preprocessingVersion !== PREPROCESSING_VERSION) continue
-    if (!data.gardenId || !data.cultivarName) continue
-    const key = `${data.gardenId}::${normalizeCultivarKey(data.cultivarName)}`
-    affectedCultivars.set(key, { gardenId: data.gardenId, cultivarName: data.cultivarName })
+    if (doc.embeddingModel !== DINO_MODEL_ID || doc.preprocessingVersion !== PREPROCESSING_VERSION) continue
+    if (!doc.gardenId || !doc.cultivarName) continue
+    const key = `${doc.gardenId}::${normalizeCultivarKey(doc.cultivarName)}`
+    affectedCultivars.set(key, { gardenId: doc.gardenId, cultivarName: doc.cultivarName })
   }
 
-  await Promise.all(ids.map((id) => db.collection(COLLECTION).doc(id).delete()))
+  await deletePhotoEmbeddingsByIds(ids)
 
   for (const { gardenId, cultivarName } of affectedCultivars.values()) {
     try {
@@ -132,7 +146,7 @@ export async function deletePhotoEmbeddings(imageUrls) {
       )
       if (!stillHasReferences) {
         const centroidId = cultivarCentroidId(gardenId, cultivarName, DINO_MODEL_ID, PREPROCESSING_VERSION)
-        await db.collection(CENTROIDS_COLLECTION).doc(centroidId).delete()
+        await query('DELETE FROM cultivar_centroids WHERE id = $1', [centroidId])
       }
     } catch (error) {
       console.error(`Failed to prune centroid for cultivar ${cultivarName}:`, error)
@@ -141,13 +155,13 @@ export async function deletePhotoEmbeddings(imageUrls) {
 }
 
 export async function listPhotoEmbeddings(gardenId) {
-  const snap = await getDb().collection(COLLECTION).where('gardenId', '==', gardenId).get()
-  return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+  const { rows } = await query(`SELECT ${PHOTO_EMBEDDING_SELECT_COLUMNS} FROM photo_embeddings WHERE garden_id = $1`, [gardenId])
+  return rows
 }
 
 export async function listAllPhotoEmbeddings() {
-  const snap = await getDb().collection(COLLECTION).get()
-  return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+  const { rows } = await query(`SELECT ${PHOTO_EMBEDDING_SELECT_COLUMNS} FROM photo_embeddings`)
+  return rows
 }
 
 function recordPhotoUrls(record) {
@@ -172,19 +186,18 @@ export async function ensureEmbeddingsForRecord(record) {
   const color = record.core?.color || null
   const form = record.core?.form || null
 
-  const db = getDb()
   let newEmbeddingCreated = false
   for (const [imageUrl, thumbnailUrl] of urls) {
     if (LEGACY_CLIP_WRITES_ENABLED) {
       const legacyId = photoEmbeddingId(imageUrl)
-      const existingLegacyDoc = await db.collection(COLLECTION).doc(legacyId).get()
+      const { rows: legacyRows } = await query(`SELECT ${PHOTO_EMBEDDING_SELECT_COLUMNS} FROM photo_embeddings WHERE id = $1`, [legacyId])
+      const existingLegacy = legacyRows[0]
 
-      if (existingLegacyDoc.exists) {
-        const existing = existingLegacyDoc.data()
-        const colorChanged = (existing.color ?? null) !== color
-        if (colorChanged || (existing.form ?? null) !== form) {
-          const colorEmbedding = colorChanged ? await embedColorText(color) : (existing.colorEmbedding ?? null)
-          await db.collection(COLLECTION).doc(legacyId).set({ color, form, colorEmbedding }, { merge: true })
+      if (existingLegacy) {
+        const colorChanged = (existingLegacy.color ?? null) !== color
+        if (colorChanged || (existingLegacy.form ?? null) !== form) {
+          const colorEmbedding = colorChanged ? await embedColorText(color) : (existingLegacy.colorEmbedding ?? null)
+          await updatePhotoEmbeddingMetadata(legacyId, { color, form, colorEmbedding })
         }
       } else {
         const [embedding, colorEmbedding] = await Promise.all([
@@ -208,12 +221,12 @@ export async function ensureEmbeddingsForRecord(record) {
     // New-generation (segmented + DINOv2 + Lab color) doc -- always computed going forward, from the
     // full original photo (not the thumbnail) for better mask/embedding quality.
     const newId = photoEmbeddingId(imageUrl, { embeddingModel: DINO_MODEL_ID, preprocessingVersion: PREPROCESSING_VERSION })
-    const existingNewDoc = await db.collection(COLLECTION).doc(newId).get()
+    const { rows: newRows } = await query(`SELECT ${PHOTO_EMBEDDING_SELECT_COLUMNS} FROM photo_embeddings WHERE id = $1`, [newId])
+    const existingNew = newRows[0]
 
-    if (existingNewDoc.exists) {
-      const existing = existingNewDoc.data()
-      if ((existing.color ?? null) !== color || (existing.form ?? null) !== form) {
-        await db.collection(COLLECTION).doc(newId).set({ color, form }, { merge: true })
+    if (existingNew) {
+      if ((existingNew.color ?? null) !== color || (existingNew.form ?? null) !== form) {
+        await updatePhotoEmbeddingMetadata(newId, { color, form })
       }
       continue
     }

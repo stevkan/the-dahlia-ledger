@@ -1,45 +1,17 @@
 import crypto from 'node:crypto'
-import { getDb, getBucket } from './firebase.js'
+import { query } from './db.js'
 
-const PROJECTIONS_COLLECTION = 'learnedProjections'
-const CONFIG_COLLECTION = 'systemConfig'
-const ACTIVE_PROJECTION_DOC_ID = 'learnedProjectionActive'
+const ACTIVE_PROJECTION_CONFIG_KEY = 'learnedProjectionActive'
 
-function withoutUndefined(value) {
-  if (Array.isArray(value)) return value.map(withoutUndefined)
-  if (!value || typeof value !== 'object') return value
-
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => [k, withoutUndefined(v)]),
-  )
-}
+const PROJECTION_SELECT_COLUMNS = `
+  id, embedding_model AS "embeddingModel", preprocessing_version AS "preprocessingVersion",
+  projection_version AS "projectionVersion", matrix, input_dim AS "inputDim", output_dim AS "outputDim",
+  trained_at_photo_count AS "trainedAtPhotoCount", trained_at_cultivar_count AS "trainedAtCultivarCount",
+  metrics, created_at AS "createdAt"
+`
 
 export function learnedProjectionId(embeddingModel, preprocessingVersion, projectionVersion) {
   return crypto.createHash('sha1').update(`${embeddingModel}::${preprocessingVersion}::${projectionVersion}`).digest('hex')
-}
-
-// A full outputDim x inputDim matrix (e.g. 384x384 doubles) comfortably exceeds Firestore's ~1MiB
-// per-document limit on its own, even flattened -- so the matrix itself lives in Cloud Storage (the
-// same split this app already uses for photos: small structured data in Firestore, large blobs in
-// Storage, via getBucket() in photos.js) as a private JSON object, and the Firestore doc only stores
-// its object path plus small metadata. Never made public -- only the backend ever reads it.
-function matrixObjectName(id) {
-  return `learned-projections/${id}.json`
-}
-
-async function uploadMatrix(id, matrix) {
-  const objectName = matrixObjectName(id)
-  await getBucket().file(objectName).save(JSON.stringify(matrix), {
-    metadata: { contentType: 'application/json' },
-  })
-  return objectName
-}
-
-async function downloadMatrix(objectName) {
-  const [buffer] = await getBucket().file(objectName).download()
-  return JSON.parse(buffer.toString('utf-8'))
 }
 
 export async function upsertLearnedProjection({
@@ -53,67 +25,59 @@ export async function upsertLearnedProjection({
   trainedAtCultivarCount,
   metrics,
 }) {
-  const db = getDb()
   const id = learnedProjectionId(embeddingModel, preprocessingVersion, projectionVersion)
-  const matrixObjectPath = await uploadMatrix(id, matrix)
-  await db.collection(PROJECTIONS_COLLECTION).doc(id).set(
-    withoutUndefined({
+  await query(
+    `INSERT INTO learned_projections (id, embedding_model, preprocessing_version, projection_version, matrix, input_dim, output_dim, trained_at_photo_count, trained_at_cultivar_count, metrics, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     ON CONFLICT (id) DO UPDATE SET
+       embedding_model = $2, preprocessing_version = $3, projection_version = $4, matrix = $5, input_dim = $6,
+       output_dim = $7, trained_at_photo_count = $8, trained_at_cultivar_count = $9, metrics = $10, created_at = $11`,
+    [
+      id,
       embeddingModel,
       preprocessingVersion,
       projectionVersion,
-      matrixObjectPath,
-      inputDim,
-      outputDim,
-      trainedAtPhotoCount,
-      trainedAtCultivarCount,
-      metrics,
-      createdAt: new Date().toISOString(),
-    }),
-    { merge: false },
+      JSON.stringify(matrix ?? []),
+      inputDim ?? null,
+      outputDim ?? null,
+      trainedAtPhotoCount ?? null,
+      trainedAtCultivarCount ?? null,
+      metrics ? JSON.stringify(metrics) : null,
+      new Date().toISOString(),
+    ],
   )
   return id
 }
 
 // Reverts identifyPhotoDino() to unprojected (raw DINOv2) matching -- getActiveLearnedProjection()
-// returns null once this pointer doc is gone, and identifyPhotoDino()'s `project` becomes a no-op
+// returns null once this pointer is gone, and identifyPhotoDino()'s `project` becomes a no-op
 // identity function in that case, exactly matching pre-activation behavior.
 export async function deactivateLearnedProjection() {
-  const db = getDb()
-  await db.collection(CONFIG_COLLECTION).doc(ACTIVE_PROJECTION_DOC_ID).delete()
+  await query('DELETE FROM app_config WHERE key = $1', [ACTIVE_PROJECTION_CONFIG_KEY])
 }
 
 export async function setActiveLearnedProjection({ embeddingModel, preprocessingVersion, projectionVersion }) {
-  const db = getDb()
-  await db.collection(CONFIG_COLLECTION).doc(ACTIVE_PROJECTION_DOC_ID).set(
-    withoutUndefined({
-      embeddingModel,
-      preprocessingVersion,
-      projectionVersion,
-      activatedAt: new Date().toISOString(),
-    }),
-    { merge: false },
+  const value = { embeddingModel, preprocessingVersion, projectionVersion, activatedAt: new Date().toISOString() }
+  await query(
+    `INSERT INTO app_config (key, value, updated_at)
+     VALUES ($1, $2, now())
+     ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = now()`,
+    [ACTIVE_PROJECTION_CONFIG_KEY, JSON.stringify(value)],
   )
 }
 
 // Fetched fresh on every call (no in-process caching), matching how listCultivarCentroids() is already
-// read fresh on every identifyPhotoDino() call -- a single small doc read plus one Storage download is
-// cheap, and this keeps activating a newly trained projection version take effect immediately with no
-// cache to invalidate.
+// read fresh on every identifyPhotoDino() call -- a single small row read is cheap, and this keeps
+// activating a newly trained projection version take effect immediately with no cache to invalidate.
 export async function getActiveLearnedProjection({ embeddingModel, preprocessingVersion }) {
-  const db = getDb()
-  const pointerDoc = await db.collection(CONFIG_COLLECTION).doc(ACTIVE_PROJECTION_DOC_ID).get()
-  if (!pointerDoc.exists) return null
-
-  const pointer = pointerDoc.data()
+  const { rows } = await query('SELECT value FROM app_config WHERE key = $1', [ACTIVE_PROJECTION_CONFIG_KEY])
+  const pointer = rows[0]?.value
+  if (!pointer) return null
   if (pointer.embeddingModel !== embeddingModel || pointer.preprocessingVersion !== preprocessingVersion) return null
 
   const id = learnedProjectionId(embeddingModel, preprocessingVersion, pointer.projectionVersion)
-  const projectionDoc = await db.collection(PROJECTIONS_COLLECTION).doc(id).get()
-  if (!projectionDoc.exists) return null
-
-  const data = projectionDoc.data()
-  const matrix = await downloadMatrix(data.matrixObjectPath)
-  return { id: projectionDoc.id, ...data, matrix }
+  const { rows: projectionRows } = await query(`SELECT ${PROJECTION_SELECT_COLUMNS} FROM learned_projections WHERE id = $1`, [id])
+  return projectionRows[0] ?? null
 }
 
 function l2Normalize(vector) {
@@ -140,9 +104,9 @@ function cultivarDriftGrowthThreshold() {
   return Number.isFinite(configured) && configured > 0 ? configured : 0.2
 }
 
-// Pure function, split out from the Firestore-touching getProjectionDriftStatus() so the threshold
-// logic is unit-testable without mocking Firestore (matching this repo's existing test coverage, which
-// only ever covers pure logic -- see users.test.js, httpHelpers.test.js, gardenAuth.test.js).
+// Pure function, split out from the Postgres-touching getProjectionDriftStatus() so the threshold
+// logic is unit-testable without touching the database (matching this repo's existing test coverage --
+// see users.test.js, httpHelpers.test.js, gardenAuth.test.js).
 export function evaluateDrift({
   trainedAtPhotoCount,
   currentPhotoCount,
@@ -183,15 +147,13 @@ export async function getProjectionDriftStatus({ embeddingModel, preprocessingVe
     return { hasActiveProjection: false, retrainingRecommended: false, reason: null }
   }
 
-  const db = getDb()
-  const snap = await db
-    .collection('photoEmbeddings')
-    .where('embeddingModel', '==', embeddingModel)
-    .where('preprocessingVersion', '==', preprocessingVersion)
-    .get()
+  const { rows } = await query(
+    'SELECT cultivar_name AS "cultivarName" FROM photo_embeddings WHERE embedding_model = $1 AND preprocessing_version = $2',
+    [embeddingModel, preprocessingVersion],
+  )
 
-  const currentPhotoCount = snap.size
-  const currentCultivarCount = new Set(snap.docs.map((doc) => normalizeCultivarKey(doc.data().cultivarName))).size
+  const currentPhotoCount = rows.length
+  const currentCultivarCount = new Set(rows.map((row) => normalizeCultivarKey(row.cultivarName))).size
 
   const drift = evaluateDrift({
     trainedAtPhotoCount: activeProjection.trainedAtPhotoCount ?? 0,

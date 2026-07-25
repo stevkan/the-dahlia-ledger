@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 
-vi.mock('../firebase.js', () => ({ getDb: vi.fn(), getBucket: vi.fn() }))
+vi.mock('../db.js', () => ({ query: vi.fn() }))
 
 import { applyProjection, evaluateDrift } from '../learnedProjection.js'
 
