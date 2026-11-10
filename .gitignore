@@ -160,3 +160,6 @@ AGENTS.md
 /ml-training/output/
 /backend/scripts/fixtures/training-embeddings.json
 /backend/scripts/fixtures/photo-eval-results-*.json
+
+# Claude Code local settings
+.claude/settings.local.json
